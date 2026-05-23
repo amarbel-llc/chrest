@@ -11,12 +11,14 @@
 
     bob = {
       url = "github:amarbel-llc/bob";
+      inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
     };
 
     tommy = {
       url = "github:amarbel-llc/tommy";
+      inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
     };
