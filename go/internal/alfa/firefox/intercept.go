@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"code.linenisgreat.com/chrest/go/internal/0/bidi"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
-	"code.linenisgreat.com/chrest/go/internal/bravo/bidi"
 )
 
 // InterceptedResponse is delivered to the channel returned by

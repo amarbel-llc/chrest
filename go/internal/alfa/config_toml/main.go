@@ -1,7 +1,7 @@
 package config_toml
 
 import (
-	"code.linenisgreat.com/chrest/go/internal/alfa/browser"
+	"code.linenisgreat.com/chrest/go/internal/0/browser"
 )
 
 //go:generate tommy generate

@@ -23,8 +23,8 @@ import (
 	"github.com/andybalholm/cascadia"
 	"golang.org/x/net/html"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	readability "codeberg.org/readeck/go-readability/v2"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 // ErrNoArticle is returned by ConvertReader when Readability was unable

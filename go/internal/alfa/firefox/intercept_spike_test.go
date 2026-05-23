@@ -86,11 +86,11 @@ func TestSpikeBiDiResponseIntercept(t *testing.T) {
 	// Wait for the responseStarted event for our top-level navigation.
 	deadline := time.After(20 * time.Second)
 	var intercepted struct {
-		Context     string   `json:"context"`
-		Navigation  string   `json:"navigation"`
-		IsBlocked   bool     `json:"isBlocked"`
-		Intercepts  []string `json:"intercepts"`
-		Request     struct {
+		Context    string   `json:"context"`
+		Navigation string   `json:"navigation"`
+		IsBlocked  bool     `json:"isBlocked"`
+		Intercepts []string `json:"intercepts"`
+		Request    struct {
 			Request string `json:"request"`
 		} `json:"request"`
 		Response struct {

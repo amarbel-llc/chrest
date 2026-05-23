@@ -1,7 +1,7 @@
 package install
 
 import (
-	"code.linenisgreat.com/chrest/go/internal/alfa/browser"
+	"code.linenisgreat.com/chrest/go/internal/0/browser"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 

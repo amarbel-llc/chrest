@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	"code.linenisgreat.com/chrest/go/internal/charlie/firefox"
-	"code.linenisgreat.com/chrest/go/internal/charlie/markdown"
-	"code.linenisgreat.com/chrest/go/internal/charlie/monolith"
+	"code.linenisgreat.com/chrest/go/internal/0/markdown"
+	"code.linenisgreat.com/chrest/go/internal/0/monolith"
+	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
 	"code.linenisgreat.com/chrest/go/internal/delta/tools"
 )
 

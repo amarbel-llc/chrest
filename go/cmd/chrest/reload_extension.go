@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"code.linenisgreat.com/chrest/go/internal/bravo/config"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 func registerReloadExtensionCommand(app *command.Utility, c config.Config) {

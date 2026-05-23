@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"code.linenisgreat.com/chrest/go/internal/charlie/browser_items"
-	"code.linenisgreat.com/chrest/go/internal/delta/proxy"
+	"code.linenisgreat.com/chrest/go/internal/charlie/proxy"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/protocol"
 )
 
@@ -27,9 +27,9 @@ type ItemResources struct {
 	proxy      *proxy.BrowserProxy
 	itemsProxy browser_items.BrowserProxy
 
-	mu        sync.Mutex
-	cached    []browser_items.Item
-	cachedAt  time.Time
+	mu       sync.Mutex
+	cached   []browser_items.Item
+	cachedAt time.Time
 }
 
 func NewItemResources(p *proxy.BrowserProxy, itemsProxy browser_items.BrowserProxy) *ItemResources {

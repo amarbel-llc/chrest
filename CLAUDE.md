@@ -16,17 +16,23 @@ justfile — prefer adding recipes there over writing one-off shell scripts.
 
 ### Full Build
 ```bash
-just build              # nix build (chrest derivation: builds three binaries + runs unit tests in checkPhase)
-just                    # default: build check-nix test (the spinclass pre-merge surface)
-just reload             # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
-just test               # test-mcp + test-mcp-bats (unit tests already ran in checkPhase)
-just test-mcp           # validates MCP tools, resources, and annotations
-just test-mcp-bats      # BATS integration suite against a real unix socket
-just build-go           # devshell-only rapid iteration: cd go && go build -o build/release/ ./cmd/...
-just test-go [flags]    # devshell-only rapid iteration: cd go && go test {{flags}} ./...
-just gomod2nix          # manual maint: regenerate gomod2nix.toml after a go.mod change
-just dev-install-mcp    # build + install MCP server to ~/.claude.json
-just demo               # generate VHS demo GIF
+just build                      # nix build (chrest derivation: builds three binaries + runs unit tests in checkPhase)
+just                            # default: build check test (the spinclass pre-merge surface, eng#37 aggregator layout)
+just check                      # check-nix + check-dagnabit-export + check-dagnabit-reposition
+just check-nix                  # `nix flake check --no-build` with cross-system .drv gcroots in .nix-gcroots/
+just check-dagnabit-export      # drift gate: go/pkgs/ matches what `dagnabit export` would generate
+just check-dagnabit-reposition  # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
+just reload                     # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
+just test                       # test-mcp + test-mcp-bats (unit tests already ran in checkPhase)
+just test-mcp                   # validates MCP tools, resources, and annotations
+just test-mcp-bats              # BATS integration suite against a real unix socket
+just build-go                   # devshell-only rapid iteration: cd go && go build -o build/release/ ./cmd/...
+just test-go [flags]            # devshell-only rapid iteration: cd go && go test {{flags}} ./...
+just gomod2nix                  # manual maint: regenerate gomod2nix.toml after a go.mod change
+just dagnabit-export            # regenerate go/pkgs/<leaf>/main.go facades from //go:generate dagnabit export directives
+just dagnabit-reposition apply  # apply dagnabit's computed NATO retiering (drop `apply` for dry-run)
+just dev-install-mcp            # build + install MCP server to ~/.claude.json
+just demo                       # generate VHS demo GIF
 ```
 
 `test-mcp-bats` is wall-clock bounded (180s timeout) and validates success by
@@ -94,7 +100,7 @@ bun.nix`. Both files must be staged for `nix build` to see them
 
 ### Communication Flow
 1. CLI sends HTTP requests to Unix socket (`$XDG_STATE_HOME/chrest/<browser-id>.sock`)
-2. Go server (`go/internal/bravo/server/`) forwards requests to browser extension via Native Messaging
+2. Go server (`go/internal/*/server/`) forwards requests to browser extension via Native Messaging
 3. Extension (`extension/src/main.js`) routes requests to handlers and returns HTTP responses
 4. Extension uses mutex to serialize requests
 
@@ -105,50 +111,59 @@ in `go/internal/`. External consumers (e.g. dodder) import via
 `code.linenisgreat.com/chrest/go/pkgs/<leaf>`; the leaf name is
 stable across NATO-tier moves. Currently exported leaves:
 
-- `pkgs/browser_items` — facade for `internal/charlie/browser_items`,
-  used by dodder's `store_browser`.
-- `pkgs/client` — facade for `internal/bravo/client`, used by dodder's
+- `pkgs/browser_items` — facade for `*/browser_items`, used by
+  dodder's `store_browser`.
+- `pkgs/client` — facade for `*/client`, used by dodder's
   `local_working_copy/format_chrest.go`.
 
 Add a new public leaf by placing `//go:generate dagnabit export` in
 the package's `main.go` and running `just dagnabit-export`. The
-`just dagnabit-check` recipe (wired into the default lane) fails the
-build if `pkgs/` falls behind `internal/`.
+`just check-dagnabit-export` recipe (in the `check:` aggregator)
+fails the build if `pkgs/` falls behind `internal/`. Similarly,
+`just check-dagnabit-reposition` fails if `internal/<level>/<leaf>`
+no longer matches dagnabit's computed dependency height — run
+`just dagnabit-reposition apply` to retier.
 
 ### Go Package Structure (`go/internal/`)
-- `alfa/browser/` - Browser detection utilities
-- `alfa/symlink/` - Symlink handling
-- `bravo/client/` - HTTP client for browser proxy communication
-- `bravo/server/` - Unix socket HTTP server, Native Messaging protocol
-- `bravo/config/` - Configuration and state directory management
-- `bravo/bidi/` - WebDriver BiDi transport. Background `readLoop` owns all
+
+Packages are referenced by their **leaf** name, written as `*/<leaf>`,
+because dagnabit reposition moves leaves across NATO levels as their
+dependency graph shifts. Pinning the level here creates lies the
+moment `just dagnabit-reposition apply` runs.
+
+- `*/browser` - Browser detection utilities
+- `*/symlink` - Symlink handling
+- `*/client` - HTTP client for browser proxy communication
+- `*/server` - Unix socket HTTP server, Native Messaging protocol
+- `*/config` - Configuration and state directory management
+- `*/bidi` - WebDriver BiDi transport. Background `readLoop` owns all
   reads; routes response frames to per-request channels and fans events out
   to `Subscribe(methods)` consumers. Prerequisite for capture envelope `http.*`
   fields (chrest#24).
-- `charlie/install/` - Native messaging host installation (platform-specific paths)
-- `charlie/browser_items/` - Browser item types and operations
-- `charlie/firefox/` - Firefox/BiDi capture backend. Subscribes to
+- `*/install` - Native messaging host installation (platform-specific paths)
+- `*/browser_items` - Browser item types and operations
+- `*/firefox` - Firefox/BiDi capture backend. Subscribes to
   `network.responseCompleted`, drains stale events before each navigate, and
   populates `LastNavigationHTTP()` — enables envelope v1 emission. Also holds
   shared capture types (`HTTPResponse`, `HTTPHeader`, `PDFOptions`,
   `ScreenshotOptions`, `BrowserInfo`).
-- `charlie/launcher/` - Browser process launching.
-- `charlie/monolith/` - Shells out to the `monolith` CLI to inline every asset
+- `*/launcher` - Browser process launching.
+- `*/monolith` - Shells out to the `monolith` CLI to inline every asset
   as `data:` URIs. Used by the `html-monolith` capture format; binary is wrapped
   into PATH via `flake.nix` postFixup.
-- `charlie/markdown/` - Pure-Go HTML-to-markdown encoding for the `markdown-*`
+- `*/markdown` - Pure-Go HTML-to-markdown encoding for the `markdown-*`
   capture formats. Wraps `JohannesKaufmann/html-to-markdown/v2` plus
   `codeberg.org/readeck/go-readability/v2` (for the reader variant) and
   `andybalholm/cascadia` (for the selector variant).
-- `charlie/rawfetch/` - Content-type classification + raw-text content
+- `*/rawfetch` - Content-type classification + raw-text content
   building for the web-fetch dispatcher. `Classify` decides HTML / Text /
   Binary / HTTPError from response headers + URL ext + status;
   `BuildFromText` builds the text/markdown/html slots from a raw text body;
   `ExtractMarkdownTOCFromText` regex-scans markdown for ATX headings.
-- `delta/proxy/` - Multi-browser proxy (fan-out requests to all sockets)
-- `delta/tools/` - MCP tool definitions with annotations
-- `delta/resources/` - MCP paginated resources (`chrest://items`, `chrest://items/{page}`)
-- `delta/capturebatch/` - See "Capture Pipeline" below.
+- `*/proxy` - Multi-browser proxy (fan-out requests to all sockets)
+- `*/tools` - MCP tool definitions with annotations
+- `*/resources` - MCP paginated resources (`chrest://items`, `chrest://items/{page}`)
+- `*/capturebatch` - See "Capture Pipeline" below.
 
 ### CLI Commands (`go/cmd/chrest/main.go`)
 - `chrest` (default) - Start native messaging server
@@ -165,7 +180,7 @@ build if `pkgs/` falls behind `internal/`.
   is headless Firefox via WebDriver BiDi (only backend since chrest#47). Has
   `--timeout` (default 60s, deadline-backed context) and `--output <path>`
   (atomic tmpfile + rename; unlinks on failure). The CLI exits non-zero on any
-  error. The markdown variants route through `charlie/markdown/` —
+  error. The markdown variants route through `*/markdown/` —
   `markdown-reader` runs go-readability on the DOM, `markdown-selector` takes a
   `--selector` CSS selector (first match); `--reader-engine` is reserved
   (`readability` default, `browser` NYI).
@@ -179,7 +194,7 @@ build if `pkgs/` falls behind `internal/`.
   against the nebulous-side implementation.
 - `chrest-server` - Native messaging host server binary.
 
-### Capture Pipeline (`go/internal/delta/capturebatch/`)
+### Capture Pipeline (`go/internal/*/capturebatch/`)
 
 Implements the chrest side of the **Web Capture Archive Protocol (RFC 0001)**.
 The RFC document itself lives in the nebulous session at `~/eng/aim/` — it is
@@ -237,7 +252,7 @@ Exposes browser management as MCP tools and resources over stdio (JSON-RPC 2.0).
 
 - `bidi-intercept` (default) — classify via WebDriver BiDi response interception;
   HTML routes through Firefox/MultiExtract, raw text routes through
-  `charlie/rawfetch/`, binary and non-2xx responses return structured errors. See
+  `*/rawfetch/`, binary and non-2xx responses return structured errors. See
   `docs/plans/2026-04-29-web-fetch-content-type-dispatch-design.md`.
 - `firefox-only` — preserve the pre-dispatch behavior (every URL through
   Firefox/MultiExtract, no classification). Rollback target during the

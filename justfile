@@ -1,5 +1,12 @@
 
-default: build check-nix dagnabit-check test
+# Aggregator layout per eng#37: `default` fans out into the per-verb
+# aggregators (`build`, `check`, `test`); each gathers every recipe
+# tagged with its prefix. `default` is the sweatfile pre-merge hook,
+# so anything that should gate a merge belongs in one of these.
+default: build check test
+
+# All drift / static checks. Add new `check-*` recipes here.
+check: check-nix check-dagnabit-export check-dagnabit-reposition
 
 # `nix build` runs the chrest derivation, which builds chrest +
 # chrest-server + chrest-jcs and runs the Go unit suite in checkPhase.
@@ -38,6 +45,7 @@ build-extension:
 # survives `nix-collect-garbage`. Re-running this recipe overwrites
 # the symlinks (and re-registers), picking up any new .drv hash
 # after a flake.lock change.
+[group("check")]
 check-nix:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -98,11 +106,11 @@ dagnabit-export:
 # CI drift gate: pkgs/ must match what `dagnabit export` would emit
 # right now. Re-runs the exporter into a sibling dir (dagnabit's
 # -output-dir is always module-root-relative, so we can't use a
-# /tmp path) and diffs against the committed pkgs/. Wired into the
-# default lane so merges catch facades that fell behind their
+# /tmp path) and diffs against the committed pkgs/. Joined into the
+# `check` aggregator so merges catch facades that fell behind their
 # internal package's exported surface.
-[group("maint")]
-dagnabit-check:
+[group("check")]
+check-dagnabit-export:
   #!/usr/bin/env bash
   set -euo pipefail
   cd go
@@ -110,6 +118,24 @@ dagnabit-check:
   trap 'rm -rf "$tmp_rel"' EXIT
   {{dagnabit}} export -output-dir "$tmp_rel"
   diff -ru pkgs "$tmp_rel"
+
+# CI drift gate: NATO-level tiering of go/internal/ must match what
+# `dagnabit reposition` would compute by current dependency height.
+# Runs the dry-run; any would-move event is a drift failure. Run
+# `just dagnabit-reposition apply` to fix (the move subcommand does
+# type-aware import rewrites in callers automatically).
+[group("check")]
+check-dagnabit-reposition:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd go
+  out=$({{dagnabit}} -n internal)
+  if [ -n "$out" ]; then
+    echo "$out"
+    echo "FAIL: dagnabit-reposition would-move events present (above)." >&2
+    echo "      Run 'just dagnabit-reposition apply' to fix the layout drift." >&2
+    exit 1
+  fi
 
 # Re-tier packages under go/internal/<level>/<leaf> by current
 # dependency height. Dry-runs by default; pass `apply` to commit

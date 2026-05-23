@@ -5,11 +5,12 @@ import (
 	"path"
 	"path/filepath"
 
-	config_toml "code.linenisgreat.com/chrest/go/internal/alfa/config_toml"
 	"strings"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
+	config_toml "code.linenisgreat.com/chrest/go/internal/alfa/config_toml"
+
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
 )
 
 func (config *Config) Read() (err error) {

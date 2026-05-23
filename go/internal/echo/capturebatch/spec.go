@@ -3,7 +3,7 @@ package capturebatch
 import (
 	"encoding/json"
 
-	"code.linenisgreat.com/chrest/go/internal/charlie/firefox"
+	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
 )
 
 // SpecSchema is the `schema` constant in the spec artifact.

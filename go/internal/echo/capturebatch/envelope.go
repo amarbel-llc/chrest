@@ -3,7 +3,7 @@ package capturebatch
 import (
 	"time"
 
-	"code.linenisgreat.com/chrest/go/internal/charlie/firefox"
+	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
 )
 
 // EnvelopeSchemaPreview is emitted when the backend cannot populate

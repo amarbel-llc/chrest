@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/chrest/go/internal/charlie/proxy"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
-	"code.linenisgreat.com/chrest/go/internal/delta/proxy"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 const (

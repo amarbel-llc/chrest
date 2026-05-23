@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"code.linenisgreat.com/chrest/go/internal/charlie/markdown"
+	"code.linenisgreat.com/chrest/go/internal/0/markdown"
 )
 
 func TestExtractMarkdownTOCFromText(t *testing.T) {

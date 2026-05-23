@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"code.linenisgreat.com/chrest/go/internal/charlie/markdown"
+	"code.linenisgreat.com/chrest/go/internal/0/markdown"
 )
 
 // Result contains the text/markdown/html slots and TOC for a raw-text

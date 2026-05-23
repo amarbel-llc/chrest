@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.linenisgreat.com/chrest/go/internal/charlie/markdown"
+	"code.linenisgreat.com/chrest/go/internal/0/markdown"
 )
 
 var (

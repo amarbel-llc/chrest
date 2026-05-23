@@ -2,7 +2,7 @@
 
 package client
 
-import internal "code.linenisgreat.com/chrest/go/internal/bravo/client"
+import internal "code.linenisgreat.com/chrest/go/internal/delta/client"
 
 type (
 	BrowserItem                = internal.BrowserItem
