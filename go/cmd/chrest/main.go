@@ -418,6 +418,11 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 		ServerVersion: app.Version,
 		Tools:         registry,
 		Resources:     itemResources,
+		// V0-protocol clients still get V1-shape responses (resource_link,
+		// embedded resource, tool annotations). Without this the V0 handler
+		// downgrades V1 ContentBlocks and drops Annotations, breaking the
+		// web_fetch_* bats suite. See pkgs/server Options doc.
+		PreferV1Providers: true,
 	})
 	if err != nil {
 		return errors.Wrap(err)
