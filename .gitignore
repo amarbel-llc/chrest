@@ -18,3 +18,9 @@ extension/node_modules/
 # relative, so /tmp won't work). Cleaned by the recipe's trap, but
 # guarded here in case a run is interrupted.
 go/pkgs.dagnabit-check.tmp/
+
+# `just check-nix` pins cross-system devShell + package .drvs as GC
+# roots here, so the flake's all-systems-eval check (which deep-seqs
+# through their drvPaths) doesn't trip on substituted-from-cache FOD
+# outputs whose .drv was never landed locally.
+.nix-gcroots/
