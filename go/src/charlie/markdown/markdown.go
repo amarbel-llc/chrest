@@ -23,7 +23,7 @@ import (
 	"github.com/andybalholm/cascadia"
 	"golang.org/x/net/html"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	readability "codeberg.org/readeck/go-readability/v2"
 )
 

@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 type DiscoveryKind int

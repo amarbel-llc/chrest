@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
-	"code.linenisgreat.com/chrest/go/libs/dewey/golf/command"
-	"code.linenisgreat.com/chrest/go/libs/dewey/golf/protocol"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/protocol"
 )
 
 func registerWindowCommands(app *command.Utility, p *proxy.BrowserProxy) {

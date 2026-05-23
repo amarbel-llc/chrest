@@ -3,7 +3,7 @@ package tools
 import (
 	"code.linenisgreat.com/chrest/go/src/charlie/browser_items"
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
-	"code.linenisgreat.com/chrest/go/libs/dewey/golf/command"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
 )
 
 func RegisterAll(app *command.Utility, p *proxy.BrowserProxy) {

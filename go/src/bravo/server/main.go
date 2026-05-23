@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"code.linenisgreat.com/chrest/go/src/bravo/config"
-	"code.linenisgreat.com/chrest/go/libs/dewey/0/interfaces"
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
-	"code.linenisgreat.com/chrest/go/libs/dewey/charlie/ui"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ui"
 )
 
 type Server struct {

@@ -20,6 +20,11 @@ schema = 3
     version = 'v0.0.0-20260315134819-f7c6cbb2c6f2'
     hash = 'sha256-ayN35kfrro9EUW3+11zPSwt/VZcKxAIp0a4o5crk5Os='
 
+  [mod.'github.com/amarbel-llc/purse-first/libs/dewey']
+    version = 'v0.1.8'
+    hash = 'sha256-dNrByOns78mIRKUK9003JKK0p3L3UmYeZjRYt3J/huM='
+    goVersion = '1.26'
+
   [mod.'github.com/amarbel-llc/purse-first/libs/go-mcp']
     version = 'v0.0.4'
     hash = 'sha256-xEmWi8sABzRWp8fbPavpZKznx943HWqVcLv6pckTP+k='
@@ -120,6 +125,11 @@ schema = 3
   [mod.'github.com/gogs/chardet']
     version = 'v0.0.0-20211120154057-b7413eaefb8f'
     hash = 'sha256-4MeqBJsh4U+ZEbfdDwdciTYMlQWkCil2KJbUxHjBSIo='
+
+  [mod.'github.com/google/go-cmp']
+    version = 'v0.7.0'
+    hash = 'sha256-JbxZFBFGCh/Rj5XZ1vG94V2x7c18L8XKB0N9ZD5F2rM='
+    goVersion = '1.21'
 
   [mod.'github.com/hhrutter/lzw']
     version = 'v1.0.0'

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
-	"code.linenisgreat.com/chrest/go/libs/dewey/golf/command"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
 )
 

@@ -9,7 +9,7 @@ import (
 	"github.com/andybalholm/cascadia"
 	"golang.org/x/net/html"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 // ConvertSelectorSection parses the DOM, finds the first element matching

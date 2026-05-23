@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 type RequestPayloadPut struct {

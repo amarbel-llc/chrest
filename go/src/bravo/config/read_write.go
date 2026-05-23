@@ -8,8 +8,8 @@ import (
 	config_toml "code.linenisgreat.com/chrest/go/src/alfa/config_toml"
 	"strings"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/0/interfaces"
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/interfaces"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 func (config *Config) Read() (err error) {

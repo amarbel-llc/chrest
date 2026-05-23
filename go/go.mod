@@ -16,10 +16,8 @@ require (
 )
 
 require (
+	github.com/amarbel-llc/purse-first/libs/dewey v0.1.8
 	golang.org/x/sys v0.43.0
-	golang.org/x/term v0.42.0
-	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
-	mvdan.cc/sh/v3 v3.13.1
 )
 
 require (
@@ -45,6 +43,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/hhrutter/lzw v1.0.0 // indirect
 	github.com/hhrutter/pkcs7 v0.2.0 // indirect
 	github.com/hhrutter/tiff v1.0.2 // indirect
@@ -63,7 +62,10 @@ require (
 	golang.org/x/image v0.32.0 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
+	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	mvdan.cc/sh/v3 v3.13.1 // indirect
 )

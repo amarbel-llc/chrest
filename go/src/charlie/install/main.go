@@ -11,8 +11,8 @@ import (
 
 	"code.linenisgreat.com/chrest/go/src/alfa/browser"
 	"code.linenisgreat.com/chrest/go/src/bravo/config"
-	"code.linenisgreat.com/chrest/go/libs/dewey/alfa/pool"
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/pool"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
 
 type IdSet struct {

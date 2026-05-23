@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/bravo/errors"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	"code.linenisgreat.com/chrest/go/src/bravo/bidi"
 )
 

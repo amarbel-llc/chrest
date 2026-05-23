@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/golf/command"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
 )
 
 func registerGeneratePluginCommand(app *command.Utility) {

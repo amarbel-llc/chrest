@@ -40,10 +40,14 @@ The chrest derivation (`flake.nix`) builds three binaries — `chrest` (main
 CLI + native messaging host + MCP server), `chrest-server`, and `chrest-jcs`
 (standalone JCS canonicalizer for cross-implementation byte-stability
 fixtures) — and runs the Go unit suite in `checkPhase` (with `HOME=$TMPDIR`
-so pdfcpu's config-dir creation succeeds in the sandbox; no `-tags test` —
-the single test file behind that tag references a `ui.T` type that was
-never vendored across from dewey upstream and does not compile). A clean
+so pdfcpu's config-dir creation succeeds in the sandbox). A clean
 `nix build` therefore proves both compile and unit tests in one step.
+
+`dewey` is consumed as the upstream module
+`github.com/amarbel-llc/purse-first/libs/dewey` — chrest imports its
+`pkgs/<leaf>` facades (e.g. `pkgs/errors`, `pkgs/ohio`, `pkgs/command`).
+No vendored copy lives in this repo; bumping the pinned version is a
+normal `go get` + `just gomod2nix` cycle.
 
 Adding a Go dependency: from inside the nix devshell, `just go/add-dep
 <pkg>` (or hand-edit `go/go.mod` + `go mod tidy`), then `just gomod2nix`

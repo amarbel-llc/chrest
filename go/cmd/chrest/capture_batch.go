@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"code.linenisgreat.com/chrest/go/libs/dewey/golf/command"
+	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
 
 	"code.linenisgreat.com/chrest/go/src/delta/capturebatch"
 )
