@@ -114,7 +114,7 @@ check-dagnabit-export:
   #!/usr/bin/env bash
   set -euo pipefail
   cd go
-  tmp_rel="pkgs.dagnabit-check.tmp"
+  tmp_rel="pkgs.check-dagnabit-export.tmp"
   trap 'rm -rf "$tmp_rel"' EXIT
   {{dagnabit}} export -output-dir "$tmp_rel"
   diff -ru pkgs "$tmp_rel"

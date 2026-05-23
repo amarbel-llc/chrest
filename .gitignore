@@ -13,11 +13,11 @@ extension/node_modules/
 # environment-specific, so keep it out of the repo.
 /moxyfile
 
-# `just dagnabit-check` writes regenerated facades to a sibling of
-# go/pkgs/ for diffing (dagnabit's -output-dir is module-root
-# relative, so /tmp won't work). Cleaned by the recipe's trap, but
-# guarded here in case a run is interrupted.
-go/pkgs.dagnabit-check.tmp/
+# `just check-dagnabit-export` writes regenerated facades to a
+# sibling of go/pkgs/ for diffing (dagnabit's -output-dir is
+# module-root relative, so /tmp won't work). Cleaned by the recipe's
+# trap, but guarded here in case a run is interrupted.
+go/pkgs.check-dagnabit-export.tmp/
 
 # `just check-nix` pins cross-system devShell + package .drvs as GC
 # roots here, so the flake's all-systems-eval check (which deep-seqs
