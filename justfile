@@ -1,5 +1,5 @@
 
-default: build check-nix test
+default: build check-nix dagnabit-check test
 
 # `nix build` runs the chrest derivation, which builds chrest +
 # chrest-server + chrest-jcs and runs the Go unit suite in checkPhase.
@@ -55,6 +55,47 @@ test-go *flags:
 [group("maint")]
 gomod2nix:
   cd go && gomod2nix
+
+dagnabit := "nix run github:amarbel-llc/purse-first#dagnabit --"
+
+# Regenerate pkgs/<leaf>/main.go facades from `//go:generate dagnabit
+# export` directives in go/internal/. Stage the regenerated pkgs/
+# tree alongside any source changes; external consumers (e.g.
+# dodder) import via pkgs/<leaf>, so the facade is the API contract.
+[group("maint")]
+dagnabit-export:
+  cd go && {{dagnabit}} export
+
+# CI drift gate: pkgs/ must match what `dagnabit export` would emit
+# right now. Re-runs the exporter into a sibling dir (dagnabit's
+# -output-dir is always module-root-relative, so we can't use a
+# /tmp path) and diffs against the committed pkgs/. Wired into the
+# default lane so merges catch facades that fell behind their
+# internal package's exported surface.
+[group("maint")]
+dagnabit-check:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd go
+  tmp_rel="pkgs.dagnabit-check.tmp"
+  trap 'rm -rf "$tmp_rel"' EXIT
+  {{dagnabit}} export -output-dir "$tmp_rel"
+  diff -ru pkgs "$tmp_rel"
+
+# Re-tier packages under go/internal/<level>/<leaf> by current
+# dependency height. Dry-runs by default; pass `apply` to commit
+# moves. Re-run when a dependency change bumps a leaf into a
+# different NATO tier (rare).
+[group("maint")]
+dagnabit-reposition apply="":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd go
+  if [ "{{apply}}" = "apply" ]; then
+    {{dagnabit}} internal
+  else
+    {{dagnabit}} -n -v internal
+  fi
 
 mcp-inspect := "npx @modelcontextprotocol/inspector --cli"
 

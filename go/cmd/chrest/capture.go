@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"code.linenisgreat.com/chrest/go/src/delta/tools"
+	"code.linenisgreat.com/chrest/go/internal/delta/tools"
 )
 
 const defaultCaptureTimeout = 60 * time.Second

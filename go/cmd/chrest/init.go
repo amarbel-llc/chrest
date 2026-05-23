@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"code.linenisgreat.com/chrest/go/src/bravo/config"
-	"code.linenisgreat.com/chrest/go/src/charlie/install"
+	"code.linenisgreat.com/chrest/go/internal/bravo/config"
+	"code.linenisgreat.com/chrest/go/internal/charlie/install"
 	tap "github.com/amarbel-llc/bob/packages/tap-dancer/go"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"

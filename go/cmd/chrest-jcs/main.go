@@ -19,7 +19,7 @@ import (
 	"io"
 	"os"
 
-	"code.linenisgreat.com/chrest/go/src/delta/capturebatch"
+	"code.linenisgreat.com/chrest/go/internal/delta/capturebatch"
 )
 
 func main() {

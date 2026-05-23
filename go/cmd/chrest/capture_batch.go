@@ -11,7 +11,7 @@ import (
 
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
 
-	"code.linenisgreat.com/chrest/go/src/delta/capturebatch"
+	"code.linenisgreat.com/chrest/go/internal/delta/capturebatch"
 )
 
 // registerCaptureBatchCommand registers a dewey entry for `capture-batch`

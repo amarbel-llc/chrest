@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"code.linenisgreat.com/chrest/go/src/bravo/client"
-	"code.linenisgreat.com/chrest/go/src/bravo/config"
+	"code.linenisgreat.com/chrest/go/internal/bravo/client"
+	"code.linenisgreat.com/chrest/go/internal/bravo/config"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/primordial"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"

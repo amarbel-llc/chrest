@@ -20,19 +20,19 @@ import (
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/protocol"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/server"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/transport"
-	"code.linenisgreat.com/chrest/go/src/alfa/prompter"
+	"code.linenisgreat.com/chrest/go/internal/alfa/prompter"
 
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/stack_frame"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ui"
-	"code.linenisgreat.com/chrest/go/src/bravo/config"
-	"code.linenisgreat.com/chrest/go/src/charlie/browser_items"
-	"code.linenisgreat.com/chrest/go/src/charlie/firefox"
-	"code.linenisgreat.com/chrest/go/src/charlie/markdown"
-	"code.linenisgreat.com/chrest/go/src/charlie/rawfetch"
-	"code.linenisgreat.com/chrest/go/src/delta/proxy"
-	"code.linenisgreat.com/chrest/go/src/delta/resources"
-	"code.linenisgreat.com/chrest/go/src/delta/tools"
+	"code.linenisgreat.com/chrest/go/internal/bravo/config"
+	"code.linenisgreat.com/chrest/go/internal/charlie/browser_items"
+	"code.linenisgreat.com/chrest/go/internal/charlie/firefox"
+	"code.linenisgreat.com/chrest/go/internal/charlie/markdown"
+	"code.linenisgreat.com/chrest/go/internal/charlie/rawfetch"
+	"code.linenisgreat.com/chrest/go/internal/delta/proxy"
+	"code.linenisgreat.com/chrest/go/internal/delta/resources"
+	"code.linenisgreat.com/chrest/go/internal/delta/tools"
 )
 
 // Populated at link time via `-X main.version` / `-X main.commit`
