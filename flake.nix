@@ -165,34 +165,20 @@
           program = "${chrest}/bin/chrest";
         };
 
-        # Force evaluation of devShells and packages across every supported
-        # system, from the host system's checks. Catches malformed fixed-
-        # output hashes on non-host platforms before they surface in
-        # flakehub-push's inspect wrapper (see chrest#50). Eval-only: uses
-        # builtins.seq on each system's drvPath string to trigger the
-        # fixed-output-hash validation without referencing the foreign
-        # drv as a build input — otherwise `nix flake check --no-build`
-        # refuses to realize cross-system drvs.
-        checks.all-systems-eval =
-          let
-            systems = [
-              "x86_64-linux"
-              "aarch64-linux"
-              "x86_64-darwin"
-              "aarch64-darwin"
-            ];
-            forced = builtins.deepSeq
-              (map
-                (sys: {
-                  dev = self.devShells.${sys}.default.drvPath;
-                  pkg = self.packages.${sys}.default.drvPath;
-                })
-                systems)
-              "ok";
-          in
-          pkgs.runCommand "all-systems-eval-${forced}" { } ''
-            touch $out
-          '';
+        # `checks.all-systems-eval` previously forced evaluation of every
+        # supported system's devShell + package .drvPath from the host's
+        # checks, as a pre-flakehub-push guard against malformed fixed-
+        # output hashes (chrest#50). Removed because evaluating
+        # `packages.aarch64-linux.default.drvPath` triggered a build of
+        # `source-go-pkgs-test.drv` for the foreign system — an IFD that
+        # can't be realised on an x86_64-linux host without binfmt/QEMU,
+        # so it broke `nix flake check --no-build` whenever the working
+        # tree was dirty (e.g. mid-`update-nix-repos` cascade) and the
+        # IFD output wasn't already substituted locally. See the
+        # tracking task in the worktree for the follow-up investigation
+        # into the IFD root cause; the cross-system hash safety net
+        # should be re-added once it can be expressed without IFDs into
+        # foreign-system builds.
 
         devShells.default = pkgs-master.mkShell {
           packages = [
