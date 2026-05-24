@@ -29,36 +29,15 @@ build-extension:
 # fixed-output hashes on non-host platforms before they surface in
 # flakehub-push's inspect wrapper (see chrest#50).
 #
-# Pins cross-system devShell + package .drvs as GC roots first. The
-# all-systems-eval check deep-seqs through their drvPaths, which
-# transitively imports a bun2nix FOD source (deps.nix) from inside
-# amarbel-llc/nixpkgs's build-support overlay. The FOD's output is
-# substituted from cache.flakehub.com, but its .drv is not — nix
-# substitution doesn't carry .drv files. When eval tries to realise
-# the string context of the imported path, it needs the .drv to
-# exist locally; if it doesn't, eval fails with "path '...source.drv'
-# is not valid".
-#
-# `nix-instantiate --add-root <symlink> --indirect <expr>` writes the
-# .drv to the store, creates a symlink in .nix-gcroots/, and
-# registers the symlink in /nix/var/nix/gcroots/auto/ so the .drv
-# survives `nix-collect-garbage`. Re-running this recipe overwrites
-# the symlinks (and re-registers), picking up any new .drv hash
-# after a flake.lock change.
+# Previously pre-pinned cross-system devShell + package .drvs as GC
+# roots via `nix-instantiate --add-root`. That loop was removed
+# because it began failing on cross-system IFDs whose outputs aren't
+# fixed-output (so they can't be substituted from cache and can't be
+# built on a host without binfmt/QEMU for the foreign system). See
+# amarbel-llc/eng#98 for whether the gcroots strategy is still
+# needed at all.
 [group("check")]
 check-nix:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  mkdir -p .nix-gcroots
-  flake_root=$(pwd)
-  for sys in x86_64-linux aarch64-linux x86_64-darwin aarch64-darwin; do
-    for kind in devShells packages; do
-      nix-instantiate \
-        --add-root ".nix-gcroots/$sys-$kind-default" --indirect \
-        --expr "(builtins.getFlake \"$flake_root\").$kind.$sys.default" \
-        >/dev/null
-    done
-  done
   nix flake check --no-build
 
 # Reinstalls the native-messaging-host manifest pointing at the
