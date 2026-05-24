@@ -4,15 +4,11 @@ package client
 
 import internal "code.linenisgreat.com/chrest/go/internal/delta/client"
 
-type (
-	BrowserItem                = internal.BrowserItem
-	BrowserItemId              = internal.BrowserItemId
-	BrowserProxy               = internal.BrowserProxy
-	BrowserRequest             = internal.BrowserRequest
-	ResponseWithParsedJSONBody = internal.ResponseWithParsedJSONBody
-)
+type BrowserItem = internal.BrowserItem
+type BrowserItemId = internal.BrowserItemId
+type BrowserProxy = internal.BrowserProxy
+type BrowserRequest = internal.BrowserRequest
+type ResponseWithParsedJSONBody = internal.ResponseWithParsedJSONBody
 
-var (
-	ResponseFromReader  = internal.ResponseFromReader
-	ResponseFromRequest = internal.ResponseFromRequest
-)
+var ResponseFromReader = internal.ResponseFromReader
+var ResponseFromRequest = internal.ResponseFromRequest

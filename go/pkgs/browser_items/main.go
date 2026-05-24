@@ -4,15 +4,13 @@ package browser_items
 
 import internal "code.linenisgreat.com/chrest/go/internal/charlie/browser_items"
 
-type (
-	BrowserProxy                      = internal.BrowserProxy
-	BrowserRequestGet                 = internal.BrowserRequestGet
-	BrowserRequestPut                 = internal.BrowserRequestPut
-	HTTPResponseWithRequestPayloadGet = internal.HTTPResponseWithRequestPayloadGet
-	HTTPResponseWithRequestPayloadPut = internal.HTTPResponseWithRequestPayloadPut
-	Item                              = internal.Item
-	ItemId                            = internal.ItemId
-	RequestPayloadGet                 = internal.RequestPayloadGet
-	RequestPayloadPut                 = internal.RequestPayloadPut
-	Url                               = internal.Url
-)
+type BrowserProxy = internal.BrowserProxy
+type BrowserRequestGet = internal.BrowserRequestGet
+type BrowserRequestPut = internal.BrowserRequestPut
+type HTTPResponseWithRequestPayloadGet = internal.HTTPResponseWithRequestPayloadGet
+type HTTPResponseWithRequestPayloadPut = internal.HTTPResponseWithRequestPayloadPut
+type Item = internal.Item
+type ItemId = internal.ItemId
+type RequestPayloadGet = internal.RequestPayloadGet
+type RequestPayloadPut = internal.RequestPayloadPut
+type Url = internal.Url
