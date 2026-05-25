@@ -1,16 +1,34 @@
 ---
-status: exploratory-fdr
+status: superseded
 date: 2026-05-22
+superseded-by:
+  - https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md
+  - https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md
+  - docs/features/0001-web-page-capture.md
 confidence: low — most of this is reconstructed from partial info; many sections are speculative
-promotion-criteria:
-  - cutting-garden repo readable in-session (currently denied to claude)
-  - cutting-garden's intended command surface confirmed by author
-  - chrest-side contract gaps (if any) confirmed by running cutting-garden against `chrest capture-batch`
 ---
 
 # Cutting-garden ↔ chrest integration — exploratory FDR
 
-> **Heavy disclaimer.** This was drafted without source-level access to
+> **SUPERSEDED 2026-05-25.** The cutting-garden side is no longer a
+> reconstruction-from-inference; the canonical specification now lives
+> upstream as two RFCs on `amarbel-llc/cutting-garden` master:
+>
+> - [cutting-garden RFC 0002 — Capture Plugin Protocol](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md) (abstract, non-web-specific).
+> - [cutting-garden RFC 0003 — Web-Archive Binding](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md) (chrest's binding).
+>
+> The chrest-side FDR has been retitled and re-anchored:
+> [docs/features/0001-web-page-capture.md](../features/0001-web-page-capture.md)
+> ("Web-archive capture (cutting-garden RFC 0003 binding)") is now the
+> canonical chrest-side entry point and enumerates the deferred
+> emitter-rewrite work.
+>
+> This file is preserved as a historical record of the strawman
+> reconstruction process. Inferred sections tagged `UNKNOWN` /
+> `ASSUMPTION` below are NOT a reliable description of the actual
+> protocol — consult the cutting-garden RFCs instead.
+
+> **Heavy disclaimer (original).** This was drafted without source-level access to
 > `amarbel-llc/cutting-garden` or `amarbel-llc/nebulous` (both private,
 > denied to this session's GitHub MCP scope and local git proxy). The
 > only authoritative inputs were: (a) chrest's own source tree, (b)
