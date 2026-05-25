@@ -16,18 +16,15 @@ schema = 3
     hash = 'sha256-xTfJNijtDlQ5oEZkl92KEyFg3U+Wl4nJcsT5puS7h4A='
     goVersion = '1.24.0'
 
-  [mod.'github.com/amarbel-llc/bob/packages/tap-dancer/go']
-    version = 'v0.0.0-20260315134819-f7c6cbb2c6f2'
-    hash = 'sha256-ayN35kfrro9EUW3+11zPSwt/VZcKxAIp0a4o5crk5Os='
-
   [mod.'github.com/amarbel-llc/purse-first/libs/dewey']
     version = 'v0.1.8'
     hash = 'sha256-dNrByOns78mIRKUK9003JKK0p3L3UmYeZjRYt3J/huM='
     goVersion = '1.26'
 
-  [mod.'github.com/amarbel-llc/purse-first/libs/go-mcp']
-    version = 'v0.0.4'
-    hash = 'sha256-xEmWi8sABzRWp8fbPavpZKznx943HWqVcLv6pckTP+k='
+  [mod.'github.com/amarbel-llc/tap/go']
+    version = 'v0.1.9'
+    hash = 'sha256-/im7qUWvgG2m8tHCPQ2aPC5N/ZiDExO626KSnn8a8bw='
+    goVersion = '1.26'
 
   [mod.'github.com/amarbel-llc/tommy']
     version = 'v0.0.0-20260416172442-0769146d4d1e'

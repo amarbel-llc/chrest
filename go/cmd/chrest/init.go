@@ -9,7 +9,7 @@ import (
 
 	"code.linenisgreat.com/chrest/go/internal/bravo/config"
 	"code.linenisgreat.com/chrest/go/internal/charlie/install"
-	tap "github.com/amarbel-llc/bob/packages/tap-dancer/go"
+	tap "github.com/amarbel-llc/tap/go/pkgs/writer"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
@@ -200,10 +200,10 @@ func cmdInit(ctx context.Context, args json.RawMessage, p command.Prompter) (err
 		extensionId,
 	))
 
-	w.Comment(fmt.Sprintf(
+	w.Comment(
 		"Set browser_id to \"%s\" in the extension options page, then reload the extension",
 		params.Name,
-	))
+	)
 
 	return
 }

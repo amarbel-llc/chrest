@@ -7,7 +7,6 @@ tool github.com/amarbel-llc/tommy/cmd/tommy
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
-	github.com/amarbel-llc/bob/packages/tap-dancer/go v0.0.0-20260315134819-f7c6cbb2c6f2
 	github.com/amarbel-llc/tommy v0.0.0-20260416172442-0769146d4d1e
 	github.com/andybalholm/cascadia v1.3.3
 	github.com/charmbracelet/huh v0.8.0
@@ -17,12 +16,12 @@ require (
 
 require (
 	github.com/amarbel-llc/purse-first/libs/dewey v0.1.8
+	github.com/amarbel-llc/tap/go v0.1.9
 	golang.org/x/sys v0.43.0
 )
 
 require (
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
-	github.com/amarbel-llc/purse-first/libs/go-mcp v0.0.4 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

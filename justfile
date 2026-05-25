@@ -174,13 +174,15 @@ test-mcp-bats:
   #
   # Each lane runs under a wall-clock timeout (bats has been observed
   # to hang on post-test shutdown after several Firefox captures in
-  # bwrap --unshare-pid; root cause open). We validate the TAP output
-  # ourselves: if the plan line `1..N` is present and every line is
-  # `ok`, the suite succeeded regardless of bats's own exit code.
+  # bwrap --unshare-pid; root cause open). The new bats wrapper
+  # (amarbel-llc/bats `bats` package) splits passing records into a
+  # sidecar file and prints failure records + a trailing summary
+  # record to stdout as NDJSON. We validate by locating that
+  # `{"type":"summary",...}` record and asserting valid && !bailed
+  # && failed==0, independent of bats's own exit code.
   #
-  # Uses amarbel-llc/bats's fork via the devshell. The fork dropped
-  # `--bin-dir`; tests find the chrest binary via CHREST_BIN env var
-  # (see zz-tests_bats/lib/common.bash).
+  # Tests find the chrest binary via CHREST_BIN env var (see
+  # zz-tests_bats/lib/common.bash).
   set -e
   out_path=$(nix build --no-link --print-out-paths)
   set +e
@@ -193,21 +195,25 @@ test-mcp-bats:
       env CHREST_BIN="$out_path/bin/chrest" \
       "$@" > >(tee "$logfile") 2>&1
     local rc=$?
-    local expected passing failing
-    expected=$(grep -m1 -E '^1\.\.[0-9]+$' "$logfile" | sed 's/^1\.\.//')
-    passing=$(grep -cE '^ok [0-9]+ ' "$logfile")
-    failing=$(grep -cE '^not ok [0-9]+ ' "$logfile")
+    local summary
+    summary=$(grep -E '^\{"type":"summary"' "$logfile" | tail -n1)
     rm -f "$logfile"
-    if [ -z "$expected" ]; then
-      echo "FAIL [$label]: no TAP plan line (bats exit $rc)"; return 1
+    if [ -z "$summary" ]; then
+      echo "FAIL [$label]: no NDJSON summary record (bats exit $rc)"; return 1
     fi
-    if [ "$failing" -gt 0 ]; then
-      echo "FAIL [$label]: $failing test(s) failed"; return 1
+    local passed failed total valid bailed
+    passed=$(echo "$summary" | jq -r '.passed')
+    failed=$(echo "$summary" | jq -r '.failed')
+    total=$(echo "$summary" | jq -r '.total')
+    valid=$(echo "$summary" | jq -r '.valid')
+    bailed=$(echo "$summary" | jq -r '.bailed')
+    if [ "$valid" != "true" ] || [ "$bailed" = "true" ]; then
+      echo "FAIL [$label]: summary valid=$valid bailed=$bailed (bats exit $rc)"; return 1
     fi
-    if [ "$passing" -ne "$expected" ]; then
-      echo "FAIL [$label]: expected $expected, saw $passing ok (bats exit $rc)"; return 1
+    if [ "$failed" -gt 0 ]; then
+      echo "FAIL [$label]: $failed/$total tests failed (bats exit $rc)"; return 1
     fi
-    echo "PASS [$label]: $expected tests ok (bats exit $rc)"
+    echo "PASS [$label]: $passed/$total tests ok (bats exit $rc)"
     return 0
   }
 

@@ -9,13 +9,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    bob = {
-      url = "github:amarbel-llc/bob";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.nixpkgs-master.follows = "nixpkgs-master";
-      inputs.utils.follows = "utils";
-    };
-
     tommy = {
       url = "github:amarbel-llc/tommy";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -42,7 +35,6 @@
       nixpkgs-master,
       utils,
       bun2nix,
-      bob,
       tommy,
       bats,
     }:
@@ -182,7 +174,6 @@
 
         devShells.default = pkgs-master.mkShell {
           packages = [
-            bob.packages.${system}.batman
             tommy.packages.${system}.default
             bun2nix.packages.${system}.default
           ] ++ (
@@ -201,12 +192,11 @@
           ) ++ [
             firefox
             pkgs.monolith
-            # amarbel-llc/bats: wrapped bats + bats-* libs +
-            # batman orchestrator. Replaces pkgs-master.bats (upstream),
-            # which the test-mcp-bats recipe required (the fork's
-            # bats dropped --bin-dir; chrest now sets CHREST_BIN env
-            # var instead). BATS_LIB_PATH is set in shellHook below.
-            bats.packages.${system}.default
+            # amarbel-llc/bats wrapped-bats binary (fence-sandboxed,
+            # tap-dancer NDJSON pipeline). Sibling `batman` orchestrator
+            # is in the same flake at `bats.packages.${system}.batman`
+            # but unused here. BATS_LIB_PATH is set in shellHook below.
+            bats.packages.${system}.bats
           ] ++ (
             with pkgs-master;
             [
