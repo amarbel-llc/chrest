@@ -196,13 +196,20 @@ moment `just dagnabit-reposition apply` runs.
 
 ### Capture Pipeline (`go/internal/*/capturebatch/`)
 
-Implements the chrest side of the **Web Capture Archive Protocol (RFC 0001)**.
-The RFC document itself lives in the nebulous session at `~/eng/aim/` — it is
-not checked into this repo. Fixtures shared with the nebulous session also live
-under `~/eng/aim/fixtures/` and are referenced by `explore-capture-batch` and
-`explore-jcs-fixture`.
+Implements the chrest side of the **Capture Plugin Protocol** ([cutting-garden
+RFC 0002](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md))
+under the **web-archive binding** ([cutting-garden RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)).
+The canonical RFCs live in the cutting-garden repo; chrest is the reference
+implementation of the `web` capture kind. See `docs/features/0001-web-page-capture.md`
+for the chrest-side feature surface and the deferred migration work.
 
-Schema tokens (see `types.go`, `envelope.go`, `spec.go`):
+Fixtures shared with the nebulous orchestrator live under `~/eng/aim/fixtures/`
+and are referenced by `explore-capture-batch` and `explore-jcs-fixture`.
+
+Schema tokens **currently emitted** (legacy `web-capture-archive/v1`, inherited
+from nebulous RFC 0001; will hard-cut to RFC 0002+0003 merkle shape per the
+FDR's Implementation Status section):
+
 - Input/output schema: `web-capture-archive/v1`
 - Envelope schema: `web-capture-archive.envelope/v1` when `http.status` +
   `http.headers` are populated (Firefox/BiDi backend). The `v1-preview` schema
