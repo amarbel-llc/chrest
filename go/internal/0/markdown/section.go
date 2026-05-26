@@ -87,6 +87,12 @@ func promoteHeadingWrapper(h *html.Node) *html.Node {
 	cur := h
 	for cur.Parent != nil {
 		parent := cur.Parent
+		// Never bubble into the synthetic document node — its DataAtom
+		// is 0 so it won't match the semantic-root list, but a render
+		// of it would serialize the whole document.
+		if parent.Type == html.DocumentNode {
+			break
+		}
 		if isSemanticContentRoot(parent.DataAtom) {
 			break
 		}
