@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/amarbel-llc/purse-first/libs/dewey v0.1.8
+	github.com/amarbel-llc/purse-first/libs/dewey v0.2.2
 	github.com/amarbel-llc/tap/go v0.1.9
 	golang.org/x/sys v0.43.0
 )

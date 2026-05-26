@@ -16,43 +16,6 @@ import (
 
 const defaultBrowserName = "default"
 
-// cmdInitDirect bypasses dewey flag parsing (purse-first#44).
-func cmdInitDirect(ctx context.Context) error {
-	args := os.Args[2:]
-	browser, name, extID := "", "", ""
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--browser":
-			i++
-			if i < len(args) {
-				browser = args[i]
-			}
-		case "--name":
-			i++
-			if i < len(args) {
-				name = args[i]
-			}
-		case "--extension-id":
-			i++
-			if i < len(args) {
-				extID = args[i]
-			}
-		}
-	}
-
-	raw, err := json.Marshal(map[string]string{
-		"browser":      browser,
-		"name":         name,
-		"extension-id": extID,
-	})
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	return cmdInit(ctx, raw, nil)
-}
-
 func registerInitCommand(app *command.Utility) {
 	browser := command.StringFlag{}
 	browser.Name = "browser"

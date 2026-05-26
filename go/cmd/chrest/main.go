@@ -109,26 +109,6 @@ func run(ctx errors.Context) (err error) {
 		return
 	}
 
-	// Bypass dewey for client command — variadic StringArg
-	// serialization is broken (purse-first#44)
-	if len(os.Args) > 1 && os.Args[1] == "client" {
-		if err = cmdClient(c, os.Getenv("CHREST_BROWSER"), false, os.Args[2:]); err != nil {
-			err = errors.Wrap(err)
-			return
-		}
-		return
-	}
-
-	// Bypass dewey for init command — flag parsing may also
-	// be affected (purse-first#44)
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		if err = cmdInitDirect(ctx); err != nil {
-			err = errors.Wrap(err)
-			return
-		}
-		return
-	}
-
 	// Bypass dewey for capture: the Result/TextResult path in golf/command
 	// buffers everything and appends a trailing newline via fmt.Println,
 	// which corrupts binary output and bloats memory. See chrest#21 and the
