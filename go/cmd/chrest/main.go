@@ -498,7 +498,7 @@ type fetchCacheEntry struct {
 func fetchViaFirefox(ctx context.Context, url string) (*fetchCacheEntry, error) {
 	results, err := tools.MultiExtract(ctx, tools.MultiExtractParams{
 		URL:     url,
-		Formats: []string{"text", "markdown-reader", "html-outer"},
+		Formats: []string{tools.FormatText, tools.FormatMarkdownReader, tools.FormatHTMLOuter},
 	})
 	if err != nil {
 		return nil, err
@@ -511,11 +511,11 @@ func fetchViaFirefox(ctx context.Context, url string) (*fetchCacheEntry, error) 
 			continue
 		}
 		switch r.Format {
-		case "text":
+		case tools.FormatText:
 			entry.Text = r.Data
-		case "markdown-reader":
+		case tools.FormatMarkdownReader:
 			entry.MarkdownReader = r.Data
-		case "html-outer":
+		case tools.FormatHTMLOuter:
 			entry.HTML = r.Data
 		}
 	}
@@ -755,7 +755,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 	case "html":
 		results, err := tools.MultiExtractFromSession(ctx, session, tools.MultiExtractParams{
 			URL:     urlStr,
-			Formats: []string{"text", "markdown-reader", "html-outer"},
+			Formats: []string{tools.FormatText, tools.FormatMarkdownReader, tools.FormatHTMLOuter},
 		})
 		if err != nil {
 			return nil, err
@@ -765,11 +765,11 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 				continue
 			}
 			switch r.Format {
-			case "text":
+			case tools.FormatText:
 				out.entry.Text = r.Data
-			case "markdown-reader":
+			case tools.FormatMarkdownReader:
 				out.entry.MarkdownReader = r.Data
-			case "html-outer":
+			case tools.FormatHTMLOuter:
 				out.entry.HTML = r.Data
 			}
 		}

@@ -22,7 +22,7 @@ type MultiExtractParams struct {
 	ViewportWidth int
 
 	// PDF-only flags. Forwarded verbatim to firefox.PDFOptions when
-	// formatPDF is in Formats. nil pointers and false bools mean "use
+	// FormatPDF is in Formats. nil pointers and false bools mean "use
 	// the browser default" (typically US Letter, 0.4" margins, headers
 	// on, no background, portrait). Web-fetch leaves these zero.
 	Landscape    bool
@@ -162,11 +162,11 @@ func multiExtractFromSession(
 }
 
 var domFormats = map[string]bool{
-	formatHTMLOuter:        true,
-	formatHTMLMonolith:     true,
-	formatMarkdownFull:     true,
-	formatMarkdownReader:   true,
-	formatMarkdownSelector: true,
+	FormatHTMLOuter:        true,
+	FormatHTMLMonolith:     true,
+	FormatMarkdownFull:     true,
+	FormatMarkdownReader:   true,
+	FormatMarkdownSelector: true,
 }
 
 func anyFormatNeedsDOM(formats []string) bool {
@@ -187,34 +187,34 @@ func extractOne(
 	domErr error,
 ) ([]byte, error) {
 	switch format {
-	case formatText:
+	case FormatText:
 		return readAllCloser(s.ExtractText(ctx))
 
-	case formatHTMLOuter:
+	case FormatHTMLOuter:
 		if domErr != nil {
 			return nil, domErr
 		}
 		return domBytes, nil
 
-	case formatHTMLMonolith:
+	case FormatHTMLMonolith:
 		if domErr != nil {
 			return nil, domErr
 		}
 		return readAllCloser(monolith.Process(ctx, bytes.NewReader(domBytes), params.URL))
 
-	case formatMarkdownFull:
+	case FormatMarkdownFull:
 		if domErr != nil {
 			return nil, domErr
 		}
 		return readAllCloser(markdown.ConvertFull(ctx, bytes.NewReader(domBytes)))
 
-	case formatMarkdownReader:
+	case FormatMarkdownReader:
 		if domErr != nil {
 			return nil, domErr
 		}
 		return readAllCloser(markdown.ConvertReader(ctx, bytes.NewReader(domBytes), params.URL))
 
-	case formatMarkdownSelector:
+	case FormatMarkdownSelector:
 		if domErr != nil {
 			return nil, domErr
 		}
@@ -224,7 +224,7 @@ func extractOne(
 		// element. Matches web-fetch's selector behavior.
 		return readAllCloser(markdown.ConvertSelectorSection(bytes.NewReader(domBytes), params.Selector))
 
-	case formatPDF:
+	case FormatPDF:
 		return readAllCloser(s.PrintToPDF(ctx, firefox.PDFOptions{
 			Landscape:           params.Landscape,
 			DisplayHeaderFooter: !params.NoHeaders,
@@ -237,23 +237,23 @@ func extractOne(
 			MarginRight:         params.MarginRight,
 		}))
 
-	case formatScreenshotPNG:
+	case FormatScreenshotPNG:
 		return readAllCloser(s.CaptureScreenshot(ctx, firefox.ScreenshotOptions{
 			Format:   "png",
 			FullPage: params.FullPage,
 		}))
 
-	case formatScreenshotJPEG:
+	case FormatScreenshotJPEG:
 		return readAllCloser(s.CaptureScreenshot(ctx, firefox.ScreenshotOptions{
 			Format:   "jpeg",
 			Quality:  params.Quality,
 			FullPage: params.FullPage,
 		}))
 
-	case formatMHTML:
+	case FormatMHTML:
 		return readAllCloser(s.CaptureSnapshot(ctx))
 
-	case formatA11y:
+	case FormatA11y:
 		return readAllCloser(s.AccessibilityTree(ctx))
 
 	default:

@@ -14,49 +14,49 @@ import (
 )
 
 const (
-	formatPDF              = "pdf"
-	formatScreenshotPNG    = "screenshot-png"
-	formatScreenshotJPEG   = "screenshot-jpeg"
-	formatMHTML            = "mhtml"
-	formatA11y             = "a11y"
-	formatText             = "text"
-	formatHTMLMonolith     = "html-monolith"
-	formatMarkdownFull     = "markdown-full"
-	formatMarkdownReader   = "markdown-reader"
-	formatMarkdownSelector = "markdown-selector"
-	formatHTMLOuter        = "html-outer"
+	FormatPDF              = "pdf"
+	FormatScreenshotPNG    = "screenshot-png"
+	FormatScreenshotJPEG   = "screenshot-jpeg"
+	FormatMHTML            = "mhtml"
+	FormatA11y             = "a11y"
+	FormatText             = "text"
+	FormatHTMLMonolith     = "html-monolith"
+	FormatMarkdownFull     = "markdown-full"
+	FormatMarkdownReader   = "markdown-reader"
+	FormatMarkdownSelector = "markdown-selector"
+	FormatHTMLOuter        = "html-outer"
 
 	defaultViewportHeight = 1024
 )
 
 var captureFormats = []string{
-	formatPDF,
-	formatScreenshotPNG,
-	formatScreenshotJPEG,
-	formatMHTML,
-	formatA11y,
-	formatText,
-	formatHTMLMonolith,
-	formatMarkdownFull,
-	formatMarkdownReader,
-	formatMarkdownSelector,
-	formatHTMLOuter,
+	FormatPDF,
+	FormatScreenshotPNG,
+	FormatScreenshotJPEG,
+	FormatMHTML,
+	FormatA11y,
+	FormatText,
+	FormatHTMLMonolith,
+	FormatMarkdownFull,
+	FormatMarkdownReader,
+	FormatMarkdownSelector,
+	FormatHTMLOuter,
 }
 
 var captureFormatsDesc = strings.Join(captureFormats, ", ")
 
 var formatExtensions = map[string]string{
-	formatPDF:              ".pdf",
-	formatScreenshotPNG:    ".png",
-	formatScreenshotJPEG:   ".jpeg",
-	formatMHTML:            ".mhtml",
-	formatA11y:             ".json",
-	formatText:             ".txt",
-	formatHTMLMonolith:     ".html",
-	formatHTMLOuter:        ".html",
-	formatMarkdownFull:     ".md",
-	formatMarkdownReader:   ".md",
-	formatMarkdownSelector: ".md",
+	FormatPDF:              ".pdf",
+	FormatScreenshotPNG:    ".png",
+	FormatScreenshotJPEG:   ".jpeg",
+	FormatMHTML:            ".mhtml",
+	FormatA11y:             ".json",
+	FormatText:             ".txt",
+	FormatHTMLMonolith:     ".html",
+	FormatHTMLOuter:        ".html",
+	FormatMarkdownFull:     ".md",
+	FormatMarkdownReader:   ".md",
+	FormatMarkdownSelector: ".md",
 }
 
 func FormatExtension(format string) string {
@@ -149,24 +149,24 @@ func (p CaptureParams) Validate() error {
 	pdfOnly = pdfOnly || p.PaperWidth.Value != nil || p.PaperHeight.Value != nil
 	pdfOnly = pdfOnly || p.MarginTop.Value != nil || p.MarginBottom.Value != nil
 	pdfOnly = pdfOnly || p.MarginLeft.Value != nil || p.MarginRight.Value != nil
-	if pdfOnly && p.Format != formatPDF {
-		return fmt.Errorf("--landscape, --no-headers, --background, --paper-width, --paper-height, --margin-* are only valid with --format %s", formatPDF)
+	if pdfOnly && p.Format != FormatPDF {
+		return fmt.Errorf("--landscape, --no-headers, --background, --paper-width, --paper-height, --margin-* are only valid with --format %s", FormatPDF)
 	}
-	if p.Quality != 0 && p.Format != formatScreenshotJPEG {
-		return fmt.Errorf("--quality is only valid with --format %s", formatScreenshotJPEG)
+	if p.Quality != 0 && p.Format != FormatScreenshotJPEG {
+		return fmt.Errorf("--quality is only valid with --format %s", FormatScreenshotJPEG)
 	}
-	if p.FullPage && p.Format != formatScreenshotPNG && p.Format != formatScreenshotJPEG {
-		return fmt.Errorf("--full-page is only valid with --format %s or %s", formatScreenshotPNG, formatScreenshotJPEG)
+	if p.FullPage && p.Format != FormatScreenshotPNG && p.Format != FormatScreenshotJPEG {
+		return fmt.Errorf("--full-page is only valid with --format %s or %s", FormatScreenshotPNG, FormatScreenshotJPEG)
 	}
-	if p.Selector != "" && p.Format != formatMarkdownSelector {
-		return fmt.Errorf("--selector is only valid with --format %s", formatMarkdownSelector)
+	if p.Selector != "" && p.Format != FormatMarkdownSelector {
+		return fmt.Errorf("--selector is only valid with --format %s", FormatMarkdownSelector)
 	}
-	if p.Format == formatMarkdownSelector && p.Selector == "" {
-		return fmt.Errorf("--selector is required with --format %s", formatMarkdownSelector)
+	if p.Format == FormatMarkdownSelector && p.Selector == "" {
+		return fmt.Errorf("--selector is required with --format %s", FormatMarkdownSelector)
 	}
 	if p.ReaderEngine != "" {
-		if p.Format != formatMarkdownReader {
-			return fmt.Errorf("--reader-engine is only valid with --format %s", formatMarkdownReader)
+		if p.Format != FormatMarkdownReader {
+			return fmt.Errorf("--reader-engine is only valid with --format %s", FormatMarkdownReader)
 		}
 		switch p.ReaderEngine {
 		case readerEngineReadability:
