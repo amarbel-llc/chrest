@@ -8,6 +8,7 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	"github.com/andybalholm/cascadia"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
@@ -18,6 +19,15 @@ import (
 // include every following sibling up to (but not including) the next
 // heading of equal-or-higher level. This lets selectors like `#introduction`
 // return the whole "Introduction" section instead of just the `<h2>` tag.
+//
+// Heading promotion: many CMS-generated pages (DocBook, HTML5 <header>,
+// MkDocs) wrap their headings inside single-child container chains. A bare
+// sibling-walk from the matched heading would only see siblings inside the
+// innermost wrapper — empty in those layouts. So when matched is a heading
+// that sits at the bottom of a single-child-chain ancestor stack, the
+// sibling-walk runs from the topmost such ancestor instead, stopping at
+// semantic content roots (body/html/main/article/section/aside/nav) so we
+// never escape the page's outer content boundary.
 //
 // For non-heading matches the behavior is identical to ConvertSelector:
 // only the matched element's own subtree is rendered.
@@ -45,8 +55,10 @@ func ConvertSelectorSection(dom io.Reader, selector string) (io.ReadCloser, erro
 
 	nodes := []*html.Node{matched}
 	if lvl := headingLevel(matched.DataAtom); lvl != 0 {
-		for sib := matched.NextSibling; sib != nil; sib = sib.NextSibling {
-			if sibLvl := headingLevel(sib.DataAtom); sibLvl != 0 && sibLvl <= lvl {
+		start := promoteHeadingWrapper(matched)
+		nodes = []*html.Node{start}
+		for sib := start.NextSibling; sib != nil; sib = sib.NextSibling {
+			if containsHeadingAtOrAbove(sib, lvl) {
 				break
 			}
 			nodes = append(nodes, sib)
@@ -65,4 +77,83 @@ func ConvertSelectorSection(dom io.Reader, selector string) (io.ReadCloser, erro
 		return nil, fmt.Errorf("html-to-markdown: %w", err)
 	}
 	return io.NopCloser(bytes.NewReader([]byte(md))), nil
+}
+
+// promoteHeadingWrapper walks up from h while each ancestor's only
+// non-whitespace child chain leads to h, stopping at the first ancestor
+// with multiple content branches or at a semantic content root. Returns
+// h itself when no promotion is warranted.
+func promoteHeadingWrapper(h *html.Node) *html.Node {
+	cur := h
+	for cur.Parent != nil {
+		parent := cur.Parent
+		if isSemanticContentRoot(parent.DataAtom) {
+			break
+		}
+		if !isOnlyContentChild(parent, cur) {
+			break
+		}
+		cur = parent
+	}
+	return cur
+}
+
+// isOnlyContentChild reports whether child is parent's only content
+// child. Whitespace-only text nodes and comments are ignored.
+func isOnlyContentChild(parent, child *html.Node) bool {
+	for c := parent.FirstChild; c != nil; c = c.NextSibling {
+		if c == child {
+			continue
+		}
+		if isContentNode(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// isContentNode reports whether n carries page content. Element nodes
+// always do; text nodes do only when they contain at least one
+// non-whitespace rune.
+func isContentNode(n *html.Node) bool {
+	switch n.Type {
+	case html.ElementNode:
+		return true
+	case html.TextNode:
+		for _, r := range n.Data {
+			if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+// isSemanticContentRoot lists the tags we never promote past, so a
+// heading that is the only descendant of e.g. <body><main> stays inside
+// <main> rather than bubbling up to the document root.
+func isSemanticContentRoot(a atom.Atom) bool {
+	switch a {
+	case atom.Html, atom.Body, atom.Main, atom.Article, atom.Section,
+		atom.Aside, atom.Nav:
+		return true
+	}
+	return false
+}
+
+// containsHeadingAtOrAbove reports whether node or any descendant is a
+// heading at level ≤ targetLvl — i.e., the start of a section equal to
+// or broader than the matched one. Used to terminate sibling-walks
+// across both flat and wrapper-style DOM shapes.
+func containsHeadingAtOrAbove(node *html.Node, targetLvl int) bool {
+	if lvl := headingLevel(node.DataAtom); lvl != 0 && lvl <= targetLvl {
+		return true
+	}
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
+		if containsHeadingAtOrAbove(c, targetLvl) {
+			return true
+		}
+	}
+	return false
 }

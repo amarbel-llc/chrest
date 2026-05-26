@@ -191,18 +191,23 @@ FIXTURE
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
-  # 5 blocks: TOC text + embedded selector resource + 3 resource_links
+  # 5 blocks on selector hit: the embedded selector match leads (so the
+  # caller sees what they asked for first), followed by a resource_link
+  # to the TOC (kept out-of-band so it doesn't dwarf the section — see
+  # chrest#63), then the three full-page format links.
   echo "$resp" | jq -e '.result.content | length == 5'
-  echo "$resp" | jq -e '.result.content[0].type == "text"'
-  echo "$resp" | jq -e '.result.content[1].type == "resource"'
-  echo "$resp" | jq -e '.result.content[1].resource.uri | test("#markdown-selector$")'
-  echo "$resp" | jq -e '.result.content[1].resource.text | contains("Introduction")'
+  echo "$resp" | jq -e '.result.content[0].type == "resource"'
+  echo "$resp" | jq -e '.result.content[0].resource.uri | test("#markdown-selector$")'
+  echo "$resp" | jq -e '.result.content[0].resource.text | contains("Introduction")'
   # Section-expansion: the paragraph under #intro is a sibling of the h2 and
   # precedes the next h2, so it MUST be included in the trimmed body.
-  echo "$resp" | jq -e '.result.content[1].resource.text | contains("Intro body text.")'
+  echo "$resp" | jq -e '.result.content[0].resource.text | contains("Intro body text.")'
   # But the next h2 (#details) and its body must stop the walk.
-  echo "$resp" | jq -e '.result.content[1].resource.text | contains("Details") | not'
-  echo "$resp" | jq -e '.result.content[1].resource.text | contains("Details body text.") | not'
+  echo "$resp" | jq -e '.result.content[0].resource.text | contains("Details") | not'
+  echo "$resp" | jq -e '.result.content[0].resource.text | contains("Details body text.") | not'
+  # TOC moves to a resource_link to keep the response small.
+  echo "$resp" | jq -e '.result.content[1].type == "resource_link"'
+  echo "$resp" | jq -e '.result.content[1].uri | test("#toc$")'
 }
 
 # bats test_tags=firefox

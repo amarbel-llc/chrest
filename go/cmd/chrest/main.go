@@ -255,13 +255,16 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			Description: "Fetch a web page via headless Firefox and return its content " +
 				"as reader-mode Markdown (default). All three base formats (text, markdown, html) " +
 				"are always rendered; non-selected formats are returned as resource_link URIs " +
-				"that can be read via read-resource. The first content block is always a TOC " +
-				"listing every `#id` anchor found on the page — pass one of those ids as " +
-				"`selector` to trim the returned markdown to that section only. Results are " +
-				"cached per URL for the lifetime of the MCP session; pass `refresh: true` to " +
-				"force a re-fetch. Use instead of the built-in WebFetch when you need complete, " +
-				"unsummarized content or when the page requires JavaScript to render.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"},"format":{"type":"string","description":"Format to return inline: 'markdown' (default), 'text', or 'html'. Other formats are returned as resource_link URIs.","enum":["markdown","text","html"]},"selector":{"type":"string","description":"Optional CSS selector to trim the returned markdown to a specific section (e.g. '#chap-stdenv', 'article#main'). Requires format=markdown. On a miss, the tool returns a diagnostic plus a resource_link to the full page - it never silently returns empty. The TOC content block (always first) lists the #id selectors available on this page."},"refresh":{"type":"boolean","description":"Force a re-fetch even if this URL was fetched earlier in the session. Default false: reuse cached HTML. Selector-only re-runs against the same URL never relaunch Firefox."}},"required":["url"]}`),
+				"that can be read via read-resource. A TOC of `#id` anchors is included as the " +
+				"first content block when no selector is supplied (or when a selector misses) — " +
+				"pass one of those ids as `selector` to trim the returned markdown to that " +
+				"section only. When a selector matches, the TOC is returned as a resource_link " +
+				"(`web-fetch://<url>#toc`) instead of inline so it doesn't dwarf the section. " +
+				"Results are cached per URL for the lifetime of the MCP session; pass " +
+				"`refresh: true` to force a re-fetch. Use instead of the built-in WebFetch when " +
+				"you need complete, unsummarized content or when the page requires JavaScript " +
+				"to render.",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"},"format":{"type":"string","description":"Format to return inline: 'markdown' (default), 'text', or 'html'. Other formats are returned as resource_link URIs.","enum":["markdown","text","html"]},"selector":{"type":"string","description":"Optional CSS selector to trim the returned markdown to a specific section (e.g. '#chap-stdenv', 'article#main'). Requires format=markdown. On a miss, the tool returns a diagnostic plus a resource_link to the full page - it never silently returns empty. The TOC of #id selectors is included inline when no selector is supplied or a selector misses; when a selector matches, the TOC is returned as a resource_link (web-fetch://<url>#toc) to avoid dwarfing the matched section."},"refresh":{"type":"boolean","description":"Force a re-fetch even if this URL was fetched earlier in the session. Default false: reuse cached HTML. Selector-only re-runs against the same URL never relaunch Firefox."}},"required":["url"]}`),
 			Annotations: &protocol.ToolAnnotations{ReadOnlyHint: protocol.BoolPtr(true)},
 		},
 		func(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResultV1, error) {
@@ -406,11 +409,17 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				return protocol.ErrorResultV1(err.Error()), nil
 			}
 
+			// Selector matched and we have the section the caller asked
+			// for. The full TOC (potentially huge — the nixpkgs manual
+			// renders to ~150 KB) would dwarf the section payload, so
+			// link to it instead of inlining. Callers can read-resource
+			// the toc URI if they need to pick a different section.
 			selectorURI := fmt.Sprintf("web-fetch://%s#markdown-selector", p0.URL)
+			tocURI := fmt.Sprintf("web-fetch://%s#toc", p0.URL)
 			return &protocol.ToolCallResultV1{
 				Content: []protocol.ContentBlockV1{
-					tocBlock,
 					protocol.EmbeddedTextResourceContent(selectorURI, string(trimmed), mimeMarkdown),
+					protocol.ResourceLinkContent(tocURI, "Table of Contents", "", mimeMarkdown),
 					protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
 					protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
 					protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),

@@ -726,3 +726,23 @@ explore-jcs-fixture vector="jcs-spec-vector-1" expected="":
       exit 2
     fi
   fi
+
+# Curl a URL and report every element whose `id` attribute matches the
+# given value, in document order. Used to confirm whether a page has
+# duplicate ids that confuse cascadia.Query first-match semantics
+# (chrest#62).
+[group: 'explore']
+explore-inspect-page-ids url id:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  tmp=$(mktemp)
+  trap 'rm -f "$tmp"' EXIT
+  curl -fsSL "{{url}}" -o "$tmp"
+  size=$(wc -c < "$tmp")
+  echo "fetched $size bytes from {{url}}"
+  echo
+  count=$(grep -oE "id=\"{{id}}\"" "$tmp" | wc -l)
+  echo "id=\"{{id}}\" appears $count time(s)"
+  echo
+  echo "=== context (200 chars before, 1500 chars after each match) ==="
+  grep -boE ".{0,200}id=\"{{id}}\".{0,1500}" "$tmp" || true
