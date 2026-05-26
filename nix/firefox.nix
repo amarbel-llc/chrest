@@ -41,7 +41,10 @@ if stdenv.isDarwin then
       hash = "sha256-IDZn/2sJIPiZc9R3sTlNmbS3iAemE5FMl7sbMgDm2hs=";
     };
 
-    nativeBuildInputs = [ undmg makeWrapper ];
+    nativeBuildInputs = [
+      undmg
+      makeWrapper
+    ];
 
     sourceRoot = ".";
 
@@ -77,7 +80,9 @@ else
     pname = "firefox-linux";
     inherit version;
 
-    src = srcs.${stdenv.hostPlatform.system} or (throw "firefox.nix: unsupported Linux arch: ${stdenv.hostPlatform.system}");
+    src =
+      srcs.${stdenv.hostPlatform.system}
+        or (throw "firefox.nix: unsupported Linux arch: ${stdenv.hostPlatform.system}");
 
     nativeBuildInputs = [ makeWrapper ];
 
@@ -94,6 +99,9 @@ else
       homepage = "https://www.mozilla.org/firefox/";
       license = lib.licenses.mpl20;
       mainProgram = "firefox";
-      platforms = [ "x86_64-linux" "aarch64-linux" ];
+      platforms = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
     };
   }

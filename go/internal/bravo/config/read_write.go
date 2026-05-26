@@ -4,7 +4,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-
 	"strings"
 
 	config_toml "code.linenisgreat.com/chrest/go/internal/alfa/config_toml"

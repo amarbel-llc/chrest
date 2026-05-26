@@ -9,6 +9,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # `nix fmt` driver. Config lives in ./treefmt.nix. The sandboxed
+    # check derivation surfaces as `checks.<system>.treefmt` and is
+    # what `just lint-fmt` builds.
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     tommy = {
       url = "github:amarbel-llc/tommy";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -35,6 +43,7 @@
       nixpkgs-master,
       utils,
       bun2nix,
+      treefmt-nix,
       tommy,
       bats,
     }:
@@ -142,9 +151,14 @@
               ln -s ${firefox}/bin/firefox $out/bin/firefox
             '';
         };
-        extension = browserType: pkgs.callPackage ./extension/default.nix {
-          inherit browserType;
-        };
+        extension =
+          browserType:
+          pkgs.callPackage ./extension/default.nix {
+            inherit browserType;
+          };
+
+        # `nix fmt` entry point. Config lives in ./treefmt.nix.
+        treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
       {
         packages.chrest = chrest;
@@ -156,6 +170,13 @@
           type = "app";
           program = "${chrest}/bin/chrest";
         };
+
+        formatter = treefmtEval.config.build.wrapper;
+        # Sandboxed treefmt check for `just lint-fmt` and `nix flake
+        # check`. Runs formatters over a /nix/store snapshot of the
+        # source tree and exits non-zero on drift — no working-tree
+        # side effects, unlike `nix fmt`.
+        checks.treefmt = treefmtEval.config.build.check self;
 
         # `checks.all-systems-eval` previously forced evaluation of every
         # supported system's devShell + package .drvPath from the host's
@@ -176,20 +197,19 @@
           packages = [
             tommy.packages.${system}.default
             bun2nix.packages.${system}.default
-          ] ++ (
-            with pkgs;
-            [
-              bun
-              fish
-              gnumake
-              jq
-              just
-              nodejs_latest
-              poppler-utils
-              unixtools.xxd
-              zip
-            ]
-          ) ++ [
+          ]
+          ++ (with pkgs; [
+            bun
+            fish
+            gnumake
+            jq
+            just
+            nodejs_latest
+            poppler-utils
+            unixtools.xxd
+            zip
+          ])
+          ++ [
             firefox
             pkgs.monolith
             # amarbel-llc/bats wrapped-bats binary (fence-sandboxed,
@@ -197,25 +217,24 @@
             # is in the same flake at `bats.packages.${system}.batman`
             # but unused here. BATS_LIB_PATH is set in shellHook below.
             bats.packages.${system}.bats
-          ] ++ (
-            with pkgs-master;
-            [
-              delve
-              go_1_26
-              gofumpt
-              golangci-lint
-              golines
-              gopls
-              gotools
-              govulncheck
-              httpie
-              bash-language-server
-              parallel
-              shellcheck
-              shfmt
-              web-ext
-            ]
-          ) ++ [
+          ]
+          ++ (with pkgs-master; [
+            delve
+            go_1_26
+            gofumpt
+            golangci-lint
+            golines
+            gopls
+            gotools
+            govulncheck
+            httpie
+            bash-language-server
+            parallel
+            shellcheck
+            shfmt
+            web-ext
+          ])
+          ++ [
             pkgs.gomod2nix
           ];
 
@@ -245,7 +264,9 @@
             # bats_load_library bats-assert (etc.) in common.bash
             # needs BATS_LIB_PATH to point at the amarbel-llc/bats
             # bats-libs path.
-            export BATS_LIB_PATH="${bats.packages.${system}.bats-libs.batsLibPath}''${BATS_LIB_PATH:+:}''${BATS_LIB_PATH:-}"
+            export BATS_LIB_PATH="${
+              bats.packages.${system}.bats-libs.batsLibPath
+            }''${BATS_LIB_PATH:+:}''${BATS_LIB_PATH:-}"
           '';
         };
       }

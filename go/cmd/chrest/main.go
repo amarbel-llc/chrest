@@ -305,7 +305,8 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				default:
 					return protocol.ErrorResultV1(
 						"unknown CHREST_WEB_FETCH_DISPATCH=" + dispatchMode +
-							" (expected bidi-intercept or firefox-only)"), nil
+							" (expected bidi-intercept or firefox-only)",
+					), nil
 				}
 
 				if err != nil {
@@ -332,13 +333,15 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				switch p0.Format {
 				case "markdown":
 					if len(entry.MarkdownReader) == 0 {
-						blocks = append(blocks,
+						blocks = append(
+							blocks,
 							protocol.TextContentV1(emptyExtractionDiagnostic(p0.URL, "markdown")),
 							protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
 							protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
 						)
 					} else {
-						blocks = append(blocks,
+						blocks = append(
+							blocks,
 							protocol.EmbeddedTextResourceContent(markdownURI, string(entry.MarkdownReader), mimeMarkdown),
 							protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
 							protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
@@ -346,20 +349,23 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 					}
 				case "text":
 					if len(entry.Text) == 0 {
-						blocks = append(blocks,
+						blocks = append(
+							blocks,
 							protocol.TextContentV1(emptyExtractionDiagnostic(p0.URL, "text")),
 							protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
 							protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
 						)
 					} else {
-						blocks = append(blocks,
+						blocks = append(
+							blocks,
 							protocol.EmbeddedTextResourceContent(textURI, string(entry.Text), mimeText),
 							protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
 							protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
 						)
 					}
 				case "html":
-					blocks = append(blocks,
+					blocks = append(
+						blocks,
 						protocol.EmbeddedTextResourceContent(htmlURI, string(entry.HTML), mimeHTML),
 						protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
 						protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),

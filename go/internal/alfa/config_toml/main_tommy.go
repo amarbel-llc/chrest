@@ -60,9 +60,11 @@ func DecodeConfig(input []byte) (*ConfigDocument, error) {
 	}
 	return d, nil
 }
+
 func (d *ConfigDocument) Data() *Config {
 	return &d.data
 }
+
 func (d *ConfigDocument) Encode() ([]byte, error) {
 	{
 		tableNode := cst.EnsureChildTable(d.cstDoc.Root(), d.cstDoc.Root(), "default-browser")
@@ -85,21 +87,27 @@ func (d *ConfigDocument) Encode() ([]byte, error) {
 	}
 	return d.cstDoc.Bytes(), nil
 }
+
 func (d *ConfigDocument) Undecoded() []string {
 	return document.UndecodedKeys(d.cstDoc.Root(), d.consumed)
 }
+
 func (d *ConfigDocument) Comment(key string) string {
 	return d.cstDoc.GetComment(key)
 }
+
 func (d *ConfigDocument) SetComment(key, comment string) {
 	d.cstDoc.SetComment(key, comment)
 }
+
 func (d *ConfigDocument) InlineComment(key string) string {
 	return d.cstDoc.GetInlineComment(key)
 }
+
 func (d *ConfigDocument) SetInlineComment(key, comment string) {
 	d.cstDoc.SetInlineComment(key, comment)
 }
+
 func DecodeConfigInto(data *Config, doc *document.Document, container *cst.Node, consumed map[string]bool, keyPrefix string) error {
 	for _, _ch := range doc.Root().Children {
 		if _ch.Kind == cst.NodeTable && cst.TableHeaderKey(_ch) == keyPrefix+"default-browser" {
@@ -128,6 +136,7 @@ func DecodeConfigInto(data *Config, doc *document.Document, container *cst.Node,
 	}
 	return nil
 }
+
 func EncodeConfigFrom(data *Config, doc *document.Document, container *cst.Node) error {
 	{
 		tableNode := cst.EnsureChildTable(doc.Root(), container, "default-browser")

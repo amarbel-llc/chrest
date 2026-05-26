@@ -180,7 +180,8 @@ func Launch(ctx context.Context, cfg BrowserConfig) (*Process, error) {
 			}
 			return nil, errors.Wrap(err)
 		}
-		args = append(args,
+		args = append(
+			args,
 			fmt.Sprintf("--remote-debugging-port=%d", port),
 			"--remote-allow-origins=*",
 		)
