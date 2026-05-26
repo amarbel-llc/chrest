@@ -49,13 +49,8 @@ func MultiExtract(
 	if params.URL == "" {
 		return nil, fmt.Errorf("URL is required")
 	}
-	if len(params.Formats) == 0 {
-		return nil, fmt.Errorf("at least one format is required")
-	}
-	for _, f := range params.Formats {
-		if !ValidFormat(f) {
-			return nil, fmt.Errorf("unknown format %q", f)
-		}
+	if err := validateExtractFormats(params.Formats); err != nil {
+		return nil, err
 	}
 
 	session, err := openCaptureSession(ctx, params.URL)
@@ -79,9 +74,9 @@ func MultiExtract(
 
 // MultiExtractFromSession runs the format extractors against an
 // already-opened, already-navigated session, letting a caller that
-// owns its own session (e.g., the BiDi response-intercept dispatcher
-// in web-fetch) avoid the redundant Firefox launch + re-navigation
-// that MultiExtract would perform — see chrest#64.
+// owns its own session (e.g., a BiDi response-intercept dispatcher)
+// avoid the redundant Firefox launch + re-navigation that
+// MultiExtract would perform.
 //
 // The caller retains ownership of session and is responsible for
 // closing it. Neither navigation nor viewport configuration happens
@@ -91,15 +86,22 @@ func MultiExtractFromSession(
 	session *firefox.Session,
 	params MultiExtractParams,
 ) ([]FormatResult, error) {
-	if len(params.Formats) == 0 {
-		return nil, fmt.Errorf("at least one format is required")
-	}
-	for _, f := range params.Formats {
-		if !ValidFormat(f) {
-			return nil, fmt.Errorf("unknown format %q", f)
-		}
+	if err := validateExtractFormats(params.Formats); err != nil {
+		return nil, err
 	}
 	return multiExtractFromSession(ctx, session, params), nil
+}
+
+func validateExtractFormats(formats []string) error {
+	if len(formats) == 0 {
+		return fmt.Errorf("at least one format is required")
+	}
+	for _, f := range formats {
+		if !ValidFormat(f) {
+			return fmt.Errorf("unknown format %q", f)
+		}
+	}
+	return nil
 }
 
 // openCaptureSession opens a fresh headless-Firefox session for a

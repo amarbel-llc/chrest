@@ -193,8 +193,8 @@ FIXTURE
   resp=$(echo "$result" | grep '"id":2')
   # 5 blocks on selector hit: the embedded selector match leads (so the
   # caller sees what they asked for first), followed by a resource_link
-  # to the TOC (kept out-of-band so it doesn't dwarf the section — see
-  # chrest#63), then the three full-page format links.
+  # to the TOC (kept out-of-band so it doesn't dwarf the section), then
+  # the three full-page format links.
   echo "$resp" | jq -e '.result.content | length == 5'
   echo "$resp" | jq -e '.result.content[0].type == "resource"'
   echo "$resp" | jq -e '.result.content[0].resource.uri | test("#markdown-selector$")'

@@ -409,11 +409,10 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				return protocol.ErrorResultV1(err.Error()), nil
 			}
 
-			// Selector matched and we have the section the caller asked
-			// for. The full TOC (potentially huge — the nixpkgs manual
-			// renders to ~150 KB) would dwarf the section payload, so
-			// link to it instead of inlining. Callers can read-resource
-			// the toc URI if they need to pick a different section.
+			// Link the TOC instead of inlining it: for large manuals
+			// (nixpkgs renders to ~150 KB) the inline TOC dwarfs the
+			// matched section. Callers can read-resource the toc URI
+			// if they need to pick a different section.
 			selectorURI := fmt.Sprintf("web-fetch://%s#markdown-selector", p0.URL)
 			tocURI := fmt.Sprintf("web-fetch://%s#toc", p0.URL)
 			return &protocol.ToolCallResultV1{
@@ -750,7 +749,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 	// Now actually fill the entry. For HTML, extract from the existing
 	// intercept session — it's already navigated, so calling MultiExtract
 	// (which opens a fresh session and navigates again) would double-
-	// fetch the page (chrest#64). For Text, read the body and use
+	// fetch the page. For Text, read the body and use
 	// rawfetch.BuildFromText.
 	switch out.entry.Path {
 	case "html":

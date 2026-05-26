@@ -112,11 +112,10 @@ func TestConvertSelectorSection_EmptySelectorRejected(t *testing.T) {
 	}
 }
 
-// DocBook-style 3-deep titlepage wrap. Reproduces the nixpkgs manual
-// layout that motivated chrest#62: the matched <h2> has empty sibling
-// space inside its innermost wrapping <div>, so a naive sibling-walk
-// returns just the heading. Promotion climbs through the single-child
-// chain to the outer section container and walks its siblings instead.
+// DocBook-style 3-deep titlepage wrap: the matched <h2> has empty
+// sibling space inside its innermost wrapping <div>, so a naive
+// sibling-walk would return just the heading. Promotion must climb
+// the single-child chain to the outer section container.
 func TestConvertSelectorSection_PromotesDocBookTitlepageWrap(t *testing.T) {
 	dom := `<body><div class="section">` +
 		`<div class="titlepage"><div><div>` +
@@ -150,9 +149,9 @@ func TestConvertSelectorSection_PromotesDocBookTitlepageWrap(t *testing.T) {
 	}
 }
 
-// HTML5 idiom: heading wrapped in a <header> element, with the section
-// content as siblings of <header>. Promotion lifts the matched node to
-// <header> so the following <p> joins the walk.
+// HTML5 idiom: heading wrapped in <header>, with section content as
+// siblings of <header>. Promotion must lift the matched node to
+// <header> so the following <p> joins the sibling walk.
 func TestConvertSelectorSection_PromotesHTML5HeaderWrap(t *testing.T) {
 	dom := `<article id="post">` +
 		`<header><h1 id="title">Title</h1></header>` +
@@ -172,8 +171,7 @@ func TestConvertSelectorSection_PromotesHTML5HeaderWrap(t *testing.T) {
 }
 
 // Over-promotion guard: a heading that is the only descendant of a
-// <body><main> chain must not bubble past <main>. The promoted matched
-// element should be <main> itself, not the document root.
+// <body><main> chain must not bubble past <main>.
 func TestConvertSelectorSection_PromotionStopsAtSemanticRoot(t *testing.T) {
 	dom := `<html><body><main>` +
 		`<div class="wrap"><div class="inner"><h1 id="only">Only Heading</h1></div></div>` +
@@ -194,11 +192,10 @@ func TestConvertSelectorSection_PromotionStopsAtSemanticRoot(t *testing.T) {
 	}
 }
 
-// Sibling-walk should stop when a sibling element CONTAINS a heading at
-// or above the matched level, not only when the sibling tag itself is a
-// heading. This is the wrapper-aware termination needed alongside
-// promotion — a sibling section wrapper announces a new same-level
-// section even when its own tag is <div>.
+// Sibling-walk must stop when a sibling subtree contains a heading at
+// or above the matched level — wrapper-style HTML announces sections
+// with wrapping <div>s, not bare heading tags, so direct-tag checks
+// would over-include.
 func TestConvertSelectorSection_StopsWalkOnDescendantHeadingInSibling(t *testing.T) {
 	dom := `<body>` +
 		`<div class="section"><div class="titlepage"><div><div>` +

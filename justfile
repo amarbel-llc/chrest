@@ -729,8 +729,7 @@ explore-jcs-fixture vector="jcs-spec-vector-1" expected="":
 
 # Curl a URL and report every element whose `id` attribute matches the
 # given value, in document order. Used to confirm whether a page has
-# duplicate ids that confuse cascadia.Query first-match semantics
-# (chrest#62).
+# duplicate ids that confuse cascadia.Query first-match semantics.
 [group: 'explore']
 explore-inspect-page-ids url id:
   #!/usr/bin/env bash
