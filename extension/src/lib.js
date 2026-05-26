@@ -12,10 +12,10 @@ export async function windowsWithTabs(windowOrWindowList) {
     const windows = windowOrWindowList;
 
     return await Promise.all(
-      windows.map(async function(w) {
+      windows.map(async function (w) {
         w["tabs"] = await browser.tabs.query({ windowId: w["id"] });
         return w;
-      })
+      }),
     );
   } else {
     const w = windowOrWindowList;
@@ -30,9 +30,9 @@ export async function tabsFromWindows(windowOrWindowList) {
 
     return (
       await Promise.all(
-        windows.map(async function(w) {
+        windows.map(async function (w) {
           return await browser.tabs.query({ windowId: w["id"] });
-        })
+        }),
       )
     ).flat();
   } else {
@@ -56,11 +56,11 @@ export async function removeBookmarks(urls) {
       }
 
       return acc;
-    }, [])
+    }, []),
   );
 }
 
-export const cleanWindowForSave = function(w) {
+export const cleanWindowForSave = function (w) {
   delete w["alwaysOnTop"];
   delete w["id"];
   delete w["left"];
@@ -129,7 +129,7 @@ export async function getWindowWithID(windowID) {
   return await windowsWithTabs(await w);
 }
 
-export const makeTabs = async function(bodies) {
+export const makeTabs = async function (bodies) {
   const ws = await browser.windows.getAll();
 
   if (ws.length == 0) {
@@ -139,7 +139,7 @@ export const makeTabs = async function(bodies) {
   }
 };
 
-export const makeTab = async function(body) {
+export const makeTab = async function (body) {
   try {
     const ws = await browser.windows.getAll();
 
@@ -153,12 +153,12 @@ export const makeTab = async function(body) {
   }
 };
 
-export const makeTabWithWindowId = async function(body, wid) {
+export const makeTabWithWindowId = async function (body, wid) {
   body.windowId = wid;
   return makeTab(body);
 };
 
-export const cleanTabForSave = function(t) {
+export const cleanTabForSave = function (t) {
   delete t["audible"];
   delete t["autoDiscardable"];
   delete t["discarded"];
@@ -273,11 +273,11 @@ export async function removeTabs(urls) {
       }
 
       return acc;
-    }, [])
+    }, []),
   );
 }
 
-export const stringToUtf8Array = (function() {
+export const stringToUtf8Array = (function () {
   const encoder = new TextEncoder("utf-8");
   return (str) => encoder.encode(str);
 })();

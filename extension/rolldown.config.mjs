@@ -1,9 +1,9 @@
 const browserType = process.env.BROWSER_TYPE;
 
 function constsPlugin(consts) {
-  const prefix = 'consts:';
+  const prefix = "consts:";
   return {
-    name: 'consts-plugin',
+    name: "consts-plugin",
     resolveId(id) {
       if (id.startsWith(prefix)) return id;
     },
@@ -19,24 +19,22 @@ function constsPlugin(consts) {
   };
 }
 
-const plugins = [
-  constsPlugin({ browserType }),
-];
+const plugins = [constsPlugin({ browserType })];
 
 export default [
   {
-    input: 'src/main.js',
+    input: "src/main.js",
     output: {
       file: `dist-${browserType}/main.js`,
-      format: 'cjs',
+      format: "cjs",
     },
     plugins,
   },
   {
-    input: 'src/options.js',
+    input: "src/options.js",
     output: {
       file: `dist-${browserType}/options.js`,
-      format: 'iife',
+      format: "iife",
     },
     plugins,
   },

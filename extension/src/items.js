@@ -5,9 +5,7 @@ export async function focusUrlItems(bid, items) {
     return null;
   }
 
-  return await Promise.all(
-    items.map(item => focusUrlItem(bid, item)),
-  );
+  return await Promise.all(items.map((item) => focusUrlItem(bid, item)));
 }
 
 export async function focusUrlItem(bid, item) {
@@ -23,12 +21,13 @@ export async function focusUrlItem(bid, item) {
 
   let tab = await lib.getTabFromTabId(item.id.id);
 
-  await Promise.all(
-    [
-      await browser.tabs.update(tab.id, { active: true }),
-      await browser.windows.update(tab.windowId, { focused: true, drawAttention: true }),
-    ],
-  );
+  await Promise.all([
+    await browser.tabs.update(tab.id, { active: true }),
+    await browser.windows.update(tab.windowId, {
+      focused: true,
+      drawAttention: true,
+    }),
+  ]);
 
   return item;
 }
@@ -44,12 +43,10 @@ export async function makeUrlItems(bid, items) {
     throw new Error("cannot add history items");
   }
 
-  let results = await Promise.all(
-    [
-      makeUrlItemTabs(bid, groupedItems.tab),
-      makeUrlItemBookmarks(bid, groupedItems.bookmark),
-    ],
-  );
+  let results = await Promise.all([
+    makeUrlItemTabs(bid, groupedItems.tab),
+    makeUrlItemBookmarks(bid, groupedItems.bookmark),
+  ]);
 
   return results.flat();
 }
@@ -69,7 +66,7 @@ export async function makeUrlItemBookmarks(bid, items) {
     return [];
   }
 
-  return items.map(item => {
+  return items.map((item) => {
     Object.assign(
       result,
       urlItemForBookmark(
@@ -77,9 +74,9 @@ export async function makeUrlItemBookmarks(bid, items) {
         browser.bookmarks.create({
           title: item.title,
           url: item.url,
-        })
-      )
-    )
+        }),
+      ),
+    );
   });
 }
 
@@ -88,7 +85,7 @@ export async function makeUrlItemTabs(bid, items) {
     return [];
   }
 
-  let groupedTabs = Object.groupBy(items, item => item.windowId);
+  let groupedTabs = Object.groupBy(items, (item) => item.windowId);
   let windowPromises = {};
 
   for (let windowId in groupedTabs) {
@@ -102,19 +99,15 @@ export async function makeUrlItemTabs(bid, items) {
   }
 
   let windowItems = await Promise.all(
-    Object.keys(windowPromises).map(
-      async windowId => {
-        let windowTabs = await windowPromises[windowId];
+    Object.keys(windowPromises).map(async (windowId) => {
+      let windowTabs = await windowPromises[windowId];
 
-        return windowTabs.map(
-          (tab, idx) => {
-            let item = groupedTabs[windowId][idx];
-            let url = item.url;
-            return { ...urlItemForTabWithUrl(bid, tab, url) };
-          },
-        );
-      },
-    ),
+      return windowTabs.map((tab, idx) => {
+        let item = groupedTabs[windowId][idx];
+        let url = item.url;
+        return { ...urlItemForTabWithUrl(bid, tab, url) };
+      });
+    }),
   );
 
   return windowItems.flat();
@@ -128,16 +121,14 @@ export async function makeUrlItemTabsForWindowId(windowId, items) {
 
     // TODO filter other BID's
     return await Promise.all(
-      items.map(
-        item => {
-          let url = item.url;
-          return browser.tabs.create({ url: url, windowId: windowId });
-        }
-      ),
+      items.map((item) => {
+        let url = item.url;
+        return browser.tabs.create({ url: url, windowId: windowId });
+      }),
     );
   } catch (e) {
     window = browser.windows.create({
-      url: items.map(item => item.url),
+      url: items.map((item) => item.url),
     });
 
     return (await window).tabs;
@@ -176,17 +167,15 @@ export function urlItemForBookmark(bid, o) {
 }
 
 export async function allTabItems(bid) {
-  return (await lib.tabsFromWindows(await lib.getNonAppWindows())).map(
-    o => urlItemForTab(bid, o)
+  return (await lib.tabsFromWindows(await lib.getNonAppWindows())).map((o) =>
+    urlItemForTab(bid, o),
   );
 }
 
 export async function allBookmarkItems(bid) {
   return (await browser.bookmarks.search({}))
-    .filter((b) =>
-      b.children === undefined || b.type === "bookmark"
-    )
-    .map(o => urlItemForBookmark(bid, o));
+    .filter((b) => b.children === undefined || b.type === "bookmark")
+    .map((o) => urlItemForBookmark(bid, o));
 }
 
 export async function allHistoryItems(bid) {

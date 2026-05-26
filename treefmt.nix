@@ -15,6 +15,11 @@
 
   programs.nixfmt.enable = true;
 
+  # JavaScript, JSON, CSS, HTML, YAML. prettier's default file-type
+  # mapping covers these; we narrow via the global excludes below to
+  # keep generated / vendored trees off-limits.
+  programs.prettier.enable = true;
+
   programs.shfmt.enable = true;
   settings.formatter.shfmt.includes = [
     "*.sh"
@@ -50,8 +55,6 @@
     "sweatfile"
     "LICENSE"
     "*.md"
-    "*.json"
-    "*.js"
-    "*.mjs"
+    "go/**/*.json"
   ];
 }
