@@ -24,6 +24,7 @@ extension routes, delete `charlie/extension/`, revert capture.go changes.
 ### Task 1: Add `debugger` permission to Chrome manifest
 
 **Files:**
+
 - Modify: `extension/manifest-chrome.json`
 
 **Step 1: Add the permission**
@@ -64,6 +65,7 @@ Required for chrome.debugger.attach/sendCommand/detach API access."
 ### Task 2: Per-route timeout overrides in extension
 
 **Files:**
+
 - Modify: `extension/src/main.js`
 
 The extension has a hardcoded 1-second timeout (`main.js:47`) on all route
@@ -138,6 +140,7 @@ Needed for CDP debugger operations that can take 10+ seconds."
 ### Task 3: Add debugger routes to extension
 
 **Files:**
+
 - Modify: `extension/src/routes.js`
 
 **Step 1: Add the three routes**
@@ -169,7 +172,11 @@ Routes["/debugger/command"] = {
     const tabId = parseInt(req.body.tabId);
     const method = req.body.method;
     const params = req.body.params || {};
-    const result = await browser.debugger.sendCommand({ tabId }, method, params);
+    const result = await browser.debugger.sendCommand(
+      { tabId },
+      method,
+      params,
+    );
     return { status: 200, body: result };
   },
 };
@@ -204,6 +211,7 @@ Three routes for transparent CDP proxy:
 ### Task 4: Extension Session implementation (`charlie/extension/`)
 
 **Files:**
+
 - Create: `go/src/charlie/extension/session.go`
 
 **Step 1: Write the Session implementation**
@@ -407,16 +415,20 @@ Attach on NewSession, sendCommand for each operation, detach on Close."
 ### Task 5: Add `--tab-id` flag to capture commands
 
 **Files:**
+
 - Modify: `go/src/delta/tools/capture.go`
 - Modify: `go/src/delta/tools/main.go`
 
 **Step 1: Update `registerCaptureCommands` to accept BrowserProxy**
 
 In `main.go`, change:
+
 ```go
 registerCaptureCommands(app)
 ```
+
 to:
+
 ```go
 registerCaptureCommands(app, p)
 ```
@@ -432,6 +444,7 @@ Key changes to `capture.go`:
    `registerCaptureCommands(app *command.Utility, p *proxy.BrowserProxy)`
 
 2. Add `tabID` flag:
+
    ```go
    tabID := command.StringFlag{Name: "tab-id", Description: "Tab ID to capture (uses extension debugger instead of headless Chrome)"}
    ```
@@ -439,14 +452,16 @@ Key changes to `capture.go`:
 3. Add `tabID` to every command's `Params` list.
 
 4. Make `url` not required (it's optional when `--tab-id` is given):
+
    ```go
    url := command.StringFlag{Name: "url", Description: "URL to capture"}
    ```
 
-5. Each command handler parses `TabID string \`json:"tab-id"\`` and passes it
-   to `withSession`.
+5. Each command handler parses `TabID string \`json:"tab-id"\``and passes it
+to`withSession`.
 
 6. Update `withSession` signature:
+
    ```go
    func withSession(
        ctx context.Context,
@@ -458,6 +473,7 @@ Key changes to `capture.go`:
    ```
 
 7. Backend selection logic in `withSession`:
+
    ```go
    var session cdp.Session
    var err error
@@ -534,6 +550,7 @@ Expected: All tests pass (capture BATS tests skip due to headless Chrome issue)
 **Step 3: Manual end-to-end test**
 
 With the extension loaded and a tab open:
+
 ```bash
 # Get a tab ID
 go/build/release/chrest list-tabs | jq '.[0].id'

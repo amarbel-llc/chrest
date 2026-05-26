@@ -17,12 +17,14 @@
 **Promotion criteria:** N/A
 
 **Files:**
+
 - Modify: `go/go.mod`
 - Modify: `go/go.sum`
 
 **Step 1: Add dependencies**
 
 Run:
+
 ```bash
 cd /home/sasha/eng/repos/chrest/.worktrees/fond-linden/go
 go get github.com/amarbel-llc/bob/packages/tap-dancer/go@latest
@@ -48,12 +50,14 @@ feat: add tap-dancer and huh prompter dependencies
 **Promotion criteria:** N/A
 
 **Files:**
+
 - Modify: `go/cmd/chrest/main.go:9-11` (imports)
 - Modify: `go/cmd/chrest/main.go:81` (StubPrompter → huh.Prompter)
 
 **Step 1: Update imports**
 
 Add import:
+
 ```go
 huhprompter "github.com/amarbel-llc/purse-first/libs/go-mcp/command/huh"
 ```
@@ -61,10 +65,13 @@ huhprompter "github.com/amarbel-llc/purse-first/libs/go-mcp/command/huh"
 **Step 2: Replace StubPrompter with huh.Prompter**
 
 Change line 81 from:
+
 ```go
 if err = app.RunCLI(ctx, os.Args[1:], command.StubPrompter{}); err != nil {
 ```
+
 to:
+
 ```go
 if err = app.RunCLI(ctx, os.Args[1:], huhprompter.Prompter{}); err != nil {
 ```
@@ -91,6 +98,7 @@ browser's native messaging host.
 **Promotion criteria:** N/A
 
 **Files:**
+
 - Modify: `go/cmd/chrest/init.go`
 
 **Step 1: Rewrite init.go**
@@ -270,6 +278,7 @@ feat: refactor init with interactive browser prompt and TAP output
 **Promotion criteria:** N/A
 
 **Files:**
+
 - Modify: `README.md`
 
 **Step 1: Replace installation section**
@@ -311,6 +320,7 @@ Report issues found. We fix before proceeding to Layer 2.
 ### Task 6: Audit and fix CLI commands
 
 **Files (likely):**
+
 - Modify: `go/cmd/chrest/client.go`
 - Modify: `go/cmd/chrest/reload_extension.go`
 - Modify: `go/src/delta/proxy/main.go`
@@ -365,6 +375,7 @@ Report issues. Fix before proceeding.
 ### Task 8: Audit and fix MCP server
 
 **Files (likely):**
+
 - Modify: `go/cmd/chrest/main.go` (MCP path)
 - Modify: `go/cmd/chrest/install_mcp.go`
 - Modify: `go/src/delta/tools/*.go`
@@ -390,6 +401,7 @@ Each fix is a separate commit.
 **Promotion criteria:** N/A
 
 **Files:**
+
 - Create: `demo-chrome.tape`
 - Create: `demo-firefox.tape`
 

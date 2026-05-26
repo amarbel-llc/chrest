@@ -23,6 +23,7 @@ dependency on `chromium` or `google-chrome-stable`.
 ### Task 1: Session interface and types (`bravo/cdp/`)
 
 **Files:**
+
 - Create: `go/src/bravo/cdp/session.go`
 
 **Step 1: Write the Session interface and option types**
@@ -91,6 +92,7 @@ Part of #10, #11."
 ### Task 2: CDP JSON-RPC protocol (`bravo/cdp/`)
 
 **Files:**
+
 - Create: `go/src/bravo/cdp/protocol.go`
 
 The low-level JSON-RPC 2.0 types and a Conn type that wraps a WebSocket
@@ -215,6 +217,7 @@ calls. Uses golang.org/x/net/websocket for the WebSocket client."
 ### Task 3: Headless Chrome launcher (`charlie/headless/`)
 
 **Files:**
+
 - Create: `go/src/charlie/headless/launcher.go`
 
 **Step 1: Write the Chrome launcher**
@@ -350,6 +353,7 @@ Finds chromium/chrome on PATH, spawns with --headless
 ### Task 4: Headless Session implementation (`charlie/headless/`)
 
 **Files:**
+
 - Create: `go/src/charlie/headless/session.go`
 
 This implements `cdp.Session` by combining the Chrome launcher with the CDP
@@ -538,6 +542,7 @@ AccessibilityTree, and ExtractText via headless Chrome + WebSocket CDP."
 ### Task 5: Capture commands (`delta/tools/capture.go`)
 
 **Files:**
+
 - Create: `go/src/delta/tools/capture.go`
 - Modify: `go/src/delta/tools/main.go` (add `registerCaptureCommands` call)
 
@@ -783,6 +788,7 @@ git commit -m "Update gomod2nix.toml for golang.org/x/net dependency"
 ### Task 7: Integration tests (`zz-tests_bats/`)
 
 **Files:**
+
 - Create: `zz-tests_bats/capture.bats`
 - Create: `zz-tests_bats/fixtures/test.html`
 
@@ -792,11 +798,13 @@ git commit -m "Update gomod2nix.toml for golang.org/x/net dependency"
 <!-- zz-tests_bats/fixtures/test.html -->
 <!DOCTYPE html>
 <html>
-<head><title>Chrest Test Page</title></head>
-<body>
-<h1>Hello from chrest</h1>
-<p>This is a test page for capture commands.</p>
-</body>
+  <head>
+    <title>Chrest Test Page</title>
+  </head>
+  <body>
+    <h1>Hello from chrest</h1>
+    <p>This is a test page for capture commands.</p>
+  </body>
 </html>
 ```
 

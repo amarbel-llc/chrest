@@ -22,13 +22,13 @@ potential promotion to `purse-first/devenvs/`.
 A standard stable-first flake (`nixpkgs` → stable, `nixpkgs-master` → unstable)
 exposing a single `devShells.default` with:
 
-| Package | Source | Purpose |
-|---------|--------|---------|
-| `nodejs_latest` | nixpkgs stable | node + npm runtime |
-| `web-ext` | nixpkgs stable | Firefox extension CLI (signing, AMO deploy) |
-| `jq` | nixpkgs stable | Merge manifest-common.json with browser-specific manifests |
-| `zip` | nixpkgs stable | Package dist-chrome/ and dist-firefox/ into .zip files |
-| `httpie` | nixpkgs stable | HTTP client for manual testing |
+| Package               | Source         | Purpose                                                            |
+| --------------------- | -------------- | ------------------------------------------------------------------ |
+| `nodejs_latest`       | nixpkgs stable | node + npm runtime                                                 |
+| `web-ext`             | nixpkgs stable | Firefox extension CLI (signing, AMO deploy)                        |
+| `jq`                  | nixpkgs stable | Merge manifest-common.json with browser-specific manifests         |
+| `zip`                 | nixpkgs stable | Package dist-chrome/ and dist-firefox/ into .zip files             |
+| `httpie`              | nixpkgs stable | HTTP client for manual testing                                     |
 | `nodePackages.rollup` | nixpkgs-master | Explicit rollup binary (falls back to `npx rollup` if unavailable) |
 
 ### Updated: top-level `flake.nix`

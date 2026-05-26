@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Overview
 
 Chrest is a CLI tool and browser extension that enables managing Chrome/Firefox via REST. It consists of:
+
 1. **Browser Extension** (`extension/`) - JavaScript service worker that exposes browser APIs as REST endpoints
 2. **Native Messaging Host & CLI** (`go/`) - Go binary that communicates with the extension via Chrome Native Messaging
 
@@ -77,6 +78,7 @@ loudly if the manifest is out of sync — so there is no longer a justfile-
 level drift-guard recipe.
 
 ### Go (from `go/` directory)
+
 ```bash
 just test-go            # run tests: go test -v ./...
 just lint               # lint-go-vuln + lint-go-vet (govulncheck and go vet)
@@ -89,6 +91,7 @@ Builds (`nix build`, `just build-go`) and `build-gomod2nix` maintenance live in
 the top-level justfile so they are discoverable without `cd go`.
 
 ### Extension (from `extension/` directory)
+
 ```bash
 just build              # builds both chrome and firefox
 just build-chrome       # builds chrome extension to dist-chrome/
@@ -113,6 +116,7 @@ bun.nix`. Both files must be staged for `nix build` to see them
 ## Architecture
 
 ### Communication Flow
+
 1. CLI sends HTTP requests to Unix socket (`$XDG_STATE_HOME/chrest/<browser-id>.sock`)
 2. Go server (`go/internal/*/server/`) forwards requests to browser extension via Native Messaging
 3. Extension (`extension/src/main.js`) routes requests to handlers and returns HTTP responses
@@ -180,6 +184,7 @@ moment `just codemod-dagnabit-reposition apply` runs.
 - `*/capturebatch` - See "Capture Pipeline" below.
 
 ### CLI Commands (`go/cmd/chrest/main.go`)
+
 - `chrest` (default) - Start native messaging server
 - `chrest client` - Forward HTTP request from stdin to browser
 - `chrest install <extension-id>` - Install native messaging host manifest
@@ -203,6 +208,7 @@ moment `just codemod-dagnabit-reposition apply` runs.
   artifact to a writer subprocess, and emits a result envelope on stdout.
 
 ### Other binaries (`go/cmd/`)
+
 - `chrest-jcs` - Standalone JCS (RFC 8785) canonicalizer. Reads JSON on stdin,
   writes canonicalized bytes on stdout. Used for byte-stability cross-checks
   against the nebulous-side implementation.
@@ -232,6 +238,7 @@ FDR's Implementation Status section):
 - Capturer identifier: `chrest` (`CapturerName` constant).
 
 Files of note:
+
 - `runner.go` - Drives the batch; orchestrates per-capture fingerprint,
   normalize, spec+envelope emission, and writer fan-out.
 - `envelope.go` / `spec.go` - Artifact shapes + constants. `spec.isolation`
@@ -247,6 +254,7 @@ Files of note:
   subprocess (RFC 0001 `WriterSpec.Cmd`).
 
 Known open issues:
+
 - **chrest#27** — PDF byte-stability. Pdfcpu has map-iteration-dependent
   object numbering + stream placement; two normalizePDF calls on the same
   input can produce outputs differing in length by 1 byte with the first
@@ -255,17 +263,20 @@ Known open issues:
   recipe decompresses FlateDecode streams to inspect `/Info` placement.
 
 ### MCP Server (`chrest mcp`)
+
 Exposes browser management as MCP tools and resources over stdio (JSON-RPC 2.0).
 
 **Tools** — all browser tools (list-windows, create-tab, close-tab, etc.) plus:
+
 - `read-resource` — bridge tool so subagents can access MCP resources via tools/call
 
 **Resources:**
+
 - `chrest://items` — paginated index (total count, page URIs)
 - `chrest://items/{page}` — 100 items per page (tabs, bookmarks, history)
 - Items are cached for 30s to handle concurrent reads
 
-**Annotations:** read-only tools have `readOnlyHint`, destructive tools (close-*, state-restore, items-put) have `destructiveHint`. Validated by `just test-mcp`.
+**Annotations:** read-only tools have `readOnlyHint`, destructive tools (close-\*, state-restore, items-put) have `destructiveHint`. Validated by `just test-mcp`.
 
 ### Runtime configuration
 
@@ -280,6 +291,7 @@ Exposes browser management as MCP tools and resources over stdio (JSON-RPC 2.0).
   dual-architecture period.
 
 ### Extension REST Routes (`extension/src/routes.js`)
+
 - `/` - Browser info
 - `/windows`, `/windows/#WINDOW_ID` - Window CRUD
 - `/tabs`, `/tabs/#TAB_ID` - Tab CRUD

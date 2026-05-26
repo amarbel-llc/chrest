@@ -31,17 +31,17 @@ Single-page capture. Streams bytes straight to stdout (or to `--output <path>` a
 
 **Formats (10):**
 
-| Format | Payload | Media type |
-|---|---|---|
-| `pdf` | PDF document from the browser's print pipeline | `application/pdf` |
-| `screenshot-png` | Full-page or viewport PNG | `image/png` |
-| `screenshot-jpeg` | Full-page or viewport JPEG (tunable `--quality`) | `image/jpeg` |
-| `mhtml` | Firefox MHTML snapshot (not yet functional — returns unsupported error) | `multipart/related` |
-| `a11y` | Accessibility tree JSON (not yet functional — returns unsupported error) | `application/json` |
-| `text` | `document.body.innerText` | `text/plain; charset=utf-8` |
-| `html-monolith` | Rendered DOM inlined by `monolith` — every asset as a `data:` URI | `text/html; charset=utf-8` |
-| `markdown-full` | Rendered DOM converted to markdown | `text/markdown; charset=utf-8` |
-| `markdown-reader` | Readability-extracted article converted to markdown | `text/markdown; charset=utf-8` |
+| Format              | Payload                                                                   | Media type                     |
+| ------------------- | ------------------------------------------------------------------------- | ------------------------------ |
+| `pdf`               | PDF document from the browser's print pipeline                            | `application/pdf`              |
+| `screenshot-png`    | Full-page or viewport PNG                                                 | `image/png`                    |
+| `screenshot-jpeg`   | Full-page or viewport JPEG (tunable `--quality`)                          | `image/jpeg`                   |
+| `mhtml`             | Firefox MHTML snapshot (not yet functional — returns unsupported error)   | `multipart/related`            |
+| `a11y`              | Accessibility tree JSON (not yet functional — returns unsupported error)  | `application/json`             |
+| `text`              | `document.body.innerText`                                                 | `text/plain; charset=utf-8`    |
+| `html-monolith`     | Rendered DOM inlined by `monolith` — every asset as a `data:` URI         | `text/html; charset=utf-8`     |
+| `markdown-full`     | Rendered DOM converted to markdown                                        | `text/markdown; charset=utf-8` |
+| `markdown-reader`   | Readability-extracted article converted to markdown                       | `text/markdown; charset=utf-8` |
 | `markdown-selector` | CSS-selector-scoped element converted to markdown (requires `--selector`) | `text/markdown; charset=utf-8` |
 
 **Backend:** headless Firefox via WebDriver BiDi (sole backend since chrest#47).

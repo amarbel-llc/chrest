@@ -54,7 +54,6 @@
     ".worktrees/**"
     "sweatfile"
     "LICENSE"
-    "*.md"
     "go/**/*.json"
   ];
 }

@@ -7,11 +7,11 @@ JavaScript-rendered HTML — the case it was designed for. Empirical testing
 of the current implementation against `https://raw.githubusercontent.com/...`
 and similar download/raw URLs reveals three distinct failure modes:
 
-| URL shape | Current behavior |
-|---|---|
-| Raw text/plain (`.md`, `.toml`, source code) | Body comes through (Firefox auto-wraps in `<pre>`), but TOC is always empty so `selector` is broken on these pages. |
-| Non-2xx responses (404, 500) | Tool silently returns the error body as if it were the document. No HTTP status surfaced. |
-| Binary downloads (`.tar.gz`, image, archive served as `application/octet-stream`) | MCP schema validation crashes — the `text` field is undefined. Tool is unusable. |
+| URL shape                                                                         | Current behavior                                                                                                    |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Raw text/plain (`.md`, `.toml`, source code)                                      | Body comes through (Firefox auto-wraps in `<pre>`), but TOC is always empty so `selector` is broken on these pages. |
+| Non-2xx responses (404, 500)                                                      | Tool silently returns the error body as if it were the document. No HTTP status surfaced.                           |
+| Binary downloads (`.tar.gz`, image, archive served as `application/octet-stream`) | MCP schema validation crashes — the `text` field is undefined. Tool is unusable.                                    |
 
 The shared root cause: the pipeline assumes every URL is HTML renderable by
 Firefox, so it sends every URL through the same `MultiExtract` flow without
@@ -85,25 +85,25 @@ Errors are not cached. `refresh: true` re-fetches as today.
 
 Explicit table, not heuristic:
 
-| Content-Type prefix / disposition / extension | Class | Path |
-|---|---|---|
-| `text/html`, `application/xhtml+xml`, `image/svg+xml` | HTML | Firefox MultiExtract |
-| `text/plain`, `text/markdown`, `text/x-*`, `application/json`, `application/xml`, `application/x-yaml`, OR URL ext in `.md .txt .json .toml .yaml .yml .go .py .rs .c .cpp .h .sh` | Text | Firefox extract + rebuild slots from text body |
-| `Content-Disposition: attachment` (any type) | Binary | `failRequest` + error block |
-| Status not in 200–299 | HTTPError | `failRequest` + error block |
-| Anything else (`application/octet-stream`, `image/*`, `application/zip`, etc.) | Binary | `failRequest` + error block |
+| Content-Type prefix / disposition / extension                                                                                                                                      | Class     | Path                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------- |
+| `text/html`, `application/xhtml+xml`, `image/svg+xml`                                                                                                                              | HTML      | Firefox MultiExtract                           |
+| `text/plain`, `text/markdown`, `text/x-*`, `application/json`, `application/xml`, `application/x-yaml`, OR URL ext in `.md .txt .json .toml .yaml .yml .go .py .rs .c .cpp .h .sh` | Text      | Firefox extract + rebuild slots from text body |
+| `Content-Disposition: attachment` (any type)                                                                                                                                       | Binary    | `failRequest` + error block                    |
+| Status not in 200–299                                                                                                                                                              | HTTPError | `failRequest` + error block                    |
+| Anything else (`application/octet-stream`, `image/*`, `application/zip`, etc.)                                                                                                     | Binary    | `failRequest` + error block                    |
 
 ## Error Handling
 
-| Case | Response |
-|---|---|
-| Non-2xx HTTP status | `failRequest`. Error block: `"HTTP <status> from <finalURL>"` + first 1 KB of body if available. No resource_links. |
+| Case                                                     | Response                                                                                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Non-2xx HTTP status                                      | `failRequest`. Error block: `"HTTP <status> from <finalURL>"` + first 1 KB of body if available. No resource_links.        |
 | Binary content-type or `Content-Disposition: attachment` | `failRequest`. Error block names content-type and (if known) content-length, suggests `chrest capture` for binary capture. |
-| `Content-Length` > 10 MB cap (when present) | `failRequest`. Error block. |
-| Body cap with no Content-Length | Cannot pre-cap at intercept phase; rely on Firefox limits + post-extract size check. Error if extracted body > cap. |
-| Network error (DNS, TLS, timeout) | Error block with wrapped underlying error. |
-| Cache invariant | Errors are not cached. `refresh: true` re-fetches. |
-| Diagnostics | `log.Printf("web-fetch: dispatch=%s ct=%s status=%d url=%s", path, ct, status, url)` per request. |
+| `Content-Length` > 10 MB cap (when present)              | `failRequest`. Error block.                                                                                                |
+| Body cap with no Content-Length                          | Cannot pre-cap at intercept phase; rely on Firefox limits + post-extract size check. Error if extracted body > cap.        |
+| Network error (DNS, TLS, timeout)                        | Error block with wrapped underlying error.                                                                                 |
+| Cache invariant                                          | Errors are not cached. `refresh: true` re-fetches.                                                                         |
+| Diagnostics                                              | `log.Printf("web-fetch: dispatch=%s ct=%s status=%d url=%s", path, ct, status, url)` per request.                          |
 
 ## Testing
 
@@ -181,7 +181,7 @@ Spike total wall-clock: 1.5 s.
 
 2. **`failRequest` makes Navigate return an error.** The web-fetch handler
    must recognise a `NS_ERROR_ABORT`-class BiDi error following an explicit
-   `failRequest` as an *expected* outcome of the binary / HTTPError branch,
+   `failRequest` as an _expected_ outcome of the binary / HTTPError branch,
    not as a failure to surface. Suggested approach: track "we issued
    `failRequest`" alongside the intercept dispatch, and swallow the
    corresponding Navigate error in that case only.

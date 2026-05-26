@@ -22,6 +22,7 @@ server, transport, protocol packages)
 ### Task 1: Swap go-sdk for go-mcp in go.mod
 
 **Files:**
+
 - Modify: `go/go.mod`
 - Modify: `go/go.sum`
 
@@ -62,6 +63,7 @@ into a standalone proxy type that doesn't depend on go-sdk. Commands will close
 over this object.
 
 **Files:**
+
 - Create: `go/src/delta/proxy/main.go`
 
 **Step 1: Create the proxy package**
@@ -226,6 +228,7 @@ Register all browser-facing commands on a `command.App`. This is the core of the
 migration — every MCP tool and shared CLI command becomes a `command.Command`.
 
 **Files:**
+
 - Create: `go/src/delta/tools/main.go`
 - Create: `go/src/delta/tools/browser.go` (browser-info, list-extensions)
 - Create: `go/src/delta/tools/windows.go` (list/get/create/update/close windows)
@@ -781,6 +784,7 @@ Replace the switch/case CLI dispatch with `command.App`. The `mcp` subcommand
 creates the server. All other subcommands go through `app.RunCLI`.
 
 **Files:**
+
 - Rewrite: `go/cmd/chrest/main.go`
 
 **Step 1: Rewrite main.go**
@@ -920,6 +924,7 @@ Port `client`, `reload-extension`, `init`, and add `generate-plugin`. These have
 `RunCLI` only (no `Run`), so they won't appear as MCP tools.
 
 **Files:**
+
 - Rewrite: `go/cmd/chrest/client.go` → CLI-only command registration
 - Rewrite: `go/cmd/chrest/reload_extension.go` → CLI-only command registration
 - Rewrite: `go/cmd/chrest/init.go` → CLI-only command registration
@@ -1003,6 +1008,7 @@ feat: migrate CLI-only commands to command.App, remove old dispatch
 ### Task 6: Delete old delta/mcp package
 
 **Files:**
+
 - Delete: `go/src/delta/mcp/server.go`
 - Delete: `go/src/delta/mcp/tools.go`
 - Delete: `go/src/delta/mcp/handlers.go`
@@ -1034,6 +1040,7 @@ refactor: remove old go-sdk MCP package
 The scope system is gone, so `MCPConfig` is unused.
 
 **Files:**
+
 - Modify: `go/src/bravo/config/main.go`
 
 **Step 1: Remove MCPConfig struct and MCP field from Config**
@@ -1058,6 +1065,7 @@ refactor: remove MCPConfig scope system from config
 ### Task 8: Update flake.nix — remove install-mcp, add generate-plugin
 
 **Files:**
+
 - Modify: `go/flake.nix`
 
 **Step 1: Remove the `apps.install-mcp` block**
@@ -1084,6 +1092,7 @@ feat: replace install-mcp with generate-plugin in flake.nix
 ### Task 9: Update gomod2nix.toml
 
 **Files:**
+
 - Modify: `go/gomod2nix.toml`
 
 **Step 1: Regenerate gomod2nix**

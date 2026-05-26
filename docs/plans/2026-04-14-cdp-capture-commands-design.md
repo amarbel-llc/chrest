@@ -84,7 +84,7 @@ type ScreenshotOptions struct {
 
 1. Find `chromium` or `google-chrome-stable` on PATH
 2. Spawn with `--headless --remote-debugging-port=0 --disable-gpu
-   --no-first-run --no-default-browser-check`
+--no-first-run --no-default-browser-check`
 3. Read stderr for `DevTools listening on ws://127.0.0.1:<port>...`
 4. Connect WebSocket to the discovered URL
 5. Each `Session` method sends a CDP JSON-RPC 2.0 request and parses the
@@ -96,13 +96,13 @@ interface is compatible with a future persistent session if needed.
 
 ### CDP commands used
 
-| Method | CDP Command | Response field |
-|---|---|---|
-| PrintToPDF | `Page.printToPDF` | `.result.data` (base64) |
-| CaptureScreenshot | `Page.captureScreenshot` | `.result.data` (base64) |
-| CaptureSnapshot | `Page.captureSnapshot` | `.result.data` (MHTML text) |
-| AccessibilityTree | `Accessibility.getFullAXTree` | `.result.nodes` (JSON) |
-| ExtractText | `Runtime.evaluate` | `.result.result.value` (string) |
+| Method            | CDP Command                   | Response field                  |
+| ----------------- | ----------------------------- | ------------------------------- |
+| PrintToPDF        | `Page.printToPDF`             | `.result.data` (base64)         |
+| CaptureScreenshot | `Page.captureScreenshot`      | `.result.data` (base64)         |
+| CaptureSnapshot   | `Page.captureSnapshot`        | `.result.data` (MHTML text)     |
+| AccessibilityTree | `Accessibility.getFullAXTree` | `.result.nodes` (JSON)          |
+| ExtractText       | `Runtime.evaluate`            | `.result.result.value` (string) |
 
 ### CLI surface
 

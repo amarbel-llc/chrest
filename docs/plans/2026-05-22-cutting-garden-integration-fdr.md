@@ -45,10 +45,10 @@ The driving ask was a "cutting-garden plugin implementation for chrest
 planning:
 
 - **Code lives in `amarbel-llc/cutting-garden`**, not chrest.
-- **Chrest stays in its current role**: the *capturer* per RFC 0001
+- **Chrest stays in its current role**: the _capturer_ per RFC 0001
   (Web Capture Archive Protocol).
 - "Plugin" in this context means "integration" — cutting-garden becomes
-  a new RFC 0001 *orchestrator*, mirroring what nebulous does today but
+  a new RFC 0001 _orchestrator_, mirroring what nebulous does today but
   generic instead of NewsBlur-specific.
 
 Why this exists (best reconstruction): nebulous proved the
@@ -89,12 +89,14 @@ These bits are grounded in chrest's source and in
   ```json
   {
     "schema": "web-capture-archive/v1",
-    "writer": {"cmd": ["madder", "--format=json", "write", "--store", "archive"]},
+    "writer": {
+      "cmd": ["madder", "--format=json", "write", "--store", "archive"]
+    },
     "url": "https://example.com",
-    "defaults": {"browser": "firefox", "split": false},
+    "defaults": { "browser": "firefox", "split": false },
     "captures": [
-      {"name": "pdf", "format": "pdf"},
-      {"name": "md",  "format": "markdown-reader"}
+      { "name": "pdf", "format": "pdf" },
+      { "name": "md", "format": "markdown-reader" }
     ]
   }
   ```
@@ -106,7 +108,7 @@ These bits are grounded in chrest's source and in
 - Cutting-garden picks the **writer** in the JSON (madder is the
   obvious default; cutting-garden could ship its own writer that wraps
   madder with additional metadata).
-- Cutting-garden does *not* need to render pages, run a browser, or
+- Cutting-garden does _not_ need to render pages, run a browser, or
   touch BiDi — chrest owns all of that.
 
 ## What is UNKNOWN / ASSUMPTION
@@ -115,7 +117,7 @@ These bits are grounded in chrest's source and in
 
 The landing page says "Filesystem-tree capture/restore CLI built on
 top of madder's blob store" and "Phase 1 — framework bootstrap, no
-commands implemented yet." The "filesystem-tree" framing is *not*
+commands implemented yet." The "filesystem-tree" framing is _not_
 obviously a web-capture framing. **Assumption**: cutting-garden will
 grow a `cutting-garden capture <urls...>` (or similar) subcommand that
 maps onto chrest's batch protocol, plus a complementary restore path.
@@ -155,7 +157,7 @@ A "generic" orchestrator could accept URLs from:
 ### Tree semantics — UNKNOWN
 
 "Filesystem-tree capture/restore" strongly implies cutting-garden
-treats its content as a *tree* (paths, hierarchy) rather than a flat
+treats its content as a _tree_ (paths, hierarchy) rather than a flat
 list of blobs. **Assumption**: cutting-garden maps each captured URL
 to a node in a tree (perhaps `domain/path/segment/...`), with
 per-capture artifacts (`payload`, `spec`, `envelope`) becoming leaves

@@ -45,28 +45,28 @@ subcommand handler in `cmd/chrest/`.
 
 ## Command Mapping
 
-| Current CLI       | Current MCP Tool         | New Command        | Annotations |
-|-------------------|--------------------------|--------------------|-------------|
-| —                 | `browser_info`           | `browser-info`     | ReadOnly    |
-| —                 | `list_extensions`        | `list-extensions`  | ReadOnly    |
-| —                 | `list_windows`           | `list-windows`     | ReadOnly    |
-| —                 | `get_window`             | `get-window`       | ReadOnly    |
-| —                 | `create_window`          | `create-window`    |             |
-| —                 | `update_window`          | `update-window`    |             |
-| —                 | `close_window`           | `close-window`     | Destructive |
-| —                 | `list_tabs`              | `list-tabs`        | ReadOnly    |
-| —                 | `get_tab`                | `get-tab`          | ReadOnly    |
-| —                 | `create_tab`             | `create-tab`       |             |
-| —                 | `update_tab`             | `update-tab`       |             |
-| —                 | `close_tab`              | `close-tab`        | Destructive |
-| `items-get`       | `get_browser_items`      | `items-get`        | ReadOnly    |
-| `items-put`       | `manage_browser_items`   | `items-put`        |             |
-| —                 | `get_browser_state`      | `state-get`        | ReadOnly    |
-| —                 | `restore_browser_state`  | `state-restore`    |             |
-| `client`          | —                        | `client`           | CLI-only    |
-| `reload-extension`| —                        | `reload-extension` | CLI-only    |
-| `init`            | —                        | `init`             | CLI-only, Hidden |
-| —                 | —                        | `generate-plugin`  | CLI-only, Hidden |
+| Current CLI        | Current MCP Tool        | New Command        | Annotations      |
+| ------------------ | ----------------------- | ------------------ | ---------------- |
+| —                  | `browser_info`          | `browser-info`     | ReadOnly         |
+| —                  | `list_extensions`       | `list-extensions`  | ReadOnly         |
+| —                  | `list_windows`          | `list-windows`     | ReadOnly         |
+| —                  | `get_window`            | `get-window`       | ReadOnly         |
+| —                  | `create_window`         | `create-window`    |                  |
+| —                  | `update_window`         | `update-window`    |                  |
+| —                  | `close_window`          | `close-window`     | Destructive      |
+| —                  | `list_tabs`             | `list-tabs`        | ReadOnly         |
+| —                  | `get_tab`               | `get-tab`          | ReadOnly         |
+| —                  | `create_tab`            | `create-tab`       |                  |
+| —                  | `update_tab`            | `update-tab`       |                  |
+| —                  | `close_tab`             | `close-tab`        | Destructive      |
+| `items-get`        | `get_browser_items`     | `items-get`        | ReadOnly         |
+| `items-put`        | `manage_browser_items`  | `items-put`        |                  |
+| —                  | `get_browser_state`     | `state-get`        | ReadOnly         |
+| —                  | `restore_browser_state` | `state-restore`    |                  |
+| `client`           | —                       | `client`           | CLI-only         |
+| `reload-extension` | —                       | `reload-extension` | CLI-only         |
+| `init`             | —                       | `init`             | CLI-only, Hidden |
+| —                  | —                       | `generate-plugin`  | CLI-only, Hidden |
 
 CLI-only commands have `RunCLI` but no `Run`, so `RegisterMCPToolsV1` skips
 them. The `mcp` subcommand is special-cased as a mode switch, not a command.

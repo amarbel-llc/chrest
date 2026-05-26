@@ -15,6 +15,7 @@
 ### Task 1: Create devenvs/browser_extension/flake.nix
 
 **Files:**
+
 - Create: `devenvs/browser_extension/flake.nix`
 
 **Step 1: Create the directory**
@@ -93,6 +94,7 @@ git commit -m "feat: add devenvs/browser_extension flake"
 **Promotion criteria:** N/A — this replaces devenv-node entirely; no old approach to remove separately.
 
 **Files:**
+
 - Modify: `flake.nix`
 - Modify: `flake.lock` (generated)
 

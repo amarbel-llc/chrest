@@ -75,6 +75,7 @@ func NewSession(proxy *proxy.BrowserProxy, tabID string) *Session
 ```
 
 Each `Session` method:
+
 1. Sends `POST /debugger/command` with the appropriate CDP method/params
 2. Parses the response JSON
 3. Returns `io.ReadCloser` (base64 decode for binary, string reader for text)
@@ -88,11 +89,11 @@ Add `--tab-id` flag to all capture commands. If provided, create
 
 ### Backend selection
 
-| Flags | Backend | Behavior |
-|---|---|---|
-| `--url <url>` | headless | Spawn Chrome, load URL, capture, kill |
+| Flags                       | Backend   | Behavior                                        |
+| --------------------------- | --------- | ----------------------------------------------- |
+| `--url <url>`               | headless  | Spawn Chrome, load URL, capture, kill           |
 | `--url <url> --tab-id <id>` | extension | Attach to tab, navigate to URL, capture, detach |
-| `--tab-id <id>` | extension | Attach to tab, capture current state, detach |
+| `--tab-id <id>`             | extension | Attach to tab, capture current state, detach    |
 
 ### Native messaging size
 

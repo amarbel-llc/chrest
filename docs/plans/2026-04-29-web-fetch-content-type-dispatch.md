@@ -19,6 +19,7 @@
 **Promotion criteria:** N/A — purely additive new package.
 
 **Files:**
+
 - Create: `go/src/charlie/rawfetch/classify.go`
 - Create: `go/src/charlie/rawfetch/classify_test.go`
 
@@ -213,6 +214,7 @@ ef7b99f confirmed the BiDi mechanism).
 **Promotion criteria:** N/A — purely additive.
 
 **Files:**
+
 - Create: `go/src/charlie/rawfetch/toc.go`
 - Create: `go/src/charlie/rawfetch/toc_test.go`
 
@@ -220,7 +222,7 @@ ef7b99f confirmed the BiDi mechanism).
 
 `go/src/charlie/rawfetch/toc_test.go`:
 
-```go
+````go
 package rawfetch
 
 import (
@@ -283,7 +285,7 @@ func TestExtractMarkdownTOCFromText(t *testing.T) {
 		})
 	}
 }
-```
+````
 
 **Step 2: Run test — verify it fails**
 
@@ -297,7 +299,7 @@ Expected: build failure — `ExtractMarkdownTOCFromText` undefined.
 
 `go/src/charlie/rawfetch/toc.go`:
 
-```go
+````go
 package rawfetch
 
 import (
@@ -358,7 +360,7 @@ func slugify(text string) string {
 	s = strings.Trim(s, "-")
 	return s
 }
-```
+````
 
 **Step 4: Run test — verify it passes**
 
@@ -390,6 +392,7 @@ heading elements.
 **Promotion criteria:** N/A — purely additive.
 
 **Files:**
+
 - Create: `go/src/charlie/rawfetch/build.go`
 - Create: `go/src/charlie/rawfetch/build_test.go`
 
@@ -397,7 +400,7 @@ heading elements.
 
 `go/src/charlie/rawfetch/build_test.go`:
 
-```go
+````go
 package rawfetch
 
 import (
@@ -441,7 +444,7 @@ func TestBuildFromText_NonMarkdownText(t *testing.T) {
 		t.Errorf("non-md text should have empty TOC; got %+v", r.TOC)
 	}
 }
-```
+````
 
 **Step 2: Run — verify it fails**
 
@@ -455,7 +458,7 @@ Expected: build failure — `BuildFromText` undefined.
 
 `go/src/charlie/rawfetch/build.go`:
 
-```go
+````go
 package rawfetch
 
 import (
@@ -543,7 +546,7 @@ func languageHint(mt, ext string) string {
 	}
 	return ""
 }
-```
+````
 
 **Step 4: Run — verify pass**
 
@@ -575,6 +578,7 @@ of escaped body) plus a regex-built TOC for markdown bodies.
 **Promotion criteria:** N/A — additive new methods on Session.
 
 **Files:**
+
 - Modify: `go/src/charlie/firefox/session.go` (append public methods after `LastNavigationHTTP` near line 299)
 - Create: `go/src/charlie/firefox/intercept.go` (new file for the new types/methods)
 - Modify: `go/src/charlie/firefox/intercept_spike_test.go` (drop the spike test once superseded; replaced in Task 6)
@@ -879,6 +883,7 @@ commits.
 **Promotion criteria:** 7 days running with default `CHREST_WEB_FETCH_DISPATCH=bidi-intercept` and zero `firefox-only` overrides observed → delete the `firefox-only` branch and the env flag.
 
 **Files:**
+
 - Modify: `go/cmd/chrest/main.go` lines 169-330 (the cache-fill block of the web-fetch handler)
 
 **Step 1: Write the failing BATS test (lands in Task 6 but stub here so we know the target)**
@@ -1230,6 +1235,7 @@ Flow:
 **Promotion criteria:** N/A — tests are additive; they pin the new behavior.
 
 **Files:**
+
 - Create: `zz-tests_bats/web_fetch.bats`
 
 **Step 1: Write the failing tests**
@@ -1329,6 +1335,7 @@ HTML still routes through Firefox/MultiExtract.
 **Promotion criteria:** Remove this paragraph from CLAUDE.md once the env flag is removed (after the 7-day promotion window).
 
 **Files:**
+
 - Modify: `CLAUDE.md` — append paragraph under "## Build Commands" or a new "## Runtime configuration" section.
 
 **Step 1, 2, 3:** Add the following paragraph:
