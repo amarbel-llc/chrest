@@ -48,14 +48,30 @@
       bats,
     }:
     let
-      # Burnt into the binary via the fork's auto-injected -ldflags
-      # (-X main.version / -X main.commit). Single source of truth for
-      # the release version; `just bump-version` sed-rewrites this line.
+      # Single source of truth for the release version. Burnt into:
+      #   * Go binary  — via -X main.version (auto-injected by the
+      #     amarbel-llc/nixpkgs fork's buildGoApplication when `version`
+      #     is passed).
+      #   * MCP serverInfo.version — Go binary surfaces `app.Version`
+      #     as the MCP server version.
+      #   * Extension manifest.version — templated into manifest.json
+      #     at extension/default.nix build-time.
+      # `just bump-version` sed-rewrites this line; `just deploy-tag`
+      # pushes both `vX.Y.Z` (project-level canonical) and
+      # `go/vX.Y.Z` (path-prefix tag preserved for downstream Go
+      # module consumers, e.g. dodder).
       chrestVersion = "0.2.6";
-      # shortRev for clean builds, dirtyShortRev for dirty working trees
-      # (so devshell builds show `dirty-abcdef` rather than masquerading
-      # as a clean release), "unknown" as a last-resort fallback.
+      # shortRev for clean builds, dirtyShortRev for dirty working
+      # trees, "unknown" as a last-resort fallback.
       chrestCommit = self.shortRev or self.dirtyShortRev or "unknown";
+      # Dev marker per chrest#61 acceptance: clean release builds
+      # report the bare chrestVersion ("0.2.6"); dirty / non-tag
+      # builds report "<version>-dev+<shortSha>". The Go binary and
+      # MCP serverInfo carry the marker; the extension manifest does
+      # NOT — browser stores require numeric-only semver, so the
+      # extension always reports the bare chrestVersion.
+      chrestVersionFull =
+        if self ? shortRev then chrestVersion else "${chrestVersion}-dev+${chrestCommit}";
     in
     (utils.lib.eachDefaultSystem (
       system:
@@ -98,7 +114,7 @@
         };
         chrest = pkgs.buildGoApplication {
           pname = "chrest";
-          version = chrestVersion;
+          version = chrestVersionFull;
           commit = chrestCommit;
           src = ./go;
           subPackages = [
@@ -155,6 +171,7 @@
           browserType:
           pkgs.callPackage ./extension/default.nix {
             inherit browserType;
+            version = chrestVersion;
           };
 
         # `nix fmt` entry point. Config lives in ./treefmt.nix.

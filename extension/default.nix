@@ -5,6 +5,11 @@
   jq,
   zip,
   browserType,
+  # Project-level version, injected from the top-level flake
+  # (chrest#61). The single source of truth is `chrestVersion` in
+  # ../flake.nix; manifest-common.json's `version` field is overwritten
+  # in buildPhase below.
+  version,
 }:
 
 let
@@ -26,8 +31,7 @@ let
 in
 mkBunDerivation {
   pname = "chrest-extension-${browserType}";
-  version = "1.16.0";
-  inherit src;
+  inherit src version;
   packageJson = ./package.json;
   bunDeps = fetchBunDeps {
     bunNix = ./bun.nix;
@@ -43,7 +47,11 @@ mkBunDerivation {
 
     mkdir -p dist-${browserType}
 
-    jq -s 'reduce .[] as $i ({}; . + $i)' \
+    # Merge browser-specific manifest over the common base, then
+    # overwrite the `version` field with the flake-supplied value.
+    # The static "version" in manifest-common.json is a fallback for
+    # editor previews; the canonical version is this one.
+    jq -s '(reduce .[] as $i ({}; . + $i)) * { version: "${version}" }' \
       manifest-common.json manifest-${browserType}.json \
       > dist-${browserType}/manifest.json
 

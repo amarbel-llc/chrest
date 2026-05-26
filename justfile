@@ -286,29 +286,40 @@ install-mcp-dev:
 build-demo:
   vhs demo/demo.tape
 
-# Tag a Go module release. The "go/v" prefix is added for you, so pass
-# the semver without it. Usage: just deploy-tag 0.0.2 "feat: release tooling"
+# Sign + push two parallel tags at HEAD: `vX.Y.Z` (project-level
+# canonical name used by the flake, extension, MCP serverInfo) and
+# `go/vX.Y.Z` (path-prefix tag preserved so downstream Go module
+# consumers like dodder can `require code.linenisgreat.com/chrest/go
+# vX.Y.Z`). Both point at the same commit. The "v" prefix is added
+# for you. Usage: just deploy-tag 0.0.2 "feat: release tooling"
 [group("operational")]
 deploy-tag version message:
   #!/usr/bin/env bash
   set -euo pipefail
-  tag="go/v{{version}}"
   prev=$(git tag --sort=-v:refname -l "go/v*" | head -1)
   if [[ -n "$prev" ]]; then
     echo "==> Previous: $prev"
     git log --oneline "$prev"..HEAD -- go/
   fi
-  git tag -s -m "{{message}}" "$tag"
-  echo "==> Created tag: $tag"
-  git push origin "$tag"
-  echo "==> Pushed $tag"
-  git tag -v "$tag"
+  project_tag="v{{version}}"
+  go_tag="go/v{{version}}"
+  git tag -s -m "{{message}}" "$project_tag"
+  git tag -s -m "{{message}}" "$go_tag"
+  echo "==> Created tags: $project_tag, $go_tag"
+  git push origin "$project_tag" "$go_tag"
+  echo "==> Pushed $project_tag, $go_tag"
+  git tag -v "$project_tag"
+  git tag -v "$go_tag"
 
-# Sed-rewrite chrestVersion in flake.nix to the given semver. The
-# version string is burnt into the binary at build time via the fork's
-# auto-injected -ldflags (see go/cmd/chrest/main.go version/commit
-# vars), so flake.nix is the single source of truth. No-op if already
-# at the target version. Usage: just bump-version 0.0.2
+# Sed-rewrite chrestVersion to the given semver across the two
+# source-controlled callers: flake.nix's `chrestVersion = "..."`
+# (the single source of truth — flake outputs derive from this and
+# pass it down to the Go binary, MCP serverInfo, and extension
+# manifest via callPackage) and extension/manifest-common.json's
+# static `"version"` (which the extension build always overwrites
+# with the flake value, but the source-controlled value is kept in
+# sync so editor / direct manifest reads see the right number).
+# No-op if already at the target version. Usage: just bump-version 0.0.2
 [group("maintenance")]
 bump-version new_version:
   #!/usr/bin/env bash
@@ -319,13 +330,15 @@ bump-version new_version:
     exit 0
   fi
   sed -i.bak 's/chrestVersion = "'"$current"'"/chrestVersion = "{{new_version}}"/' flake.nix && rm flake.nix.bak
+  sed -i.bak 's/"version": "'"$current"'"/"version": "{{new_version}}"/' extension/manifest-common.json && rm extension/manifest-common.json.bak
   echo "==> bumped chrestVersion: $current -> {{new_version}}"
 
-# Cut a release: must be run on master. Bumps chrestVersion in
-# flake.nix, commits the bump with a changelog-style message built
-# from commits since the last go/v* tag, pushes master, then signs
-# and pushes the go/v{{version}} tag. The "go/v" prefix is added for
-# you, so pass the semver without it. Usage: just deploy-release 0.0.2
+# Cut a release: must be run on master. Bumps chrestVersion across
+# flake.nix + extension/manifest-common.json, commits the bump with
+# a changelog-style message built from commits since the last
+# go/v* tag, pushes master, then signs and pushes BOTH
+# `vX.Y.Z` (project-level) and `go/vX.Y.Z` (Go module path-prefix)
+# tags. The "v" prefix is added for you. Usage: just deploy-release 0.0.2
 #
 # Use `just deploy-tag <version> <message>` directly if you want to
 # control the commit message yourself without bumping.
@@ -351,11 +364,11 @@ deploy-release version:
     msg="$header"
   fi
   just bump-version "{{version}}"
-  if ! git diff --quiet flake.nix; then
-    git add flake.nix
-    git commit -m "chore: release go/v{{version}}"
+  if ! git diff --quiet flake.nix extension/manifest-common.json; then
+    git add flake.nix extension/manifest-common.json
+    git commit -m "chore: release v{{version}}"
     git push origin master
-    echo "==> pushed flake.nix bump to master"
+    echo "==> pushed version bump to master"
   fi
   just deploy-tag "{{version}}" "$msg"
 

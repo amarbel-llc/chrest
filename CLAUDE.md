@@ -64,6 +64,26 @@ fixtures) — and runs the Go unit suite in `checkPhase` (with `HOME=$TMPDIR`
 so pdfcpu's config-dir creation succeeds in the sandbox). A clean
 `nix build` therefore proves both compile and unit tests in one step.
 
+### Versioning (chrest#61)
+
+`chrestVersion` in `flake.nix` is the single source of truth. It propagates to:
+
+- Go binary `chrest version` — injected via `-X main.version`.
+- MCP `serverInfo.version` — surfaces `app.Version` from the binary.
+- Extension `manifest.json` `version` — templated by `extension/default.nix`
+  at build time (overrides the source-tree static value).
+
+Clean release builds (tagged commit, `self.shortRev` set) report bare
+`X.Y.Z`. Dev / dirty builds report `X.Y.Z-dev+<shortSha>` (Go + MCP only;
+the extension always uses the bare value because browser stores require
+numeric-only semver).
+
+Releases push two parallel tags pointing at the same commit:
+`vX.Y.Z` (project-level canonical) and `go/vX.Y.Z` (path-prefix tag
+preserved so downstream Go module consumers — e.g. dodder — can
+`require code.linenisgreat.com/chrest/go vX.Y.Z`). `just deploy-release`
+handles both.
+
 `dewey` is consumed as the upstream module
 `github.com/amarbel-llc/purse-first/libs/dewey` — chrest imports its
 `pkgs/<leaf>` facades (e.g. `pkgs/errors`, `pkgs/ohio`, `pkgs/command`).
