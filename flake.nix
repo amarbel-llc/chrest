@@ -22,6 +22,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
+      inputs.tap.follows = "tap";
+      inputs.bats.follows = "bats";
     };
 
     # amarbel-llc/bats provides the `batman` bundle (wrapped bats + the
@@ -30,6 +32,25 @@
     # by env var (`CHREST_BIN`, etc.) instead.
     bats = {
       url = "github:amarbel-llc/bats";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.utils.follows = "utils";
+    };
+
+    # Consumed via goFlakeInputs (./go/gomod.nix). A tap bump only
+    # touches flake.lock — no go.mod / gomod2nix.toml lockstep edits.
+    # See amarbel-llc/chrest#84 and amarbel-llc/nixpkgs RFC 0001.
+    tap = {
+      url = "github:amarbel-llc/tap";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.utils.follows = "utils";
+      inputs.bats.follows = "bats";
+    };
+
+    # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
+    purse-first = {
+      url = "github:amarbel-llc/purse-first";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -46,6 +67,8 @@
       treefmt-nix,
       tommy,
       bats,
+      tap,
+      purse-first,
     }:
     let
       # Single source of truth for the release version. Burnt into:
@@ -112,6 +135,21 @@
             })
           ];
         };
+        # flake-input-go_mod consumer-half bridge. See go/gomod.nix and
+        # amarbel-llc/nixpkgs RFC 0001. Threaded into buildGoApplication
+        # below; any future buildGoApplication / mkGoEnv call site must
+        # also receive it or it silently falls back to organic
+        # gomod2nix.toml resolution and resurrects the lockstep
+        # regression (chrest#84).
+        goFlakeInputs = import ./go/gomod.nix {
+          inherit
+            tap
+            tommy
+            purse-first
+            system
+            ;
+        };
+
         chrest = pkgs.buildGoApplication {
           pname = "chrest";
           version = chrestVersionFull;
@@ -123,6 +161,7 @@
             "cmd/chrest-jcs"
           ];
           modules = ./go/gomod2nix.toml;
+          inherit goFlakeInputs;
           go = pkgs.go_1_26;
           GOTOOLCHAIN = "local";
           nativeBuildInputs = [ pkgs.makeWrapper ];
