@@ -1,45 +1,60 @@
 
 files_go := "src/ cmd/"
 
-default: tests-go
-
 # Builds (`nix build`, `just build-go`) and the gomod2nix-regeneration
 # maintenance step live in the top-level justfile so they are
 # discoverable without a `cd go`. See ../justfile.
+default: lint test
 
-tests-go:
-  go test -v ./...
+# Static lints. govulncheck + go vet are opinion-driven checks that
+# don't modify code (see eng-design_patterns-justfile(7) verb table).
+lint: lint-go-vuln lint-go-vet
 
-check: check-go-vuln check-go-vet
+[group("post-build")]
+test: test-go
 
-check-go-vuln:
+[group("pre-build")]
+lint-go-vuln:
   govulncheck ./...
 
-check-go-vet:
+[group("pre-build")]
+lint-go-vet:
   go vet ./... || true
 
+[group("post-build")]
+test-go:
+  go test -v ./...
+
+[group("maintenance")]
 clean: clean-go
 
+[group("maintenance")]
 clean-go-cache:
   go clean -cache
 
+[group("maintenance")]
 clean-go-modcache:
   go clean -modcache
 
+[group("maintenance")]
 clean-go: clean-go-cache clean-go-modcache
 
+[group("codemod")]
 codemod-go-fmt:
   goimports -w {{files_go}}
   gofumpt -l -w src
 
+[group("maintenance")]
 update: update-go
 
+[group("maintenance")]
 update-go:
   env GOPROXY=direct go get -u -t ./...
   go mod tidy
 
 # Add a new Go module dependency. Passes through `go get <pkg>` plus
 # `go mod tidy`. Example: `just go/add-dep github.com/pdfcpu/pdfcpu/pkg/api`.
+[group("maintenance")]
 add-dep pkg:
   env GOPROXY=direct go get {{pkg}}
   go mod tidy

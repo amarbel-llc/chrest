@@ -1,6 +1,10 @@
 
+default: build
+
+[group("build")]
 build: build-chrome build-firefox
 
+[private]
 build-one browser:
   #! /usr/bin/env -S bash -e
 
@@ -13,10 +17,13 @@ build-one browser:
   cp -L "$out_path/dist-{{browser}}.zip" "./dist-{{browser}}.zip"
   chmod -R u+w "dist-{{browser}}" "dist-{{browser}}.zip"
 
+[group("build")]
 build-chrome: (build-one "chrome")
 
+[group("build")]
 build-firefox: (build-one "firefox")
 
+[group("operational")]
 deploy-firefox: build-firefox
   #! /usr/bin/env -S bash -e
 

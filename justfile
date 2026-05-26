@@ -1,29 +1,58 @@
 
-# Aggregator layout per eng#37: `default` fans out into the per-verb
-# aggregators (`build`, `check`, `test`); each gathers every recipe
-# tagged with its prefix. `default` is the sweatfile pre-merge hook,
-# so anything that should gate a merge belongs in one of these.
-default: build check test
+# Aggregator layout per eng#37 + eng#91: `default` chains the four
+# lifecycle phases (`validate lint build test`); each is an
+# aggregate-only recipe that lists every leaf in its phase. `default`
+# is the sweatfile pre-merge hook, so anything that should gate a
+# merge belongs in one of these aggregates. See
+# eng-design_patterns-justfile(7) for the verb / group taxonomy.
+default: validate lint build test
 
-# All drift / static checks. Add new `check-*` recipes here.
-check: check-nix check-dagnabit-export check-dagnabit-reposition
+# Pre-build static checks: hard failures on parse / schema / drift.
+validate: validate-devshell validate-nix validate-dagnabit-export validate-dagnabit-reposition
+
+# Pre-build opinion checks: read-only style / convention.
+lint: lint-fmt
+
+# All build artifacts. `build-nix` runs the chrest derivation (which
+# builds chrest + chrest-server + chrest-jcs and runs the Go unit
+# suite in checkPhase), so a clean `just build` proves both compile
+# and unit tests. The dev-loop binaries (build-go) and the extension
+# (build-extension) are intentionally NOT in the aggregate — they
+# rebuild artifacts the prod derivation already covers.
+build: build-nix
+
+# Post-build smoke + integration. Unit tests already ran inside the
+# nix sandbox during `build-nix`'s checkPhase, so this layer only
+# adds the bats + MCP-inspector integration lanes. Matches madder,
+# where `nix build` covers unit tests and `just test` runs the
+# integration lanes.
+test: test-mcp test-mcp-bats
 
 # `nix build` runs the chrest derivation, which builds chrest +
 # chrest-server + chrest-jcs and runs the Go unit suite in checkPhase.
-# A clean `just build` therefore proves both compile and unit tests.
-build:
+[group("build")]
+build-nix:
   nix build --no-link
 
 # Devshell rapid-iteration: builds all three binaries into
 # go/build/release/ so the explore-* recipes (which reference
 # go/build/release/chrest by path) keep working. Skips checkPhase and
 # the firefox/monolith wrap. Mirrors madder's `build-go`.
-[group("dev")]
+[group("build")]
 build-go:
   cd go && go build -o build/release/ ./cmd/...
 
+[group("build")]
 build-extension:
   just extension/build
+
+# Verify the devShell evaluates and builds without errors. Catches
+# vendor-env / goFlakeInputs / mkGoEnv breakage that the prod-binary
+# build can mask from cache. No store-output usage --- just a build-
+# check. See eng-design_patterns-justfile(7) VALIDATE-DEVSHELL.
+[group("pre-build")]
+validate-devshell:
+  nix build --no-link .#devShells.{{ arch() }}-linux.default
 
 # Evaluate flake outputs for every supported system. Catches malformed
 # fixed-output hashes on non-host platforms before they surface in
@@ -36,30 +65,36 @@ build-extension:
 # built on a host without binfmt/QEMU for the foreign system). See
 # amarbel-llc/eng#98 for whether the gcroots strategy is still
 # needed at all.
-[group("check")]
-check-nix:
+[group("pre-build")]
+validate-nix:
   nix flake check --no-build
+
+# Read-only formatting gate. Builds `checks.treefmt`, which runs
+# treefmt over a /nix/store snapshot of the source tree and fails
+# if anything would change. Does NOT modify files in the worktree
+# --- the modifying counterpart is `codemod-fmt-treefmt`. See
+# eng-design_patterns-justfile(7) LINT-FMT.
+[group("pre-build")]
+lint-fmt:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+  nix build --print-build-logs --no-link ".#checks.${system}.treefmt"
 
 # Reinstalls the native-messaging-host manifest pointing at the
 # nix-built (firefox-wrapped) chrest, then reloads the running
 # extension. Uses the nix output rather than go/build/release/ so the
 # manifest points at a binary with firefox + monolith on PATH.
-reload:
+[group("operational")]
+load-extension:
   #!/usr/bin/env bash
   set -euo pipefail
   out=$(nix build --no-link --print-out-paths)
   "$out/bin/chrest" install jbcogiaaaaikinoljmplilmcnicpfoek
   chrest reload-extension
 
-# Bats + MCP-inspector integration on top of the nix-built chrest.
-# Unit tests already ran inside the nix sandbox during `build`'s
-# checkPhase, so this layer only adds integration coverage. Matches
-# madder, where `nix build` covers unit tests and `just test` runs
-# the integration lanes.
-test: test-mcp test-mcp-bats
-
 # Devshell rapid-iteration. Mirrors madder's `test-go *flags`.
-[group("dev")]
+[group("post-build")]
 test-go *flags:
   cd go && go test {{flags}} ./...
 
@@ -68,8 +103,8 @@ test-go *flags:
 # updated gomod2nix.toml alongside go.mod and go.sum. `nix build`
 # will fail loudly if the manifest is out of sync — that's the
 # drift signal now, not a justfile drift-guard.
-[group("maint")]
-gomod2nix:
+[group("build")]
+build-gomod2nix:
   cd go && gomod2nix
 
 dagnabit := "nix run github:amarbel-llc/purse-first#dagnabit --"
@@ -78,22 +113,22 @@ dagnabit := "nix run github:amarbel-llc/purse-first#dagnabit --"
 # export` directives in go/internal/. Stage the regenerated pkgs/
 # tree alongside any source changes; external consumers (e.g.
 # dodder) import via pkgs/<leaf>, so the facade is the API contract.
-[group("maint")]
-dagnabit-export:
+[group("build")]
+build-dagnabit-export:
   cd go && {{dagnabit}} export
 
 # CI drift gate: pkgs/ must match what `dagnabit export` would emit
 # right now. Re-runs the exporter into a sibling dir (dagnabit's
 # -output-dir is always module-root-relative, so we can't use a
 # /tmp path) and diffs against the committed pkgs/. Joined into the
-# `check` aggregator so merges catch facades that fell behind their
-# internal package's exported surface.
-[group("check")]
-check-dagnabit-export:
+# `validate` aggregator so merges catch facades that fell behind
+# their internal package's exported surface.
+[group("pre-build")]
+validate-dagnabit-export:
   #!/usr/bin/env bash
   set -euo pipefail
   cd go
-  tmp_rel="pkgs.check-dagnabit-export.tmp"
+  tmp_rel="pkgs.validate-dagnabit-export.tmp"
   trap 'rm -rf "$tmp_rel"' EXIT
   {{dagnabit}} export -output-dir "$tmp_rel"
   diff -ru pkgs "$tmp_rel"
@@ -101,10 +136,10 @@ check-dagnabit-export:
 # CI drift gate: NATO-level tiering of go/internal/ must match what
 # `dagnabit reposition` would compute by current dependency height.
 # Runs the dry-run; any would-move event is a drift failure. Run
-# `just dagnabit-reposition apply` to fix (the move subcommand does
-# type-aware import rewrites in callers automatically).
-[group("check")]
-check-dagnabit-reposition:
+# `just codemod-dagnabit-reposition apply` to fix (the move
+# subcommand does type-aware import rewrites in callers automatically).
+[group("pre-build")]
+validate-dagnabit-reposition:
   #!/usr/bin/env bash
   set -euo pipefail
   cd go
@@ -112,7 +147,7 @@ check-dagnabit-reposition:
   if [ -n "$out" ]; then
     echo "$out"
     echo "FAIL: dagnabit-reposition would-move events present (above)." >&2
-    echo "      Run 'just dagnabit-reposition apply' to fix the layout drift." >&2
+    echo "      Run 'just codemod-dagnabit-reposition apply' to fix the layout drift." >&2
     exit 1
   fi
 
@@ -120,8 +155,8 @@ check-dagnabit-reposition:
 # dependency height. Dry-runs by default; pass `apply` to commit
 # moves. Re-run when a dependency change bumps a leaf into a
 # different NATO tier (rare).
-[group("maint")]
-dagnabit-reposition apply="":
+[group("codemod")]
+codemod-dagnabit-reposition apply="":
   #!/usr/bin/env bash
   set -euo pipefail
   cd go
@@ -131,8 +166,18 @@ dagnabit-reposition apply="":
     {{dagnabit}} -n -v internal
   fi
 
+# All `nix fmt`-driven rewrites.
+codemod-fmt: codemod-fmt-treefmt
+
+# Apply treefmt over the worktree. Modifying counterpart to
+# `lint-fmt`; both consume the same treefmt.nix config.
+[group("codemod")]
+codemod-fmt-treefmt:
+  nix fmt
+
 mcp-inspect := "npx @modelcontextprotocol/inspector --cli"
 
+[group("post-build")]
 test-mcp:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -157,6 +202,7 @@ test-mcp:
   done
   echo "All MCP validations passed"
 
+[group("post-build")]
 test-mcp-bats:
   #!/usr/bin/env bash
   # Two bats lanes against the same nix-built chrest:
@@ -222,26 +268,28 @@ test-mcp-bats:
   run_lane firefox bats --no-sandbox --filter-tags 'firefox' zz-tests_bats/ || rc=1
   exit $rc
 
-dev-install-mcp:
+# Write a project-local .mcp.json with a `chrest-dev` server key
+# pointing at the nix store path. Gives us a separate MCP entry
+# alongside the production `chrest`, so we can A/B against the dev
+# binary without overwriting the global ~/.claude.json. The
+# .mcp.json must be generated by the same binary it points at because
+# `chrest dev-mcp` resolves its own executable path.
+[group("operational")]
+install-mcp-dev:
   #!/usr/bin/env bash
-  # `dev-mcp` writes a project-local .mcp.json with a `chrest-dev`
-  # server key pointing at the nix store path. That gives us a
-  # separate MCP entry alongside the production `chrest`, so we can
-  # A/B against the dev binary without overwriting the global
-  # ~/.claude.json. The .mcp.json must be generated by the same
-  # binary it points at because dev-mcp resolves its own executable
-  # path.
   set -euo pipefail
   out=$(nix build --no-link --print-out-paths)
   "$out/bin/chrest" dev-mcp
 
-demo:
+# Generate the VHS demo GIF.
+[group("build")]
+build-demo:
   vhs demo/demo.tape
 
 # Tag a Go module release. The "go/v" prefix is added for you, so pass
-# the semver without it. Usage: just tag 0.0.2 "feat: release tooling"
-[group('release')]
-tag version message:
+# the semver without it. Usage: just deploy-tag 0.0.2 "feat: release tooling"
+[group("operational")]
+deploy-tag version message:
   #!/usr/bin/env bash
   set -euo pipefail
   tag="go/v{{version}}"
@@ -261,7 +309,7 @@ tag version message:
 # auto-injected -ldflags (see go/cmd/chrest/main.go version/commit
 # vars), so flake.nix is the single source of truth. No-op if already
 # at the target version. Usage: just bump-version 0.0.2
-[group('release')]
+[group("maintenance")]
 bump-version new_version:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -277,17 +325,17 @@ bump-version new_version:
 # flake.nix, commits the bump with a changelog-style message built
 # from commits since the last go/v* tag, pushes master, then signs
 # and pushes the go/v{{version}} tag. The "go/v" prefix is added for
-# you, so pass the semver without it. Usage: just release 0.0.2
+# you, so pass the semver without it. Usage: just deploy-release 0.0.2
 #
-# Use `just tag <version> <message>` directly if you want to
+# Use `just deploy-tag <version> <message>` directly if you want to
 # control the commit message yourself without bumping.
-[group('release')]
-release version:
+[group("operational")]
+deploy-release version:
   #!/usr/bin/env bash
   set -euo pipefail
   current_branch=$(git rev-parse --abbrev-ref HEAD)
   if [[ "$current_branch" != "master" ]]; then
-    echo "ERROR: just release must be run on master (currently on $current_branch)" >&2
+    echo "ERROR: just deploy-release must be run on master (currently on $current_branch)" >&2
     exit 1
   fi
   prev=$(git tag --sort=-v:refname -l "go/v*" | head -1)
@@ -309,13 +357,14 @@ release version:
     git push origin master
     echo "==> pushed flake.nix bump to master"
   fi
-  just tag "{{version}}" "$msg"
+  just deploy-tag "{{version}}" "$msg"
 
-[group: 'explore']
+[group("explore")]
 explore-setup browser="firefox":
   just build
   go/build/release/chrest init --browser {{browser}} --name primary
 
+[group("explore")]
 explore-run browser="firefox":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -325,6 +374,7 @@ explore-run browser="firefox":
     web-ext run --target chromium --source-dir extension/dist-chrome --start-url "chrome://extensions"
   fi
 
+[group("explore")]
 explore-capture format="text" browser="firefox" url="https://example.com" output="":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -341,6 +391,7 @@ explore-capture format="text" browser="firefox" url="https://example.com" output
 # and echoes the list at the end. Uses the debug-tagged binary
 # (go/build/release/chrest) because it's already built in the dev loop
 # and firefox is on the dev shell PATH.
+[group("explore")]
 explore-markdown-samples:
   #!/usr/bin/env bash
   set -uo pipefail
@@ -374,7 +425,7 @@ explore-markdown-samples:
   echo "=== outputs ===" >&2
   ls -la "$out_dir"/*.md 2>/dev/null >&2 || true
 
-[group: 'explore']
+[group("explore")]
 explore-vendor-dewey:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -418,7 +469,7 @@ explore-vendor-dewey:
   # Exclude golf/command/huh/ subpackage (charmbracelet dep, not used by chrest)
   echo "done — $dst populated"
 
-[group: 'explore']
+[group("explore")]
 explore-mcp-v1-debug:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -431,7 +482,7 @@ explore-mcp-v1-debug:
   echo "=== tools/list response (web-fetch) ==="
   echo "$result" | grep '"id":2' | jq '[.result.tools[] | select(.name == "web-fetch")] | first'
 
-[group: 'explore']
+[group("explore")]
 explore-mcp-web-fetch-blocks url="https://example.com" selector="":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -453,7 +504,7 @@ explore-mcp-web-fetch-blocks url="https://example.com" selector="":
 # spike for the web-fetch content-type-dispatch design
 # (docs/plans/2026-04-29-web-fetch-content-type-dispatch-design.md).
 # Launches a real headless Firefox via the standard NewSession.
-[group: 'explore']
+[group("explore")]
 explore-bidi-intercept:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -465,7 +516,7 @@ explore-bidi-intercept:
 # Same as explore-bidi-intercept but exercises the typed BiDi intercept
 # wrappers (Session.AddResponseIntercept / ContinueResponse /
 # RemoveIntercept) instead of the raw conn.Send calls.
-[group: 'explore']
+[group("explore")]
 explore-bidi-intercept-typed:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -474,7 +525,7 @@ explore-bidi-intercept-typed:
     -run TestSession_AddResponseIntercept \
     ./src/charlie/firefox/...
 
-[group: 'explore']
+[group("explore")]
 explore-rewrite-dewey-imports:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -499,6 +550,7 @@ explore-rewrite-dewey-imports:
   done < <(find go/src go/cmd -name '*.go' -type f)
   echo "rewrote $count2 chrest source files"
 
+[group("explore")]
 explore-client +httpie_args:
   go/build/release/chrest client {{httpie_args}}
 
@@ -508,6 +560,7 @@ explore-client +httpie_args:
 # output JSON, and echoes any stderr chrest emitted. Intended to be
 # re-run after chrest changes to verify the cross-session contract
 # still matches.
+[group("explore")]
 explore-capture-batch input="/home/sasha/eng/aim/fixtures/batch-input.example.json":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -526,6 +579,7 @@ explore-capture-batch input="/home/sasha/eng/aim/fixtures/batch-input.example.js
 #
 # Output goes under /tmp/chrest-envelope-review.<timestamp>/. Prints
 # the batch output JSON + a categorized dump of every artifact.
+[group("explore")]
 explore-envelope-review format="text" browser="firefox" split="true":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -614,6 +668,7 @@ explore-envelope-review format="text" browser="firefox" split="true":
 # Used while investigating chrest#27 — lets us see whether pdfcpu put
 # the re-stamped /Info entries in plain text or inside a compressed
 # object stream (answer: compressed). Keep as a debug tool.
+[group("explore")]
 explore-pdf-inspect-info pdf:
   #!/usr/bin/env python3
   import zlib, re
@@ -634,6 +689,7 @@ explore-pdf-inspect-info pdf:
 
 # Print chrest's help text (both top-level and per-command) so we can
 # verify command discoverability after any registration changes.
+[group("explore")]
 explore-help subcommand="":
   #!/usr/bin/env bash
   set -euo pipefail
@@ -647,6 +703,7 @@ explore-help subcommand="":
 # sha256 against the remote implementation's hash. Output file lives
 # next to the input in the aim/ directory so other sessions can diff
 # it. Hash printed to stdout and written beside the output file.
+[group("explore")]
 explore-jcs-fixture vector="jcs-spec-vector-1" expected="":
   #!/usr/bin/env bash
   set -euo pipefail

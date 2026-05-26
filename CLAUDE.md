@@ -15,24 +15,38 @@ Ad-hoc debug/exploration recipes live under `[group: 'explore']` in the root
 justfile — prefer adding recipes there over writing one-off shell scripts.
 
 ### Full Build
+
+Recipe taxonomy follows `eng-design_patterns-justfile(7)`: verb-noun
+names, lifecycle groups (`pre-build`, `build`, `post-build`, etc.),
+aggregate-only entry recipes (`validate`, `lint`, `build`, `test`).
+
 ```bash
-just build                      # nix build (chrest derivation: builds three binaries + runs unit tests in checkPhase)
-just                            # default: build check test (the spinclass pre-merge surface, eng#37 aggregator layout)
-just check                      # check-nix + check-dagnabit-export + check-dagnabit-reposition
-just check-nix                  # `nix flake check --no-build` with cross-system .drv gcroots in .nix-gcroots/
-just check-dagnabit-export      # drift gate: go/pkgs/ matches what `dagnabit export` would generate
-just check-dagnabit-reposition  # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
-just reload                     # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
-just test                       # test-mcp + test-mcp-bats (unit tests already ran in checkPhase)
-just test-mcp                   # validates MCP tools, resources, and annotations
-just test-mcp-bats              # BATS integration suite against a real unix socket
-just build-go                   # devshell-only rapid iteration: cd go && go build -o build/release/ ./cmd/...
-just test-go [flags]            # devshell-only rapid iteration: cd go && go test {{flags}} ./...
-just gomod2nix                  # manual maint: regenerate gomod2nix.toml after a go.mod change
-just dagnabit-export            # regenerate go/pkgs/<leaf>/main.go facades from //go:generate dagnabit export directives
-just dagnabit-reposition apply  # apply dagnabit's computed NATO retiering (drop `apply` for dry-run)
-just dev-install-mcp            # build + install MCP server to ~/.claude.json
-just demo                       # generate VHS demo GIF
+just                                     # default: validate lint build test (sweatfile pre-merge surface)
+just build                               # aggregate: build-nix
+just build-nix                           # `nix build --no-link` (chrest derivation: three binaries + Go unit suite in checkPhase)
+just validate                            # validate-devshell + validate-nix + validate-dagnabit-export + validate-dagnabit-reposition
+just validate-devshell                   # builds .#devShells.<arch>-linux.default; catches devshell-only regressions
+just validate-nix                        # `nix flake check --no-build`
+just validate-dagnabit-export            # drift gate: go/pkgs/ matches what `dagnabit export` would generate
+just validate-dagnabit-reposition        # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
+just lint                                # aggregate: lint-fmt
+just lint-fmt                            # builds checks.treefmt (read-only treefmt gate; codemod-fmt-treefmt is the modifier)
+just codemod-fmt                         # aggregate: codemod-fmt-treefmt
+just codemod-fmt-treefmt                 # `nix fmt` (treefmt-nix wrapper; rewrites the worktree)
+just load-extension                      # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
+just test                                # test-mcp + test-mcp-bats (unit tests already ran in checkPhase)
+just test-mcp                            # validates MCP tools, resources, and annotations
+just test-mcp-bats                       # BATS integration suite against a real unix socket
+just build-go                            # devshell-only rapid iteration: cd go && go build -o build/release/ ./cmd/...
+just test-go [flags]                     # devshell-only rapid iteration: cd go && go test {{flags}} ./...
+just build-gomod2nix                     # manual maint: regenerate gomod2nix.toml after a go.mod change
+just build-dagnabit-export               # regenerate go/pkgs/<leaf>/main.go facades from //go:generate dagnabit export directives
+just codemod-dagnabit-reposition apply   # apply dagnabit's computed NATO retiering (drop `apply` for dry-run)
+just install-mcp-dev                     # build + install MCP server to ~/.claude.json
+just build-demo                          # generate VHS demo GIF
+just deploy-tag <version> <message>      # sign + push a go/v<version> tag
+just deploy-release <version>            # bump-version, commit, push master, then deploy-tag
+just bump-version <version>              # sed-rewrite chrestVersion in flake.nix
 ```
 
 `test-mcp-bats` is wall-clock bounded (180s timeout) and validates success by
@@ -53,10 +67,10 @@ so pdfcpu's config-dir creation succeeds in the sandbox). A clean
 `github.com/amarbel-llc/purse-first/libs/dewey` — chrest imports its
 `pkgs/<leaf>` facades (e.g. `pkgs/errors`, `pkgs/ohio`, `pkgs/command`).
 No vendored copy lives in this repo; bumping the pinned version is a
-normal `go get` + `just gomod2nix` cycle.
+normal `go get` + `just build-gomod2nix` cycle.
 
 Adding a Go dependency: from inside the nix devshell, `just go/add-dep
-<pkg>` (or hand-edit `go/go.mod` + `go mod tidy`), then `just gomod2nix`
+<pkg>` (or hand-edit `go/go.mod` + `go mod tidy`), then `just build-gomod2nix`
 to regenerate `go/gomod2nix.toml`. Stage `go.mod`, `go.sum`, and
 `gomod2nix.toml` together. `nix build` is the drift signal — it fails
 loudly if the manifest is out of sync — so there is no longer a justfile-
@@ -64,14 +78,14 @@ level drift-guard recipe.
 
 ### Go (from `go/` directory)
 ```bash
-just tests-go           # run tests: go test -v ./...
-just check              # run govulncheck and go vet
+just test-go            # run tests: go test -v ./...
+just lint               # lint-go-vuln + lint-go-vet (govulncheck and go vet)
 just codemod-go-fmt     # format with goimports and gofumpt
 just update-go          # update dependencies
 just add-dep <pkg>      # go get <pkg> + go mod tidy
 ```
 
-Builds (`nix build`, `just build-go`) and `gomod2nix` maintenance live in
+Builds (`nix build`, `just build-go`) and `build-gomod2nix` maintenance live in
 the top-level justfile so they are discoverable without `cd go`.
 
 ### Extension (from `extension/` directory)
@@ -117,19 +131,19 @@ stable across NATO-tier moves. Currently exported leaves:
   `local_working_copy/format_chrest.go`.
 
 Add a new public leaf by placing `//go:generate dagnabit export` in
-the package's `main.go` and running `just dagnabit-export`. The
-`just check-dagnabit-export` recipe (in the `check:` aggregator)
+the package's `main.go` and running `just build-dagnabit-export`. The
+`just validate-dagnabit-export` recipe (in the `validate:` aggregator)
 fails the build if `pkgs/` falls behind `internal/`. Similarly,
-`just check-dagnabit-reposition` fails if `internal/<level>/<leaf>`
+`just validate-dagnabit-reposition` fails if `internal/<level>/<leaf>`
 no longer matches dagnabit's computed dependency height — run
-`just dagnabit-reposition apply` to retier.
+`just codemod-dagnabit-reposition apply` to retier.
 
 ### Go Package Structure (`go/internal/`)
 
 Packages are referenced by their **leaf** name, written as `*/<leaf>`,
 because dagnabit reposition moves leaves across NATO levels as their
 dependency graph shifts. Pinning the level here creates lies the
-moment `just dagnabit-reposition apply` runs.
+moment `just codemod-dagnabit-reposition apply` runs.
 
 - `*/browser` - Browser detection utilities
 - `*/symlink` - Symlink handling
