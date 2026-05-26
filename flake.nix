@@ -235,9 +235,18 @@
             # but unused here. BATS_LIB_PATH is set in shellHook below.
             bats.packages.${system}.bats
           ]
+          ++ [
+            # Use the fork-pinned go_1_26 (currently 1.26.3 per
+            # amarbel-llc/nixpkgs#27, addressing GO-2026-4971 +
+            # GO-2026-4918). pkgs-master ships bare 1.26.2; the
+            # pin lives in the fork's overlay, which `pkgs` here
+            # applies. Mismatch between devshell-go and prod-build-go
+            # is the kind of vendor-env drift that validate-devshell
+            # also guards.
+            pkgs.go_1_26
+          ]
           ++ (with pkgs-master; [
             delve
-            go_1_26
             gofumpt
             golangci-lint
             golines
