@@ -77,6 +77,31 @@ func MultiExtract(
 	return multiExtractFromSession(ctx, session, params), nil
 }
 
+// MultiExtractFromSession runs the format extractors against an
+// already-opened, already-navigated session, letting a caller that
+// owns its own session (e.g., the BiDi response-intercept dispatcher
+// in web-fetch) avoid the redundant Firefox launch + re-navigation
+// that MultiExtract would perform — see chrest#64.
+//
+// The caller retains ownership of session and is responsible for
+// closing it. Neither navigation nor viewport configuration happens
+// here; configure those on the session before invoking.
+func MultiExtractFromSession(
+	ctx context.Context,
+	session *firefox.Session,
+	params MultiExtractParams,
+) ([]FormatResult, error) {
+	if len(params.Formats) == 0 {
+		return nil, fmt.Errorf("at least one format is required")
+	}
+	for _, f := range params.Formats {
+		if !ValidFormat(f) {
+			return nil, fmt.Errorf("unknown format %q", f)
+		}
+	}
+	return multiExtractFromSession(ctx, session, params), nil
+}
+
 // openCaptureSession opens a fresh headless-Firefox session for a
 // capture. The url is required so we fail fast (and consistently with
 // how the CLI surfaced this error before unification) rather than

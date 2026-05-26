@@ -747,11 +747,14 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 		return nil, fmt.Errorf("web-fetch: dispatcher produced no entry")
 	}
 
-	// Now actually fill the entry. For HTML, run MultiExtract; for
-	// Text, read the body and use rawfetch.BuildFromText.
+	// Now actually fill the entry. For HTML, extract from the existing
+	// intercept session — it's already navigated, so calling MultiExtract
+	// (which opens a fresh session and navigates again) would double-
+	// fetch the page (chrest#64). For Text, read the body and use
+	// rawfetch.BuildFromText.
 	switch out.entry.Path {
 	case "html":
-		results, err := tools.MultiExtract(ctx, tools.MultiExtractParams{
+		results, err := tools.MultiExtractFromSession(ctx, session, tools.MultiExtractParams{
 			URL:     urlStr,
 			Formats: []string{"text", "markdown-reader", "html-outer"},
 		})
