@@ -740,10 +740,36 @@ explore-jcs-fixture vector="jcs-spec-vector-1" expected="":
     fi
   fi
 
+# Drive a chrest binary's MCP loop with init + a single tools/call,
+# emitting stdout and stderr separately so panics or framing errors
+# the proxy normally swallows are visible. Defaults to the
+# PATH-resolved `chrest` so the installed binary can be compared
+# against a worktree build. Filed for amarbel-llc/moxy#275 (proxy
+# reports "child process X exited unexpectedly" with no further
+# detail) — delete when that issue resolves.
+[group("debug")]
+debug-mcp-call bin="chrest" tool="browser-info" args="{}":
+  #!/usr/bin/env bash
+  set -uo pipefail
+  init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}'
+  notif='{"jsonrpc":"2.0","method":"notifications/initialized"}'
+  call=$(jq -nc --arg t "{{tool}}" --argjson a '{{args}}' '
+    {jsonrpc:"2.0",id:2,method:"tools/call",params:{name:$t, arguments:$a}}')
+  err_log=$(mktemp)
+  trap 'rm -f "$err_log"' EXIT
+  echo "=== driving: {{bin}} mcp ==="
+  echo "=== tool: {{tool}} ==="
+  printf '%s\n' "$init" "$notif" "$call" | timeout 30 {{bin}} mcp 2>"$err_log"
+  rc=$?
+  echo
+  echo "=== exit: $rc ==="
+  echo "=== stderr ==="
+  cat "$err_log"
+
 # Curl a URL and report every element whose `id` attribute matches the
 # given value, in document order. Used to confirm whether a page has
 # duplicate ids that confuse cascadia.Query first-match semantics.
-[group: 'explore']
+[group("explore")]
 explore-inspect-page-ids url id:
   #!/usr/bin/env bash
   set -euo pipefail
