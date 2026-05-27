@@ -1,12 +1,25 @@
 {
   inputs = {
-    nixpkgs.url = "github:amarbel-llc/nixpkgs";
+    nixpkgs = {
+      url = "github:amarbel-llc/nixpkgs";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.treefmt-nix.follows = "treefmt-nix";
+      inputs.bun2nix.follows = "bun2nix";
+      inputs.systems.follows = "bun2nix/systems";
+    };
     nixpkgs-master.url = "github:NixOS/nixpkgs/d233902339c02a9c334e7e593de68855ad26c4cb";
-    utils.url = "https://flakehub.com/f/numtide/flake-utils/0.1.102";
+    utils = {
+      url = "https://flakehub.com/f/numtide/flake-utils/0.1.102";
+      inputs.systems.follows = "bun2nix/systems";
+    };
 
     bun2nix = {
       url = "github:nix-community/bun2nix";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.treefmt-nix.follows = "treefmt-nix";
+      # Force bun2nix's flake-parts onto nixpkgs's rev so the lock
+      # carries only one flake-parts revision (chrest#87).
+      inputs.flake-parts.follows = "nixpkgs/flake-parts";
     };
 
     # `nix fmt` driver. Config lives in ./treefmt.nix. The sandboxed
@@ -35,6 +48,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
+      inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     # Consumed via goFlakeInputs (./go/gomod.nix). A tap bump only
@@ -46,6 +60,10 @@
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
       inputs.bats.follows = "bats";
+      inputs.treefmt-nix.follows = "treefmt-nix";
+      inputs.crane.follows = "purse-first/crane";
+      inputs.gomod2nix.follows = "purse-first/gomod2nix";
+      inputs.rust-overlay.follows = "purse-first/rust-overlay";
     };
 
     # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
@@ -54,6 +72,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
+    };
+
+    # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).
+    doppelgang = {
+      url = "github:amarbel-llc/doppelgang";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.utils.follows = "utils";
+      inputs.treefmt-nix.follows = "treefmt-nix";
     };
   };
 
@@ -69,6 +96,7 @@
       bats,
       tap,
       purse-first,
+      doppelgang,
     }:
     let
       # Single source of truth for the release version. Burnt into:
@@ -301,6 +329,9 @@
           ])
           ++ [
             pkgs.gomod2nix
+            # `doppelgang lint --flake .` runs in the `lint` aggregate
+            # as a flake.lock dedup gate (chrest#87).
+            doppelgang.packages.${system}.default
           ];
 
           # Passthru: use the outer-shell git (user's nix profile, NixOS

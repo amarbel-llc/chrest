@@ -30,8 +30,9 @@ just validate-devshell                   # builds .#devShells.<arch>-linux.defau
 just validate-nix                        # `nix flake check --no-build`
 just validate-dagnabit-export            # drift gate: go/pkgs/ matches what `dagnabit export` would generate
 just validate-dagnabit-reposition        # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
-just lint                                # aggregate: lint-fmt
+just lint                                # aggregate: lint-fmt + lint-doppelgang
 just lint-fmt                            # builds checks.treefmt (read-only treefmt gate; codemod-fmt-treefmt is the modifier)
+just lint-doppelgang                     # `doppelgang lint --flake . --no-closure` (flake.lock dedup gate; see chrest#87)
 just codemod-fmt                         # aggregate: codemod-fmt-treefmt
 just codemod-fmt-treefmt                 # `nix fmt` (treefmt-nix wrapper; rewrites the worktree)
 just load-extension                      # nix-builds chrest, reinstalls native-messaging manifest, reloads extension

@@ -11,7 +11,7 @@ default: validate lint build test
 validate: validate-devshell validate-nix validate-dagnabit-export validate-dagnabit-reposition
 
 # Pre-build opinion checks: read-only style / convention.
-lint: lint-fmt
+lint: lint-fmt lint-doppelgang
 
 # All build artifacts. `build-nix` runs the chrest derivation (which
 # builds chrest + chrest-server + chrest-jcs and runs the Go unit
@@ -80,6 +80,15 @@ lint-fmt:
   set -euo pipefail
   system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
   nix build --print-build-logs --no-link ".#checks.${system}.treefmt"
+
+# Flake-lock dedup gate (chrest#87). Fails if any input pins an
+# identical source more than once (collapsible via `inputs.X.follows`)
+# or if a source repo is pinned at multiple revs. `--no-closure`
+# skips the build-graph version-drift pass so the recipe runs
+# offline; the `build` aggregate exercises the build graph.
+[group("pre-build")]
+lint-doppelgang:
+  doppelgang lint --flake . --no-closure
 
 # Reinstalls the native-messaging-host manifest pointing at the
 # nix-built (firefox-wrapped) chrest, then reloads the running
