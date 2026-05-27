@@ -116,7 +116,10 @@ test-go *flags:
 build-gomod2nix:
   cd go && gomod2nix
 
-dagnabit := "nix run github:amarbel-llc/purse-first#dagnabit --"
+# `dagnabit` is pinned via `purse-first.packages.${system}.dagnabit`
+# in flake.nix's devshell (chrest#90). Bumping it now requires
+# `nix flake update --update-input purse-first` rather than picking up
+# whatever purse-first HEAD happens to emit today.
 
 # Regenerate pkgs/<leaf>/main.go facades from `//go:generate dagnabit
 # export` directives in go/internal/. Stage the regenerated pkgs/
@@ -124,7 +127,7 @@ dagnabit := "nix run github:amarbel-llc/purse-first#dagnabit --"
 # dodder) import via pkgs/<leaf>, so the facade is the API contract.
 [group("build")]
 build-dagnabit-export:
-  cd go && {{dagnabit}} export
+  cd go && dagnabit export
 
 # CI drift gate: pkgs/ must match what `dagnabit export` would emit
 # right now. Re-runs the exporter into a sibling dir (dagnabit's
@@ -139,7 +142,7 @@ validate-dagnabit-export:
   cd go
   tmp_rel="pkgs.validate-dagnabit-export.tmp"
   trap 'rm -rf "$tmp_rel"' EXIT
-  {{dagnabit}} export -output-dir "$tmp_rel"
+  dagnabit export -output-dir "$tmp_rel"
   diff -ru pkgs "$tmp_rel"
 
 # CI drift gate: NATO-level tiering of go/internal/ must match what
@@ -152,7 +155,7 @@ validate-dagnabit-reposition:
   #!/usr/bin/env bash
   set -euo pipefail
   cd go
-  out=$({{dagnabit}} -n internal)
+  out=$(dagnabit -n internal)
   if [ -n "$out" ]; then
     echo "$out"
     echo "FAIL: dagnabit-reposition would-move events present (above)." >&2
@@ -170,9 +173,9 @@ codemod-dagnabit-reposition apply="":
   set -euo pipefail
   cd go
   if [ "{{apply}}" = "apply" ]; then
-    {{dagnabit}} internal
+    dagnabit internal
   else
-    {{dagnabit}} -n -v internal
+    dagnabit -n -v internal
   fi
 
 # All `nix fmt`-driven rewrites.

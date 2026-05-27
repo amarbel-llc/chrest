@@ -72,6 +72,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
+      inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).
@@ -332,6 +333,12 @@
             # `doppelgang lint --flake .` runs in the `lint` aggregate
             # as a flake.lock dedup gate (chrest#87).
             doppelgang.packages.${system}.default
+            # Pinned `dagnabit` for build-dagnabit-export +
+            # validate-dagnabit-export + codemod-dagnabit-reposition.
+            # Previously the justfile did `nix run github:.../#dagnabit`
+            # which followed purse-first HEAD and surfaced upstream
+            # emitter-format drift on unrelated PRs (chrest#90).
+            purse-first.packages.${system}.dagnabit
           ];
 
           # Passthru: use the outer-shell git (user's nix profile, NixOS
