@@ -112,7 +112,7 @@
       # pushes both `vX.Y.Z` (project-level canonical) and
       # `go/vX.Y.Z` (path-prefix tag preserved for downstream Go
       # module consumers, e.g. dodder).
-      chrestVersion = "0.2.6";
+      chrestVersion = "0.2.7";
       # shortRev for clean builds, dirtyShortRev for dirty working
       # trees, "unknown" as a last-resort fallback.
       chrestCommit = self.shortRev or self.dirtyShortRev or "unknown";
