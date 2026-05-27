@@ -103,7 +103,7 @@ level drift-guard recipe.
 ```bash
 just test-go            # run tests: go test -v ./...
 just lint               # lint-go-vuln + lint-go-vet (govulncheck and go vet)
-just codemod-go-fmt     # format with goimports and gofumpt
+just codemod-fmt-go     # format with goimports and gofumpt (verb-nesting per eng-design_patterns-justfile(7))
 just update-go          # update dependencies
 just add-dep <pkg>      # go get <pkg> + go mod tidy
 ```

@@ -6,7 +6,8 @@ build: build-chrome build-firefox
 
 [private]
 build-one browser:
-  #! /usr/bin/env -S bash -e
+  #!/usr/bin/env bash
+  set -euo pipefail
 
   root="$(git rev-parse --show-toplevel)"
 
@@ -25,7 +26,8 @@ build-firefox: (build-one "firefox")
 
 [group("operational")]
 deploy-firefox: build-firefox
-  #! /usr/bin/env -S bash -e
+  #!/usr/bin/env bash
+  set -euo pipefail
 
   set -a
   source .secrets-firefox.env

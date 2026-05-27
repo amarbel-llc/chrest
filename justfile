@@ -112,7 +112,7 @@ test-go *flags:
 # updated gomod2nix.toml alongside go.mod and go.sum. `nix build`
 # will fail loudly if the manifest is out of sync — that's the
 # drift signal now, not a justfile drift-guard.
-[group("build")]
+[group("maintenance")]
 build-gomod2nix:
   cd go && gomod2nix
 

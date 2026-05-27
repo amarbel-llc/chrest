@@ -40,7 +40,7 @@ clean-go-modcache:
 clean-go: clean-go-cache clean-go-modcache
 
 [group("codemod")]
-codemod-go-fmt:
+codemod-fmt-go:
   goimports -w {{files_go}}
   gofumpt -l -w src
 
