@@ -1,14 +1,14 @@
 
-# Aggregator layout per eng#37 + eng#91: `default` chains the four
-# lifecycle phases (`validate lint build test`); each is an
+# Aggregator layout per eng#37 + eng#91: `default` chains the
+# lifecycle aggregates (`validate lint build verify test`); each is an
 # aggregate-only recipe that lists every leaf in its phase. `default`
 # is the sweatfile pre-merge hook, so anything that should gate a
 # merge belongs in one of these aggregates. See
 # eng-design_patterns-justfile(7) for the verb / group taxonomy.
-default: validate lint build test
+default: validate lint build verify test
 
 # Pre-build static checks: hard failures on parse / schema / drift.
-validate: validate-devshell validate-nix validate-dagnabit-export validate-dagnabit-reposition
+validate: validate-devshell validate-dagnabit-export validate-dagnabit-reposition
 
 # Pre-build opinion checks: read-only style / convention.
 lint: lint-fmt lint-doppelgang
@@ -20,6 +20,13 @@ lint: lint-fmt lint-doppelgang
 # (build-extension) are intentionally NOT in the aggregate — they
 # rebuild artifacts the prod derivation already covers.
 build: build-nix
+
+# Post-build artifact acceptance. `verify-nix` forces the built chrest
+# derivation through the flake schema, so it can only run after
+# `build` (see the recipe comment). Distinct from `test` (integration
+# suites) per the verify-vs-test split in
+# eng-design_patterns-justfile(7).
+verify: verify-nix
 
 # Post-build smoke + integration. Unit tests already ran inside the
 # nix sandbox during `build-nix`'s checkPhase, so this layer only
@@ -54,21 +61,6 @@ build-extension:
 validate-devshell:
   nix build --no-link .#devShells.{{ arch() }}-linux.default
 
-# Evaluate flake outputs for every supported system. Catches malformed
-# fixed-output hashes on non-host platforms before they surface in
-# flakehub-push's inspect wrapper (see chrest#50).
-#
-# Previously pre-pinned cross-system devShell + package .drvs as GC
-# roots via `nix-instantiate --add-root`. That loop was removed
-# because it began failing on cross-system IFDs whose outputs aren't
-# fixed-output (so they can't be substituted from cache and can't be
-# built on a host without binfmt/QEMU for the foreign system). See
-# amarbel-llc/eng#98 for whether the gcroots strategy is still
-# needed at all.
-[group("pre-build")]
-validate-nix:
-  nix flake check --no-build
-
 # Read-only formatting gate. Builds `checks.treefmt`, which runs
 # treefmt over a /nix/store snapshot of the source tree and fails
 # if anything would change. Does NOT modify files in the worktree
@@ -101,6 +93,27 @@ load-extension:
   out=$(nix build --no-link --print-out-paths)
   "$out/bin/chrest" install jbcogiaaaaikinoljmplilmcnicpfoek
   chrest reload-extension
+
+# Post-build flake-schema check. Evaluating `apps.default.program`
+# forces the chrest derivation, which transitively realizes the
+# flake-input-go_mod `merged-go.mod` IFD. So this is a post-build
+# `verify` (runs against the built artifact), not a pre-build
+# `validate` — see eng-design_patterns-justfile(7) verify-vs-validate.
+# The `build-nix` dep warms the IFD; without it, `nix flake check
+# --no-build` aborts with `merged-go.mod.drv is not valid`.
+#
+# `--no-eval-cache`: a prior cold `--no-build` run caches the IFD
+# failure under the flake fingerprint, so a later warm run aborts with
+# "cached failed attribute ... unexpectedly succeeded". Bypassing the
+# eval cache makes the gate deterministic regardless of cache history.
+# (Removing the upstream IFD would let this move back to `validate`.)
+#
+# Also guards malformed fixed-output hashes on non-host platforms
+# before flakehub-push's inspect wrapper (chrest#50); a removed
+# cross-system gcroots loop is tracked in eng#98.
+[group("post-build")]
+verify-nix: build-nix
+  nix flake check --no-build --no-eval-cache
 
 # Devshell rapid-iteration. Mirrors madder's `test-go *flags`.
 [group("post-build")]

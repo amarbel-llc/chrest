@@ -19,15 +19,14 @@ justfile — prefer adding recipes there over writing one-off shell scripts.
 
 Recipe taxonomy follows `eng-design_patterns-justfile(7)`: verb-noun
 names, lifecycle groups (`pre-build`, `build`, `post-build`, etc.),
-aggregate-only entry recipes (`validate`, `lint`, `build`, `test`).
+aggregate-only entry recipes (`validate`, `lint`, `build`, `verify`, `test`).
 
 ```bash
-just                                     # default: validate lint build test (sweatfile pre-merge surface)
+just                                     # default: validate lint build verify test (sweatfile pre-merge surface)
 just build                               # aggregate: build-nix
 just build-nix                           # `nix build --no-link` (chrest derivation: three binaries + Go unit suite in checkPhase)
-just validate                            # validate-devshell + validate-nix + validate-dagnabit-export + validate-dagnabit-reposition
+just validate                            # validate-devshell + validate-dagnabit-export + validate-dagnabit-reposition
 just validate-devshell                   # builds .#devShells.<arch>-linux.default; catches devshell-only regressions
-just validate-nix                        # `nix flake check --no-build`
 just validate-dagnabit-export            # drift gate: go/pkgs/ matches what `dagnabit export` would generate
 just validate-dagnabit-reposition        # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
 just lint                                # aggregate: lint-fmt + lint-doppelgang
@@ -36,6 +35,8 @@ just lint-doppelgang                     # `doppelgang lint --flake . --no-closu
 just codemod-fmt                         # aggregate: codemod-fmt-treefmt
 just codemod-fmt-treefmt                 # `nix fmt` (treefmt-nix wrapper; rewrites the worktree)
 just load-extension                      # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
+just verify                              # aggregate: verify-nix
+just verify-nix                          # `nix flake check` after build; forces the flake-input-go_mod IFD (post-build, not validate)
 just test                                # test-mcp + test-mcp-bats (unit tests already ran in checkPhase)
 just test-mcp                            # validates MCP tools, resources, and annotations
 just test-mcp-bats                       # BATS integration suite against a real unix socket
