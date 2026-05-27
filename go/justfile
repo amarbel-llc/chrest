@@ -19,7 +19,7 @@ lint-go-vuln:
 
 [group("pre-build")]
 lint-go-vet:
-  go vet ./... || true
+  go vet ./...
 
 [group("post-build")]
 test-go:
