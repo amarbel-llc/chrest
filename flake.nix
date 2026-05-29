@@ -1,7 +1,7 @@
 {
   inputs = {
     nixpkgs = {
-      url = "github:amarbel-llc/nixpkgs";
+      url = "github:amarbel-llc/igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "treefmt-nix";
       inputs.bun2nix.follows = "bun2nix";
@@ -61,9 +61,7 @@
       inputs.utils.follows = "utils";
       inputs.bats.follows = "bats";
       inputs.treefmt-nix.follows = "treefmt-nix";
-      inputs.crane.follows = "purse-first/crane";
       inputs.gomod2nix.follows = "purse-first/gomod2nix";
-      inputs.rust-overlay.follows = "purse-first/rust-overlay";
     };
 
     # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.

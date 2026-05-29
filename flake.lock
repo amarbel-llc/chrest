@@ -72,6 +72,21 @@
         "type": "github"
       }
     },
+    "crane_2": {
+      "locked": {
+        "lastModified": 1780029330,
+        "narHash": "sha256-fWFKEKB5CP+NO8/3uOaEZIVbd03mvDJ//VsnKkXty08=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "6823b493a0bc2142082075576efa6633b537197e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ipetkov",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
     "doppelgang": {
       "inputs": {
         "nixpkgs": [
@@ -165,16 +180,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1779730058,
-        "narHash": "sha256-LsPVF0s5ezDHtRjMDBaXFTgaT4fyswRgn8JT9WWXM5M=",
+        "lastModified": 1780055334,
+        "narHash": "sha256-wCR8IYGqyoRSmRrM7MYQo1iHG+eI2ePeEQMCseOSr3A=",
         "owner": "amarbel-llc",
-        "repo": "nixpkgs",
-        "rev": "1de98199124f54b309f9db20b2e51935d3cfa77c",
+        "repo": "igloo",
+        "rev": "20f877987c6257a2d38ad6746c533784111626f0",
         "type": "github"
       },
       "original": {
         "owner": "amarbel-llc",
-        "repo": "nixpkgs",
+        "repo": "igloo",
         "type": "github"
       }
     },
@@ -261,6 +276,27 @@
         "type": "github"
       }
     },
+    "rust-overlay_2": {
+      "inputs": {
+        "nixpkgs": [
+          "tap",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1780024773,
+        "narHash": "sha256-aU9nlrS9S+IJ2EiCzsaxzOXUhggogqTrJojBicE6Oeg=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "40b0a3a193e0840c76174b4a322874c8f6dd0a63",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
     "systems": {
       "locked": {
         "lastModified": 1681028828,
@@ -281,10 +317,7 @@
         "bats": [
           "bats"
         ],
-        "crane": [
-          "purse-first",
-          "crane"
-        ],
+        "crane": "crane_2",
         "gomod2nix": [
           "purse-first",
           "gomod2nix"
@@ -295,10 +328,7 @@
         "nixpkgs-master": [
           "nixpkgs-master"
         ],
-        "rust-overlay": [
-          "purse-first",
-          "rust-overlay"
-        ],
+        "rust-overlay": "rust-overlay_2",
         "treefmt-nix": [
           "treefmt-nix"
         ],
