@@ -80,7 +80,7 @@ lint-fmt:
 # offline; the `build` aggregate exercises the build graph.
 [group("pre-build")]
 lint-doppelgang:
-  doppelgang lint --flake . --no-closure
+  doppelgang lint --flake .
 
 # Reinstalls the native-messaging-host manifest pointing at the
 # nix-built (firefox-wrapped) chrest, then reloads the running
