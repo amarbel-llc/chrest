@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs = {
+    igloo = {
       url = "github:amarbel-llc/igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "treefmt-nix";
@@ -15,11 +15,11 @@
 
     bun2nix = {
       url = "github:nix-community/bun2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "igloo";
       inputs.treefmt-nix.follows = "treefmt-nix";
       # Force bun2nix's flake-parts onto nixpkgs's rev so the lock
       # carries only one flake-parts revision (chrest#87).
-      inputs.flake-parts.follows = "nixpkgs/flake-parts";
+      inputs.flake-parts.follows = "igloo/flake-parts";
     };
 
     # `nix fmt` driver. Config lives in ./treefmt.nix. The sandboxed
@@ -27,12 +27,12 @@
     # what `just lint-fmt` builds.
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "igloo";
     };
 
     tommy = {
       url = "github:amarbel-llc/tommy";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
       inputs.tap.follows = "tap";
@@ -45,7 +45,7 @@
     # by env var (`CHREST_BIN`, etc.) instead.
     bats = {
       url = "github:amarbel-llc/bats";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
       inputs.treefmt-nix.follows = "treefmt-nix";
@@ -56,7 +56,7 @@
     # See amarbel-llc/chrest#84 and amarbel-llc/nixpkgs RFC 0001.
     tap = {
       url = "github:amarbel-llc/tap";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
       inputs.bats.follows = "bats";
@@ -67,7 +67,7 @@
     # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
     purse-first = {
       url = "github:amarbel-llc/purse-first";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
       inputs.treefmt-nix.follows = "treefmt-nix";
@@ -76,7 +76,7 @@
     # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).
     doppelgang = {
       url = "github:amarbel-llc/doppelgang";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
       inputs.treefmt-nix.follows = "treefmt-nix";
@@ -86,7 +86,7 @@
   outputs =
     {
       self,
-      nixpkgs,
+      igloo,
       nixpkgs-master,
       utils,
       bun2nix,
@@ -126,10 +126,10 @@
     (utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs {
+        pkgs = import igloo {
           inherit system;
           overlays = [
-            nixpkgs.overlays.default
+            igloo.overlays.default
           ];
         };
         firefox = pkgs.callPackage ./nix/firefox.nix { };
