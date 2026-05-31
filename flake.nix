@@ -56,12 +56,13 @@
     # See amarbel-llc/chrest#84 and amarbel-llc/nixpkgs RFC 0001.
     tap = {
       url = "github:amarbel-llc/tap";
+      inputs.bats.follows = "bats";
+      inputs.gomod2nix.follows = "purse-first/gomod2nix";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
-      inputs.utils.follows = "utils";
-      inputs.bats.follows = "bats";
+      inputs.tap.inputs.purse-first.follows = "purse-first";
       inputs.treefmt-nix.follows = "treefmt-nix";
-      inputs.gomod2nix.follows = "purse-first/gomod2nix";
+      inputs.utils.follows = "utils";
     };
 
     # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
