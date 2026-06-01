@@ -60,7 +60,7 @@
       inputs.gomod2nix.follows = "purse-first/gomod2nix";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
-      inputs.tap.inputs.purse-first.follows = "purse-first";
+      inputs.purse-first.follows = "purse-first";
       inputs.treefmt-nix.follows = "treefmt-nix";
       inputs.utils.follows = "utils";
     };
@@ -71,7 +71,11 @@
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
-      inputs.treefmt-nix.follows = "treefmt-nix";
+      # purse-first dropped its direct treefmt-nix input; it now reaches
+      # treefmt-nix transitively through treelint. Follow-wire that nested
+      # edge onto the root treefmt-nix so the lock carries one rev, not the
+      # older one treelint pins (chrest#87 dedup gate; doppelgang multi-version).
+      inputs.treelint.inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).
