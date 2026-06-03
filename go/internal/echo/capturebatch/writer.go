@@ -9,6 +9,29 @@ import (
 	"os/exec"
 )
 
+// subprocessWriter adapts the RFC 0002 writer subprocess to
+// capture_plugin.Writer (WriteBlob(ctx, io.Reader) -> digest, size). It
+// spawns writer.cmd once per node blob via WriteThrough. lastSize records
+// the most recent write's byte count; WriteReceipt writes the receipt
+// node last, so after it returns lastSize is the receipt's size.
+type subprocessWriter struct {
+	cmd      []string
+	lastSize int64
+}
+
+func newSubprocessWriter(cmd []string) *subprocessWriter {
+	return &subprocessWriter{cmd: cmd}
+}
+
+func (w *subprocessWriter) WriteBlob(ctx context.Context, r io.Reader) (string, int64, error) {
+	res, err := WriteThrough(ctx, w.cmd, r)
+	if err != nil {
+		return "", 0, err
+	}
+	w.lastSize = res.Size
+	return res.ID, res.Size, nil
+}
+
 // WriterResult is the shape the writer protocol returns on stdout.
 // RFC 0001 §Writer Protocol allows additional fields; we ignore them.
 type WriterResult struct {

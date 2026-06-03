@@ -225,9 +225,11 @@ moment `just codemod-dagnabit-reposition apply` runs.
   `markdown-reader` runs go-readability on the DOM, `markdown-selector` takes a
   `--selector` CSS selector (first match); `--reader-engine` is reserved
   (`readability` default, `browser` NYI).
-- `chrest capture-batch` - RFC 0001 capturer role (MVP, `split=false`). Reads
-  a batch input JSON on stdin, runs captures sequentially, streams each
-  artifact to a writer subprocess, and emits a result envelope on stdout.
+- `chrest capture-batch` - RFC 0002 `web`-kind capturer (subprocess form,
+  schema `capture-plugin/v1`). Reads a batch input JSON on stdin, runs captures
+  sequentially, assembles an RFC 0002 receipt merkle tree per capture (streaming
+  every node blob to the orchestrator-supplied `writer.cmd`), and emits a result
+  envelope on stdout referencing each receipt by markl id.
 
 ### Other binaries (`go/cmd/`)
 
@@ -248,27 +250,37 @@ for the chrest-side feature surface and the deferred migration work.
 Fixtures shared with the nebulous orchestrator live under `~/eng/aim/fixtures/`
 and are referenced by `explore-capture-batch` and `explore-jcs-fixture`.
 
-Schema tokens **currently emitted** (legacy `web-capture-archive/v1`, inherited
-from nebulous RFC 0001; will hard-cut to RFC 0002+0003 merkle shape per the
-FDR's Implementation Status section):
+Schema tokens emitted (RFC 0002 + 0003 merkle shape; the legacy
+`web-capture-archive/v1` flat-artifact emission was cut over):
 
-- Input/output schema: `web-capture-archive/v1`
-- Envelope schema: `web-capture-archive.envelope/v1` when `http.status` +
-  `http.headers` are populated (Firefox/BiDi backend). The `v1-preview` schema
-  token is retained in the codebase for future backends that can't observe
-  network events; Firefox/BiDi always emits `v1`.
-- Capturer identifier: `chrest` (`CapturerName` constant).
+- Input/output schema: `capture-plugin/v1` (RFC 0002 subprocess form).
+- Receipt kind: `cutting_garden-capture-receipt-web-v1` (one self-contained
+  merkle tree per capture; the batch output references it by markl id).
+- chrest-binding node types: `jcs-chrest-capture-environment-v1` (browser/dns/
+  isolation), `jcs-chrest-capture-outcome-v1` (`http.*`; `-v1-preview` when the
+  backend can't observe the response), `jcs-chrest-capture-capabilities-v1`,
+  and `chrest-capture-payload-<segment>-v1` (format segment, `-`→`_`).
+- Capturer identifier: `chrest` (`CapturerName` / `plugin.name` /
+  `environment.binary.name`).
+
+The protocol-defined nodes (identity, invocation, environment, host, binary,
+outcome, receipt) and the framing/JCS/type-registry come from cutting-garden's
+exported `pkgs/capture_plugin`, imported directly so chrest receipts are
+byte-identical to an in-process binding's. `digests can remain blake` — the
+writer subprocess assigns the markl ids; chrest threads them into ref lines.
 
 Files of note:
 
-- `runner.go` - Drives the batch; orchestrates per-capture fingerprint,
-  normalize, spec+envelope emission, and writer fan-out.
-- `envelope.go` / `spec.go` - Artifact shapes + constants. `spec.isolation`
-  is omitted when unset (chrest#28); never emit `""` — absence means "not
-  set", not "empty".
-- `fingerprint.go` - Content-addressed hashing (blake2b-256).
-- `jcs.go` + `jcs_test.go` - JSON Canonicalization Scheme used for
-  deterministic envelope/spec bytes.
+- `runner.go` - Drives the batch; per-capture payload capture/normalize, then
+  assembles the receipt tree via `capture_plugin.WriteReceipt`, fanning every
+  node out to the `writer.cmd` subprocess (`subprocessWriter`, `writer.go`).
+- `web_nodes.go` - Web-binding node bodies: format→type/media-type maps, the
+  plugin environment + plugin outcome (`http.*`) + capabilities builders.
+- `types_register.go` - Registers the chrest-binding node types in the shared
+  `capture_plugin` registry.
+- `jcs.go` + `jcs_test.go` - JCS canonicalizer backing the standalone
+  `chrest-jcs` binary (the receipt tree itself canonicalizes via
+  `capture_plugin.JCS`).
 - `mhtml.go`, `pdf.go`, `png.go`, `normalize.go` - Format-specific
   normalizers. Normalizers strip non-deterministic bits and return a
   `stripped.<format>` sidecar describing what they removed.

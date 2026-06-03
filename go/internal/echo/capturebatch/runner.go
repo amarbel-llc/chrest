@@ -6,87 +6,78 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 
 	"code.linenisgreat.com/chrest/go/internal/0/markdown"
 	"code.linenisgreat.com/chrest/go/internal/0/monolith"
 	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
 	"code.linenisgreat.com/chrest/go/internal/delta/tools"
+	"github.com/amarbel-llc/cutting-garden/pkgs/capture_plugin"
 )
-
-// PayloadMediaTypes maps each supported capture format to the media
-// type recorded on the payload ArtifactRef. RFC 0001 §Payload Artifact.
-var PayloadMediaTypes = map[string]string{
-	"text":              "text/plain; charset=utf-8",
-	"pdf":               "application/pdf",
-	"screenshot":        "image/png",
-	"mhtml":             "multipart/related",
-	"a11y":              "application/json",
-	"html-monolith":     "text/html; charset=utf-8",
-	"html-outer":        "text/html; charset=utf-8",
-	"markdown-full":     "text/markdown; charset=utf-8",
-	"markdown-reader":   "text/markdown; charset=utf-8",
-	"markdown-selector": "text/markdown; charset=utf-8",
-}
 
 // Options configure the runner; most come from Input.
 type Options struct {
 	CapturerVersion string
 	Writer          WriterSpec
-	URL             string
-	Defaults        *CaptureDefaults
+	Target          string
+	Defaults        *Defaults
 }
 
-// Run executes every capture in order and returns the batch output.
-// The runner never fails fatally on per-capture errors — they become
-// OutputCapture.Error entries. Batch-level failures (e.g. writer.cmd
-// empty) are returned as errors.
+// Run executes every capture in order and returns the batch output. The
+// runner never fails fatally on per-capture errors — they become
+// OutputCapture.Error entries. Batch-level failures (empty writer.cmd /
+// target, or a failed capabilities write) are returned as errors and the
+// caller exits non-zero.
 func Run(ctx context.Context, inputCaptures []InputCapture, opts Options) (Output, error) {
 	if len(opts.Writer.Cmd) == 0 {
 		return Output{}, fmt.Errorf("writer.cmd MUST have at least one element")
 	}
-	if opts.URL == "" {
-		return Output{}, fmt.Errorf("url MUST be a non-empty string")
+	if opts.Target == "" {
+		return Output{}, fmt.Errorf("target MUST be a non-empty string")
 	}
 
-	host := GatherHost()
+	w := newSubprocessWriter(opts.Writer.Cmd)
+	host := capture_plugin.GatherHost()
+
+	// The capabilities blob is identical across every capture in the
+	// batch, so write it once and reuse the markl id (RFC 0002 §dedup).
+	capID, err := writeCapabilities(ctx, w)
+	if err != nil {
+		return Output{}, fmt.Errorf("write capabilities artifact: %w", err)
+	}
 
 	out := Output{
-		Schema: OutputSchema,
-		Capturer: CapturerInfo{
-			Name:    CapturerName,
-			Version: opts.CapturerVersion,
-		},
+		Schema:   OutputSchema,
+		Plugin:   PluginInfo{Name: CapturerName, Version: opts.CapturerVersion},
 		Errors:   []Error{},
 		Captures: make([]OutputCapture, 0, len(inputCaptures)),
 	}
 
 	for _, raw := range inputCaptures {
-		resolved := Resolve(raw, opts.Defaults)
-		out.Captures = append(out.Captures, runOne(ctx, resolved, opts, host))
+		r := Resolve(raw, opts.Defaults)
+		out.Captures = append(out.Captures, runOne(ctx, r, opts, w, host, capID))
 	}
 
 	return out, nil
 }
 
-func runOne(ctx context.Context, r Resolved, opts Options, host HostFingerprint) OutputCapture {
+func runOne(
+	ctx context.Context,
+	r Resolved,
+	opts Options,
+	w *subprocessWriter,
+	host capture_plugin.HostInfo,
+	capID string,
+) OutputCapture {
 	entry := OutputCapture{Name: r.Name}
 
-	mediaType, ok := PayloadMediaTypes[r.Format]
-	if !ok {
-		entry.Error = &CaptureError{
-			Kind:    "bad-format",
-			Message: fmt.Sprintf("unknown capture format %q", r.Format),
-		}
+	if !knownFormat(r.Format) {
+		entry.Error = &CaptureError{Kind: "bad-format", Message: fmt.Sprintf("unknown capture format %q", r.Format)}
 		return entry
 	}
-
-	// Stage gate: split=true is only supported for formats that have
-	// a normalizer. Unsupported formats get a per-capture error.
-	if r.Split && !splitSupported(r.Format) {
+	if r.Normalize && !normalizeSupported(r.Format) {
 		entry.Error = &CaptureError{
 			Kind:    "not-implemented",
-			Message: fmt.Sprintf("split=true normalization for %s not yet implemented (chrest#22 follow-up)", r.Format),
+			Message: fmt.Sprintf("normalization for %q is not implemented (RFC 0003 deferred); pass normalize=false", r.Format),
 		}
 		return entry
 	}
@@ -98,51 +89,141 @@ func runOne(ctx context.Context, r Resolved, opts Options, host HostFingerprint)
 	}
 	defer session.Close()
 
-	capturedAt := time.Now()
-	if err := session.Navigate(ctx, opts.URL); err != nil {
+	if err := session.Navigate(ctx, opts.Target); err != nil {
 		entry.Error = &CaptureError{Kind: "navigate-failed", Message: err.Error()}
 		return entry
 	}
 
-	payloadRef, stripped, err := writePayload(ctx, session, r, opts.Writer, mediaType, opts.URL)
+	// Payload subtree first (post-order): write the captured (optionally
+	// normalized) bytes as a raw leaf and keep the typed reference.
+	payloadRef, stripped, err := writePayload(ctx, w, session, r, opts.Target)
 	if err != nil {
 		entry.Error = &CaptureError{Kind: "payload-write-failed", Message: err.Error()}
 		return entry
 	}
-	entry.Payload = payloadRef
 
-	if r.Split {
-		var httpResp *firefox.HTTPResponse
-		if resp, ok := session.LastNavigationHTTP(); ok {
-			httpResp = &resp
-		}
-		envelopeRef, err := writeEnvelope(ctx, opts, capturedAt, stripped, httpResp)
-		if err != nil {
-			entry.Error = &CaptureError{Kind: "envelope-write-failed", Message: err.Error()}
-			return entry
-		}
-		entry.Envelope = envelopeRef
+	browserInfo, _ := session.BrowserInfo(ctx) // best-effort; empty fields fine
+	if browserInfo.Name == "" {
+		browserInfo.Name = r.Browser
+	}
+	var httpResp *firefox.HTTPResponse
+	if resp, ok := session.LastNavigationHTTP(); ok {
+		httpResp = &resp
 	}
 
-	specRef, err := writeSpec(ctx, session, r, host, opts)
+	receiptID, receiptSize, err := writeReceipt(ctx, w, r, opts, host, capID, browserInfo, httpResp, stripped, payloadRef)
 	if err != nil {
-		entry.Error = &CaptureError{Kind: "spec-write-failed", Message: err.Error()}
+		entry.Error = &CaptureError{Kind: "receipt-write-failed", Message: err.Error()}
 		return entry
 	}
-	entry.Spec = specRef
 
+	entry.Receipt = &ReceiptRef{ID: receiptID, Size: receiptSize}
 	return entry
 }
 
-// splitSupported returns true for formats whose normalizer is implemented.
-// Gates the split=true path per-format during the staged rollout of #22.
-func splitSupported(format string) bool {
-	switch format {
-	case "text", "screenshot", "pdf", "mhtml":
-		return true
-	default:
-		return false
+// writeCapabilities materializes the jcs-chrest-capture-capabilities-v1
+// node and returns its markl id.
+func writeCapabilities(ctx context.Context, w *subprocessWriter) (string, error) {
+	body, err := capture_plugin.JCS(capabilitiesBody())
+	if err != nil {
+		return "", err
 	}
+	node := capture_plugin.BuildNode(capType, nil, body)
+	id, _, err := w.WriteBlob(ctx, bytes.NewReader(node))
+	return id, err
+}
+
+// writePayload runs the capture, optionally normalizes, streams the bytes
+// to the writer as a raw payload leaf, and returns the typed reference
+// plus any stripped residue for the outcome node. The payload is a raw
+// leaf (not a hyphence node) so binary formats round-trip byte-exactly on
+// restore — the type travels on the receipt's reference, as with the git
+// binding's object leaves.
+func writePayload(
+	ctx context.Context,
+	w *subprocessWriter,
+	session *firefox.Session,
+	r Resolved,
+	target string,
+) (capture_plugin.Ref, map[string]any, error) {
+	rc, err := runCaptureFormat(ctx, session, r, target)
+	if err != nil {
+		return capture_plugin.Ref{}, nil, err
+	}
+	defer rc.Close()
+
+	var src io.Reader = rc
+	var stripped map[string]any
+	if r.Normalize {
+		normalized, st, nerr := NormalizeStream(r.Format, rc)
+		if nerr != nil {
+			return capture_plugin.Ref{}, nil, nerr
+		}
+		src, stripped = normalized, st
+	}
+
+	digest, _, err := w.WriteBlob(ctx, src)
+	if err != nil {
+		return capture_plugin.Ref{}, nil, err
+	}
+	return capture_plugin.LockedRef("payload", digest, payloadType(r.Format)), stripped, nil
+}
+
+// writeReceipt assembles the RFC 0002 merkle tree via the shared
+// WriteReceipt, threading the web-binding plugin nodes (environment,
+// outcome http.*) and the payload reference. It returns the root receipt
+// markl id and its size (the writer's last write — the receipt is the
+// final node WriteReceipt emits).
+func writeReceipt(
+	ctx context.Context,
+	w *subprocessWriter,
+	r Resolved,
+	opts Options,
+	host capture_plugin.HostInfo,
+	capID string,
+	browserInfo firefox.BrowserInfo,
+	httpResp *firefox.HTTPResponse,
+	stripped map[string]any,
+	payloadRef capture_plugin.Ref,
+) (string, int64, error) {
+	op := outcomePlugin(opts.Target, httpResp)
+
+	digest, err := capture_plugin.WriteReceipt(ctx, w, capture_plugin.ReceiptParams{
+		Kind: captureKind,
+		Invocation: capture_plugin.Invocation{
+			Target:    opts.Target,
+			Format:    r.Format,
+			Normalize: r.Normalize,
+			Options:   optionsMap(r.Options),
+		},
+		Host: host,
+		Binary: capture_plugin.BinaryInfo{
+			Name:           CapturerName,
+			Version:        opts.CapturerVersion,
+			CapabilitiesId: capID,
+		},
+		PluginEnv: capture_plugin.PluginEnv{
+			TypeString: envType,
+			Body:       environmentBody(browserInfo, r.Isolation),
+		},
+		OutcomePlugin:   &op,
+		OutcomeStripped: stripped,
+		PayloadRefs:     []capture_plugin.Ref{payloadRef},
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	return digest, w.lastSize, nil
+}
+
+// optionsMap decodes captures[].options into the object echoed verbatim
+// into invocation.options ({} when absent).
+func optionsMap(raw json.RawMessage) map[string]any {
+	m := map[string]any{}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &m) // best-effort; options is an object per RFC
+	}
+	return m
 }
 
 func openSession(ctx context.Context, browser string) (*firefox.Session, error) {
@@ -154,96 +235,9 @@ func openSession(ctx context.Context, browser string) (*firefox.Session, error) 
 	}
 }
 
-// writePayload runs the capture, optionally applies split=true
-// normalization, streams the resulting bytes to the writer, and returns
-// the artifact ref + any `stripped.<format>` entries for the envelope.
-//
-// When split=false: raw capture bytes go straight to the writer,
-// stripped is nil, and the returned ArtifactRef has no `normalized` field.
-// When split=true: raw bytes are fully read, normalized per format, then
-// streamed; stripped contains the normalizer's output; the ref has
-// `normalized: true`.
-//
-// The split=true path buffers in memory. Per-format normalizers need the
-// full document (e.g. PDF trailer parsing), so streaming for them is
-// architecturally impossible. The split=false path remains streaming.
-func writePayload(
-	ctx context.Context,
-	session *firefox.Session,
-	r Resolved,
-	writer WriterSpec,
-	mediaType string,
-	url string,
-) (*ArtifactRef, map[string]any, error) {
-	rc, err := runCaptureFormat(ctx, session, r, url)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rc.Close()
-
-	if !r.Split {
-		res, err := WriteThrough(ctx, writer.Cmd, rc)
-		if err != nil {
-			return nil, nil, err
-		}
-		return &ArtifactRef{
-			ID:        res.ID,
-			Size:      res.Size,
-			MediaType: mediaType,
-		}, nil, nil
-	}
-
-	normalized, stripped, err := NormalizeStream(r.Format, rc)
-	if err != nil {
-		return nil, nil, err
-	}
-	res, err := WriteThrough(ctx, writer.Cmd, normalized)
-	if err != nil {
-		return nil, nil, err
-	}
-	yes := true
-	return &ArtifactRef{
-		ID:         res.ID,
-		Size:       res.Size,
-		MediaType:  mediaType,
-		Normalized: &yes,
-	}, stripped, nil
-}
-
-// writeEnvelope builds and writes the envelope artifact for a
-// split=true capture. Emits the v1 envelope schema when httpResp is
-// non-nil (http.* populated from backend-provided network events);
-// otherwise emits v1-preview with http.* omitted.
-func writeEnvelope(
-	ctx context.Context,
-	opts Options,
-	capturedAt time.Time,
-	stripped map[string]any,
-	httpResp *firefox.HTTPResponse,
-) (*ArtifactRef, error) {
-	envBytes, err := BuildEnvelope(opts.URL, capturedAt, stripped, httpResp)
-	if err != nil {
-		return nil, fmt.Errorf("build envelope: %w", err)
-	}
-
-	res, err := WriteThrough(ctx, opts.Writer.Cmd, bytes.NewReader(envBytes))
-	if err != nil {
-		return nil, err
-	}
-	return &ArtifactRef{
-		ID:        res.ID,
-		Size:      res.Size,
-		MediaType: EnvelopeMediaType,
-	}, nil
-}
-
-// runCaptureFormat dispatches to the session method matching format.
-// Mirrors tools.runCapture but operates directly on a cdp.Session —
-// capture-batch holds the session over multiple operations (navigate,
-// capture, BrowserInfo) so it doesn't use tools.StreamCapture wholesale.
-//
-// baseURL is forwarded to encoders that need it for relative-asset
-// resolution (currently only html-monolith).
+// runCaptureFormat dispatches to the session method matching format and
+// returns the raw capture stream. baseURL is forwarded to encoders that
+// resolve relative assets (html-monolith, markdown-reader).
 func runCaptureFormat(ctx context.Context, s *firefox.Session, r Resolved, baseURL string) (io.ReadCloser, error) {
 	var opts tools.CaptureParams
 	if len(r.Options) > 0 {
@@ -309,34 +303,4 @@ func runCaptureFormat(ctx context.Context, s *firefox.Session, r Resolved, baseU
 	default:
 		return nil, fmt.Errorf("unknown capture format %q", r.Format)
 	}
-}
-
-func writeSpec(
-	ctx context.Context,
-	session *firefox.Session,
-	r Resolved,
-	host HostFingerprint,
-	opts Options,
-) (*ArtifactRef, error) {
-	browserInfo, _ := session.BrowserInfo(ctx) // best-effort; empty fields are fine
-	// Echo the request's browser label if the session didn't populate it
-	// (extension-proxied sessions currently return BrowserInfo{}).
-	if browserInfo.Name == "" {
-		browserInfo.Name = r.Browser
-	}
-
-	specBytes, err := BuildSpec(r, browserInfo, host, opts.CapturerVersion)
-	if err != nil {
-		return nil, fmt.Errorf("build spec: %w", err)
-	}
-
-	res, err := WriteThrough(ctx, opts.Writer.Cmd, bytes.NewReader(specBytes))
-	if err != nil {
-		return nil, err
-	}
-	return &ArtifactRef{
-		ID:        res.ID,
-		Size:      res.Size,
-		MediaType: SpecMediaType,
-	}, nil
 }

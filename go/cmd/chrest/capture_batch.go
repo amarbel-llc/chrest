@@ -26,7 +26,7 @@ func registerCaptureBatchCommand(app *command.Utility) {
 	app.AddCommand(&command.Command{
 		Name: "capture-batch",
 		Description: command.Description{
-			Short: "Run a batch of web captures; reads JSON from stdin, writes JSON to stdout (RFC 0001).",
+			Short: "Run a batch of web captures; reads JSON from stdin, writes JSON to stdout (RFC 0002/0003).",
 		},
 		RunCLI: func(ctx context.Context, args json.RawMessage) error {
 			return fmt.Errorf(
@@ -76,7 +76,7 @@ func cmdCaptureBatch(ctx context.Context, version string, args []string) error {
 	out, err := capturebatch.Run(ctx, input.Captures, capturebatch.Options{
 		CapturerVersion: version,
 		Writer:          input.Writer,
-		URL:             input.URL,
+		Target:          input.Target,
 		Defaults:        input.Defaults,
 	})
 	if err != nil {
@@ -94,20 +94,22 @@ func cmdCaptureBatch(ctx context.Context, version string, args []string) error {
 func printCaptureBatchHelp(w io.Writer) {
 	fmt.Fprintln(w, "Usage: chrest capture-batch < input.json")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Run a batch of web captures per the Web Capture Archive Protocol")
-	fmt.Fprintln(w, "(RFC 0001). The single JSON document read from stdin has the shape:")
+	fmt.Fprintln(w, "Run a batch of web captures per the Capture Plugin Protocol")
+	fmt.Fprintln(w, "(cutting-garden RFC 0002) under the web-archive binding (RFC 0003).")
+	fmt.Fprintln(w, "The single JSON document read from stdin has the shape:")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "  {")
-	fmt.Fprintln(w, `    "schema":   "web-capture-archive/v1",`)
-	fmt.Fprintln(w, `    "writer":   {"cmd": ["madder", "--format=json", "write", "--store", "NAME"]},`)
-	fmt.Fprintln(w, `    "url":      "https://example.com",`)
-	fmt.Fprintln(w, `    "defaults": {"browser": "firefox", "split": false},`)
-	fmt.Fprintln(w, `    "captures": [{"name": "text", "format": "text"}, …]`)
+	fmt.Fprintln(w, `    "schema":   "capture-plugin/v1",`)
+	fmt.Fprintln(w, `    "writer":   {"cmd": ["cutting-garden", "__write-blob", "--store", "NAME"]},`)
+	fmt.Fprintln(w, `    "target":   "https://example.com",`)
+	fmt.Fprintln(w, `    "defaults": {"normalize": true, "plugin": {"browser": "firefox"}},`)
+	fmt.Fprintln(w, `    "captures": [{"name": "doc", "format": "pdf"}, …]`)
 	fmt.Fprintln(w, "  }")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "A single JSON document is written to stdout on success. Per-capture")
-	fmt.Fprintln(w, "errors are reported inline; batch-level errors exit non-zero with a")
-	fmt.Fprintln(w, "diagnostic on stderr.")
+	fmt.Fprintln(w, "For each capture chrest assembles an RFC 0002 receipt merkle tree,")
+	fmt.Fprintln(w, "streaming every node blob to writer.cmd, and writes a result object to")
+	fmt.Fprintln(w, "stdout referencing each receipt by markl id. Per-capture errors are")
+	fmt.Fprintln(w, "reported inline; batch-level errors exit non-zero with a stderr diagnostic.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "See also: chrest capture  (single-capture streaming output)")
 }
