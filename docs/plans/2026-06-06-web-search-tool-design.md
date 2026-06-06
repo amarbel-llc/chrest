@@ -101,8 +101,13 @@ input:
    {
      "query": "...",
      "results": [
-       {"title": "...", "url": "...", "snippet": "...",
-        "prefetched": true, "prefetch_error": null}
+       {
+         "title": "...",
+         "url": "...",
+         "snippet": "...",
+         "prefetched": true,
+         "prefetch_error": null
+       }
      ]
    }
    ```
@@ -121,13 +126,13 @@ set".
 
 ## Error handling
 
-| Failure | Behavior |
-|---|---|
-| DDG unreachable / network error | Tool error, wrapped underlying error |
-| DDG non-2xx (rate limit, block page) | Tool error with status code + first-1KB body preview (mirrors web-fetch's HTTP-error shape) |
-| SERP parses to zero results but page has content | Inline diagnostic flagging probable markup drift |
-| Individual prefetch fails | Best-effort: annotate that result, search still succeeds |
-| Empty query | Tool error before any network call |
+| Failure                                          | Behavior                                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| DDG unreachable / network error                  | Tool error, wrapped underlying error                                                        |
+| DDG non-2xx (rate limit, block page)             | Tool error with status code + first-1KB body preview (mirrors web-fetch's HTTP-error shape) |
+| SERP parses to zero results but page has content | Inline diagnostic flagging probable markup drift                                            |
+| Individual prefetch fails                        | Best-effort: annotate that result, search still succeeds                                    |
+| Empty query                                      | Tool error before any network call                                                          |
 
 Search errors are not cached (same as web-fetch: only success is
 stored).
@@ -136,7 +141,7 @@ stored).
 
 - `searchCache sync.Map` in `main.go` beside `fetchCache`, keyed by raw
   query string, storing `searchCacheEntry{Results []websearch.Result,
-  FetchedAt time.Time}`.
+FetchedAt time.Time}`.
 - Key is query-only — `max_results` trims and `prefetch`/`format`
   render from the cached entry, so differing knobs on a repeat query
   don't re-hit DDG. Exception: a repeat call asking to prefetch a
@@ -157,13 +162,13 @@ tests.
 
 ## Tuning levers
 
-| Lever | Current value | Rationale | Change signal |
-|---|---|---|---|
-| `prefetch` default | 3 | One-round-trip benefit without long sequential Firefox waits | Prefetches routinely wasted (agents read 1 result) → lower; agents always re-fetching #4-5 → raise |
-| `max_results` default | 10 | One DDG HTML page worth, compact context | Agents paginating often → raise |
-| Sequential prefetch | sequential | Matches one-session-at-a-time architecture | Wall-clock pain on prefetch=3 → revisit concurrent sessions |
-| SERP fetch User-Agent | normal browser UA string | DDG HTML serves no-JS clients; honest-ish UA avoids block heuristics | DDG blocks/captchas → revisit (Firefox-driven SERP fetch is the fallback) |
-| Search cache scope | session-lifetime | Symmetric with fetchCache | Stale-results complaints → TTL |
+| Lever                 | Current value            | Rationale                                                            | Change signal                                                                                      |
+| --------------------- | ------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `prefetch` default    | 3                        | One-round-trip benefit without long sequential Firefox waits         | Prefetches routinely wasted (agents read 1 result) → lower; agents always re-fetching #4-5 → raise |
+| `max_results` default | 10                       | One DDG HTML page worth, compact context                             | Agents paginating often → raise                                                                    |
+| Sequential prefetch   | sequential               | Matches one-session-at-a-time architecture                           | Wall-clock pain on prefetch=3 → revisit concurrent sessions                                        |
+| SERP fetch User-Agent | normal browser UA string | DDG HTML serves no-JS clients; honest-ish UA avoids block heuristics | DDG blocks/captchas → revisit (Firefox-driven SERP fetch is the fallback)                          |
+| Search cache scope    | session-lifetime         | Symmetric with fetchCache                                            | Stale-results complaints → TTL                                                                     |
 
 ## Testing
 

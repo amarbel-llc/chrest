@@ -26,6 +26,7 @@
 ### Task 1: websearch package — types + SERP fixtures
 
 **Files:**
+
 - Create: `go/internal/0/websearch/websearch.go`
 - Create: `go/internal/0/websearch/testdata/serp_golang_syncmap.html`
 - Create: `go/internal/0/websearch/testdata/serp_empty.html`
@@ -94,6 +95,7 @@ git commit -m "feat(websearch): package skeleton + DDG SERP fixtures"
 ### Task 2: SERP parser (TDD against fixtures)
 
 **Files:**
+
 - Create: `go/internal/0/websearch/ddghtml_parse.go`
 - Create: `go/internal/0/websearch/ddghtml_parse_test.go`
 
@@ -346,6 +348,7 @@ git commit -m "feat(websearch): DDG SERP parser with uddg decoding and drift det
 ### Task 3: DDG backend Search() over net/http
 
 **Files:**
+
 - Create: `go/internal/0/websearch/ddghtml.go`
 - Create: `go/internal/0/websearch/ddghtml_test.go`
 
@@ -517,6 +520,7 @@ git commit -m "feat(websearch): DDGHTML backend over net/http"
 ### Task 4: Backend factory + rendering (markdown/json)
 
 **Files:**
+
 - Create: `go/internal/0/websearch/render.go`
 - Create: `go/internal/0/websearch/render_test.go`
 - Modify: `go/internal/0/websearch/websearch.go` (add `NewBackend`, `Item`)
@@ -729,6 +733,7 @@ git commit -m "feat(websearch): backend factory + markdown/json rendering"
 ### Task 5: Extract fetchEntry helper in main.go (pure refactor)
 
 **Files:**
+
 - Modify: `go/cmd/chrest/main.go:276-302` (web-fetch handler dispatch switch)
 
 **Step 1: Add the helper** next to `fetchViaFirefox` (around `main.go:476`):
@@ -789,6 +794,7 @@ git commit -m "refactor: extract fetchEntry dispatch helper from web-fetch handl
 ### Task 6: web-search MCP tool registration + handler
 
 **Files:**
+
 - Modify: `go/cmd/chrest/main.go` — add `searchCache` next to `fetchCache` (`main.go:159`), register `web-search` after the `web-fetch` registration block (after `main.go:408`), import `code.linenisgreat.com/chrest/go/internal/0/websearch`.
 
 **Step 1: Add the cache declaration** beside `var fetchCache sync.Map` in `runMCP`:
@@ -985,6 +991,7 @@ git commit -m "feat: web-search MCP tool (DDG HTML backend, top-N prefetch)"
 ### Task 7: test-mcp annotation gate + bats integration suite
 
 **Files:**
+
 - Modify: `justfile:219` (add `web-search` to the readOnlyHint list)
 - Create: `zz-tests_bats/web_search.bats`
 
@@ -1107,6 +1114,7 @@ git commit -m "test: web-search MCP annotation gate + bats integration suite"
 ### Task 8: Documentation
 
 **Files:**
+
 - Modify: `CLAUDE.md` — MCP Server section + Runtime configuration section
 - Modify: `docs/plans/2026-06-06-web-search-tool-design.md` — record the URI-fragment deviation
 

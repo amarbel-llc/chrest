@@ -55,5 +55,8 @@
     "sweatfile"
     "LICENSE"
     "go/**/*.json"
+    # Test fixtures are captured byte-exact (e.g. live DDG SERP pages in
+    # */websearch/testdata); formatters must never rewrite them.
+    "go/**/testdata/**"
   ];
 }
