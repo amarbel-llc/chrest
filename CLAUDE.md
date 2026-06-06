@@ -200,6 +200,9 @@ moment `just codemod-dagnabit-reposition apply` runs.
   Binary / HTTPError from response headers + URL ext + status;
   `BuildFromText` builds the text/markdown/html slots from a raw text body;
   `ExtractMarkdownTOCFromText` regex-scans markdown for ATX headings.
+- `*/websearch` - PARKED skeleton for a web-search MCP tool (chrest#93:
+  full plan, verified DDG SERP fixtures, bot-challenge findings). Nothing
+  imports it yet.
 - `*/proxy` - Multi-browser proxy (fan-out requests to all sockets)
 - `*/tools` - MCP tool definitions with annotations
 - `*/resources` - MCP paginated resources (`chrest://items`, `chrest://items/{page}`)
