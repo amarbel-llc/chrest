@@ -52,7 +52,8 @@ just deploy-release <version>            # bump-version, commit, push master, th
 just bump-version <version>              # sed-rewrite chrestVersion in flake.nix
 ```
 
-`test-mcp-bats` is wall-clock bounded (180s timeout) and validates success by
+`test-mcp-bats` is wall-clock bounded (360s timeout, per-lane; bumped from
+180s for chrest#51 firefox-lane headroom) and validates success by
 parsing TAP output — bats has been observed to hang on shutdown in bwrap
 `--unshare-pid` sandboxes even when every test passes. Root cause still open.
 

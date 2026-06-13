@@ -243,9 +243,13 @@ test-mcp-bats:
   #    bypasses fence so the inner Firefox sandbox can do its work.
   #    The chrest tests do their own per-test profile-dir isolation.
   #
-  # Each lane runs under a wall-clock timeout (bats has been observed
-  # to hang on post-test shutdown after several Firefox captures in
-  # bwrap --unshare-pid; root cause open). The new bats wrapper
+  # Each lane runs under a 360s wall-clock timeout (bats has been
+  # observed to hang on post-test shutdown after several Firefox
+  # captures in bwrap --unshare-pid; root cause open). Bumped from
+  # 180s because the firefox lane's headless-Firefox tests can run
+  # long enough under host load to blow the budget and get killed
+  # mid-stream, surfacing as a spurious "no NDJSON summary record"
+  # merge-gate reject (chrest#51). The new bats wrapper
   # (amarbel-llc/bats `bats` package) splits passing records into a
   # sidecar file and prints failure records + a trailing summary
   # record to stdout as NDJSON. We validate by locating that
@@ -262,7 +266,7 @@ test-mcp-bats:
     local label=$1; shift
     local logfile
     logfile=$(mktemp)
-    timeout --preserve-status 180 \
+    timeout --preserve-status 360 \
       env CHREST_BIN="$out_path/bin/chrest" \
       "$@" > >(tee "$logfile") 2>&1
     local rc=$?
