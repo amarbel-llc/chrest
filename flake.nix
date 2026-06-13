@@ -71,11 +71,6 @@
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
-      # purse-first dropped its direct treefmt-nix input; it now reaches
-      # treefmt-nix transitively through treelint. Follow-wire that nested
-      # edge onto the root treefmt-nix so the lock carries one rev, not the
-      # older one treelint pins (chrest#87 dedup gate; doppelgang multi-version).
-      inputs.treelint.inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).

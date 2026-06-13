@@ -7,7 +7,7 @@ tool github.com/amarbel-llc/tommy/cmd/tommy
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
-	github.com/amarbel-llc/tommy v0.0.0-20260416172442-0769146d4d1e
+	github.com/amarbel-llc/tommy v0.4.5-0.20260612103107-054f61d3520d
 	github.com/andybalholm/cascadia v1.3.3
 	github.com/charmbracelet/huh v0.8.0
 	github.com/pdfcpu/pdfcpu v0.11.1
@@ -15,8 +15,8 @@ require (
 )
 
 require (
-	github.com/amarbel-llc/purse-first/libs/dewey v0.2.2
-	github.com/amarbel-llc/tap/go v0.1.9
+	github.com/amarbel-llc/purse-first/libs/dewey v0.3.1-0.20260611180528-00c193ed49b4
+	github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb
 	golang.org/x/sys v0.43.0
 )
 
