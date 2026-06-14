@@ -417,15 +417,15 @@ explore-run browser="firefox":
   fi
 
 [group("explore")]
-explore-capture format="text" browser="firefox" url="https://example.com" output="":
+explore-capture format="text" url="https://example.com" output="":
   #!/usr/bin/env bash
   set -euo pipefail
   out=$(nix build --no-link --print-out-paths)
   if [ -n "{{output}}" ]; then
-    timeout 30 "$out/bin/chrest" capture --format {{format}} --browser {{browser}} --url "{{url}}" > "{{output}}"
+    timeout 30 "$out/bin/chrest" capture --format {{format}} --url "{{url}}" > "{{output}}"
     echo "wrote {{output}}"
   else
-    timeout 30 "$out/bin/chrest" capture --format {{format}} --browser {{browser}} --url "{{url}}"
+    timeout 30 "$out/bin/chrest" capture --format {{format}} --url "{{url}}"
   fi
 
 # Capture a small diverse page set across the three markdown variants so
@@ -541,6 +541,29 @@ explore-mcp-web-fetch-blocks url="https://example.com" selector="":
   echo "=== TOC (content[0].text) first 20 lines ==="
   echo "$result" | grep '"id":2' | jq -r '.result.content[0].text' | head -20
 
+# Smoke-test that the nix-built Firefox actually launches on this host.
+# Unlike explore-mcp-web-fetch-blocks (which uses the devshell-PATH
+# firefox), this drives the *nix-built* chrest, whose PATH wrapper carries
+# the firefox from nix/firefox.nix — so it verifies a firefox.nix change
+# without a devshell reload. Confirms the patched binary executes (--version)
+# and that web-fetch reaches the BiDi WebSocket (no "WebSocket URL" error).
+# Serves the firefox.nix maintenance loop (portability / version bumps).
+[group("explore")]
+explore-firefox-smoke url="https://example.com":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  out=$(nix build --no-link --print-out-paths)
+  echo "=== firefox --version (proves the ELF loader resolves) ==="
+  "$out/bin/firefox" --version
+  echo "=== web-fetch via nix-built chrest (proves BiDi launch) ==="
+  init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}'
+  notif='{"jsonrpc":"2.0","method":"notifications/initialized"}'
+  call=$(jq -nc --arg url "{{url}}" '
+    {jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",
+      arguments:{url:$url,format:"markdown"}}}')
+  result=$(printf '%s\n' "$init" "$notif" "$call" | "$out/bin/chrest" mcp)
+  echo "$result" | grep '"id":2' | jq -r '.result.content[0].text' | head -20
+
 # Verify Firefox/BiDi response interception support: addIntercept at the
 # responseStarted phase + continueResponse + failRequest. Pre-requisite
 # spike for the web-fetch content-type-dispatch design
@@ -553,7 +576,7 @@ explore-bidi-intercept:
   cd go
   CHREST_SPIKE_BIDI_INTERCEPT=1 go test -tags spike -count=1 -v \
     -run TestSpikeBiDiResponseIntercept \
-    ./src/charlie/firefox/...
+    ./internal/alfa/firefox/...
 
 # Same as explore-bidi-intercept but exercises the typed BiDi intercept
 # wrappers (Session.AddResponseIntercept / ContinueResponse /
@@ -565,7 +588,7 @@ explore-bidi-intercept-typed:
   cd go
   CHREST_SPIKE_BIDI_INTERCEPT=1 go test -tags spike -count=1 -v \
     -run TestSession_AddResponseIntercept \
-    ./src/charlie/firefox/...
+    ./internal/alfa/firefox/...
 
 [group("explore")]
 explore-rewrite-dewey-imports:

@@ -3,9 +3,14 @@
 # Darwin: universal .dmg (Apple Silicon + Intel), fetched from Mozilla CDN,
 #         extracted with undmg, makeWrapper wraps the MacOS binary into $out/bin
 #         so argv[0] resolves to the real binary path (symlinks break XPCOM loading).
-# Linux:  platform-specific .tar.xz (x86_64 + aarch64), wrapped with
-#         makeWrapper so shared libs and profile data dirs resolve correctly
-#         for headless BiDi capture.
+# Linux:  platform-specific .tar.xz (x86_64 + aarch64). The upstream Mozilla
+#         binary is FHS-linked (ELF interpreter /lib64/ld-linux-x86-64.so.2,
+#         libraries on standard FHS paths) — neither exists on NixOS, so it
+#         must be patchelf'd onto the nix-store glibc loader and given a
+#         RUNPATH over its runtime deps. Mirrors nixpkgs firefox-bin-unwrapped
+#         so the result runs on NixOS and FHS hosts alike. Without this the
+#         binary fails execve with exit 127 ("required file not found") on any
+#         host lacking the FHS loader.
 #
 # To bump to a new Firefox release:
 #   1. Update `version` below.
@@ -24,6 +29,23 @@
   fetchurl,
   undmg,
   makeWrapper,
+  # Linux: patchelf the prebuilt Mozilla binary onto the nix-store loader.
+  autoPatchelfHook,
+  patchelfUnstable,
+  wrapGAppsHook3,
+  gtk3,
+  adwaita-icon-theme,
+  alsa-lib,
+  dbus-glib,
+  libxtst,
+  curl,
+  pciutils,
+  libva,
+  pipewire,
+  # Self-contained fontconfig so headless rendering (screenshot/PDF) has glyphs
+  # without depending on the host's /etc/fonts.
+  makeFontsConf,
+  dejavu_fonts,
   version ? "150.0",
 }:
 
@@ -75,6 +97,10 @@ else
         hash = "sha256-nm4pdN36hAVEyvJu/adlxJiJMb8q2oXGsQdQDNkWzuc=";
       };
     };
+    # Minimal but real font set so headless captures render text rather than
+    # tofu. Pointed at via FONTCONFIG_FILE below; broaden fontDirectories
+    # (e.g. noto-fonts) if non-Latin coverage is ever needed.
+    fontsConf = makeFontsConf { fontDirectories = [ dejavu_fonts ]; };
   in
   stdenv.mkDerivation {
     pname = "firefox-linux";
@@ -84,14 +110,53 @@ else
       srcs.${stdenv.hostPlatform.system}
         or (throw "firefox.nix: unsupported Linux arch: ${stdenv.hostPlatform.system}");
 
-    nativeBuildInputs = [ makeWrapper ];
+    nativeBuildInputs = [
+      autoPatchelfHook
+      # patchelfUnstable is required for --no-clobber-old-sections (below).
+      patchelfUnstable
+      wrapGAppsHook3
+    ];
+
+    # DT_NEEDED libraries autoPatchelf resolves into RUNPATH.
+    buildInputs = [
+      gtk3
+      adwaita-icon-theme
+      alsa-lib
+      dbus-glib
+      libxtst
+    ];
+
+    # dlopen'd at runtime (not in DT_NEEDED), so autoPatchelf can't discover
+    # them — list explicitly so they still land in RUNPATH.
+    runtimeDependencies = [
+      curl
+      pciutils
+      libva.out
+    ];
+    appendRunpaths = [ "${pipewire}/lib" ];
+
+    # Firefox post-processes its own relocations ("relrhack"); stock patchelf
+    # clobbers the sections it relies on, so use the unstable flag.
+    patchelfFlags = [ "--no-clobber-old-sections" ];
 
     installPhase = ''
+      runHook preInstall
       mkdir -p $out/lib/firefox $out/bin
       cp -r . $out/lib/firefox/
-      makeWrapper $out/lib/firefox/firefox $out/bin/firefox \
-        --set MOZ_LEGACY_PROFILES 1 \
+      # wrapGAppsHook3 wraps whatever lands in $out/bin; symlink the real
+      # binary there so it gets the GTK/GApps + profile-env wrapper.
+      ln -s $out/lib/firefox/firefox $out/bin/firefox
+      runHook postInstall
+    '';
+
+    # Inject Firefox's profile env through wrapGAppsHook3's wrapper rather
+    # than stacking a second makeWrapper layer on top of it.
+    preFixup = ''
+      gappsWrapperArgs+=(
+        --set MOZ_LEGACY_PROFILES 1
         --set MOZ_ALLOW_DOWNGRADE 1
+        --set FONTCONFIG_FILE ${fontsConf}
+      )
     '';
 
     meta = {
