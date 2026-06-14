@@ -46,6 +46,9 @@
   # without depending on the host's /etc/fonts.
   makeFontsConf,
   dejavu_fonts,
+  noto-fonts,
+  noto-fonts-cjk-sans,
+  noto-fonts-color-emoji,
   version ? "150.0",
 }:
 
@@ -97,10 +100,19 @@ else
         hash = "sha256-nm4pdN36hAVEyvJu/adlxJiJMb8q2oXGsQdQDNkWzuc=";
       };
     };
-    # Minimal but real font set so headless captures render text rather than
-    # tofu. Pointed at via FONTCONFIG_FILE below; broaden fontDirectories
-    # (e.g. noto-fonts) if non-Latin coverage is ever needed.
-    fontsConf = makeFontsConf { fontDirectories = [ dejavu_fonts ]; };
+    # Font set so headless captures render text rather than tofu, pointed at
+    # via FONTCONFIG_FILE below. DejaVu covers Latin/Greek/Cyrillic; the Noto
+    # families add broad Unicode, CJK, and emoji coverage (chrest#95). noto-cjk
+    # is large (hundreds of MB), which is the bulk of the firefox closure
+    # growth — drop it if closure size ever outweighs CJK capture fidelity.
+    fontsConf = makeFontsConf {
+      fontDirectories = [
+        dejavu_fonts
+        noto-fonts
+        noto-fonts-cjk-sans
+        noto-fonts-color-emoji
+      ];
+    };
   in
   stdenv.mkDerivation {
     pname = "firefox-linux";
