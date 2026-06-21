@@ -35,4 +35,11 @@
     src = purse-first.packages.${system}.go-pkgs;
     subPath = "libs/dewey";
   };
+  # NB: github.com/amarbel-llc/cutting-garden (chrest#83, pkgs/capture_plugin)
+  # and its transitive madder/go are deliberately NOT bridged here — they
+  # resolve organically through gomod2nix.toml. Bridging cutting-garden
+  # inherits its passthru.goFlakeInputs (RFC 0001), which drags in /v2+
+  # transitive deps (crap/go-crap/v2, ...) that igloo's mkMergedGoMod
+  # synthesizes with the v0.0.0 sentinel — invalid for a /v2 module. See
+  # chrest#98. Re-bridge once igloo emits a major-aware sentinel.
 }

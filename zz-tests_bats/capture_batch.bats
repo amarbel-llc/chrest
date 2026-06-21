@@ -2,9 +2,12 @@
 
 # bats file_tags=firefox
 
-# Integration tests for `chrest capture-batch` (RFC 0001 — Web Capture
-# Archive Protocol, capturer role). Every test launches headless
-# Firefox; the `firefox` tag steers them into the --no-sandbox lane.
+# Integration tests for `chrest capture-batch` — the capture-plugin role of
+# the cutting-garden Capture Plugin Protocol (RFC 0002) under the
+# web-archive binding (RFC 0003). Each capture assembles a receipt merkle
+# tree (capture-plugin/v1 in, one `receipt` ref per capture out). Every
+# test launches headless Firefox; the `firefox` tag steers them into the
+# --no-sandbox lane.
 
 setup() {
   load "$(dirname "$BATS_TEST_FILE")/common.bash"
@@ -19,9 +22,8 @@ setup() {
 EOF
   FIXTURE="file://$BATS_TEST_TMPDIR/test.html"
 
-  # Stub writer: read stdin, emit a deterministic JSON result line.
-  # Simulates the madder writer interface without requiring madder in
-  # the test closure.
+  # Stub writer: read stdin, emit a deterministic {id,size} line —
+  # simulates the `cutting-garden __write-blob` sink without a real store.
   cat >"$BATS_TEST_TMPDIR/stub-writer.sh" <<'EOF'
 #!/usr/bin/env bash
 size=$(wc -c)
@@ -39,147 +41,29 @@ EOF
   fi
 }
 
-function capture_batch_rejects_bad_schema { # @test
-  input='{"schema":"wrong/v1","writer":{"cmd":["/bin/true"]},"url":"about:blank","captures":[]}'
-  run bash -c "echo '$input' | timeout 10 '$CHREST_BIN' capture-batch"
-  [ "$status" -ne 0 ]
-  echo "$output" | grep -qi "schema"
-}
-
-function capture_batch_split_true_pdf_emits_all_three_artifacts { # @test
-  # Stage 3 of chrest#22: PDF normalizer via pdfcpu. Expect payload
-  # (normalized), envelope, and spec refs all populated. Normalized
-  # PDF has /CreationDate, /ModDate, /Producer, /Creator stripped
-  # plus the trailer /ID zeroed.
-  input=$(
-    cat <<JSON
+# batch_input <format> [options-json] builds a capture-plugin/v1 batch for
+# a single capture of <format> targeting the file fixture via the stub
+# writer. options-json defaults to {}.
+batch_input() {
+  local format="$1"
+  local options="$2"
+  [ -n "$options" ] || options='{}'
+  cat <<JSON
 {
-  "schema": "web-capture-archive/v1",
+  "schema": "capture-plugin/v1",
   "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": true},
-  "captures": [{"name": "pdf", "format": "pdf"}]
+  "target": "$FIXTURE",
+  "defaults": {"normalize": true, "plugin": {"browser": "firefox"}},
+  "captures": [{"name": "cap", "format": "$format", "options": $options}]
 }
 JSON
-  )
-  result=$(echo "$input" | timeout 60 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].error == null'
-  echo "$result" | jq -e '.captures[0].payload.normalized == true'
-  echo "$result" | jq -e '.captures[0].payload.media_type  == "application/pdf"'
-  echo "$result" | jq -e '.captures[0].envelope.media_type == "application/vnd.web-capture-archive.envelope+json"'
-  echo "$result" | jq -e '.captures[0].spec.media_type     == "application/vnd.web-capture-archive.spec+json"'
-  echo "$result" | jq -e '.captures[0].payload.size > 100'
 }
 
-function capture_batch_split_true_a11y_returns_not_implemented { # @test
-  # a11y is not implemented for split=true (Firefox/BiDi does not support
-  # accessibility-tree capture; chrest#22 follow-up).
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": true},
-  "captures": [{"name": "a", "format": "a11y"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].error.kind == "not-implemented"'
-}
-
-function capture_batch_split_true_screenshot_emits_all_three_artifacts { # @test
-  # Stage 2 of chrest#22: PNG normalizer. Expect payload (normalized),
-  # envelope, and spec refs all populated. Normalized payload should
-  # differ in size from the raw capture because chunks get stripped.
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": true},
-  "captures": [{"name": "shot", "format": "screenshot"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].error == null'
-  echo "$result" | jq -e '.captures[0].payload.normalized == true'
-  echo "$result" | jq -e '.captures[0].payload.media_type  == "image/png"'
-  echo "$result" | jq -e '.captures[0].envelope.media_type == "application/vnd.web-capture-archive.envelope+json"'
-  echo "$result" | jq -e '.captures[0].spec.media_type     == "application/vnd.web-capture-archive.spec+json"'
-  echo "$result" | jq -e '.captures[0].payload.size > 100'
-}
-
-function capture_batch_split_true_text_emits_all_three_artifacts { # @test
-  # Stage 1 of chrest#22: text normalizer + partial envelope.
-  # Expect payload (normalized), envelope, and spec refs all populated.
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": true},
-  "captures": [{"name": "txt", "format": "text"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].error == null'
-  # All three artifact refs populated.
-  echo "$result" | jq -e '.captures[0].payload.id  | startswith("blake2b256-stub-")'
-  echo "$result" | jq -e '.captures[0].envelope.id | startswith("blake2b256-stub-")'
-  echo "$result" | jq -e '.captures[0].spec.id     | startswith("blake2b256-stub-")'
-  # Payload normalized flag set true.
-  echo "$result" | jq -e '.captures[0].payload.normalized == true'
-  echo "$result" | jq -e '.captures[0].payload.media_type  == "text/plain; charset=utf-8"'
-  echo "$result" | jq -e '.captures[0].envelope.media_type == "application/vnd.web-capture-archive.envelope+json"'
-  echo "$result" | jq -e '.captures[0].spec.media_type     == "application/vnd.web-capture-archive.spec+json"'
-}
-
-function capture_batch_split_false_markdown_full_emits_payload_and_spec { # @test
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": false},
-  "captures": [{"name": "md", "format": "markdown-full"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].error == null'
-  echo "$result" | jq -e '.captures[0].payload.media_type == "text/markdown; charset=utf-8"'
-  echo "$result" | jq -e '.captures[0].payload.size > 10'
-  echo "$result" | jq -e '.captures[0].envelope == null'
-}
-
-function capture_batch_split_false_markdown_reader_emits_payload_and_spec { # @test
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": false},
-  "captures": [{"name": "md", "format": "markdown-reader"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].error == null'
-  echo "$result" | jq -e '.captures[0].payload.media_type == "text/markdown; charset=utf-8"'
-}
-
-function capture_batch_split_false_markdown_selector_echoes_selector_in_spec { # @test
-  # Write a recording writer so we can read the spec artifact back and
-  # assert capture.options.selector round-trips via JCS canonicalization.
-  rec_dir="$BATS_TEST_TMPDIR/rec-md-sel"
+# make_recording_writer <dir> writes a writer that saves every node blob to
+# <dir>/artifact.* (so a test can inspect the receipt tree's node bytes)
+# and echoes its path.
+make_recording_writer() {
+  local rec_dir="$1"
   mkdir -p "$rec_dir"
   cat >"$BATS_TEST_TMPDIR/rec-writer.sh" <<EOF
 #!/usr/bin/env bash
@@ -189,130 +73,100 @@ size=\$(wc -c < "\$out")
 echo "{\"id\":\"blake2b256-rec-\$(basename \$out)\",\"size\":\$size}"
 EOF
   chmod +x "$BATS_TEST_TMPDIR/rec-writer.sh"
-
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$BATS_TEST_TMPDIR/rec-writer.sh"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": false},
-  "captures": [
-    {"name": "md", "format": "markdown-selector", "options": {"selector": "h1"}}
-  ]
+  echo "$BATS_TEST_TMPDIR/rec-writer.sh"
 }
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
+
+function capture_batch_rejects_bad_schema { # @test
+  input='{"schema":"wrong/v1","writer":{"cmd":["/bin/true"]},"target":"about:blank","captures":[]}'
+  run bash -c "echo '$input' | timeout 10 '$CHREST_BIN' capture-batch"
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -qi "schema"
+}
+
+function capture_batch_unknown_format_is_per_capture_error { # @test
+  # bad-format is caught before a session opens; the batch still succeeds
+  # and reports a per-capture error with no receipt.
+  result=$(batch_input "bogus" | timeout 30 "$CHREST_BIN" capture-batch)
+  echo "$result" | jq -e '.schema == "capture-plugin/v1"'
+  echo "$result" | jq -e '.plugin.name == "chrest"'
+  echo "$result" | jq -e '.captures[0].error.kind == "bad-format"'
+  echo "$result" | jq -e '.captures[0].receipt == null'
+}
+
+function capture_batch_text_emits_receipt { # @test
+  result=$(batch_input "text" | timeout 30 "$CHREST_BIN" capture-batch)
+  echo "$result" | jq -e '.schema == "capture-plugin/v1"'
+  echo "$result" | jq -e '.plugin.name == "chrest"'
+  echo "$result" | jq -e '.errors | length == 0'
+  echo "$result" | jq -e '.captures[0].name == "cap"'
   echo "$result" | jq -e '.captures[0].error == null'
-  echo "$result" | jq -e '.captures[0].payload.media_type == "text/markdown; charset=utf-8"'
-
-  # Find the spec artifact and confirm it echoes the selector option.
-  spec_path=""
-  for f in "$rec_dir"/artifact.*; do
-    if jq -e '.schema | startswith("web-capture-archive.spec")' <"$f" >/dev/null 2>&1; then
-      spec_path="$f"
-      break
-    fi
-  done
-  [ -n "$spec_path" ] || {
-    echo "no spec artifact"
-    ls -la "$rec_dir"
-    exit 1
-  }
-  jq -e '.capture.options.selector == "h1"' <"$spec_path"
+  echo "$result" | jq -e '.captures[0].receipt.id | startswith("blake2b256-stub-")'
+  echo "$result" | jq -e '.captures[0].receipt.size > 0'
 }
 
-function capture_batch_split_false_html_monolith_emits_payload_and_spec { # @test
+function capture_batch_pdf_emits_receipt { # @test
+  result=$(batch_input "pdf" | timeout 60 "$CHREST_BIN" capture-batch)
+  echo "$result" | jq -e '.captures[0].error == null'
+  echo "$result" | jq -e '.captures[0].receipt.id | startswith("blake2b256-stub-")'
+}
+
+function capture_batch_screenshot_emits_receipt { # @test
+  result=$(batch_input "screenshot" | timeout 30 "$CHREST_BIN" capture-batch)
+  echo "$result" | jq -e '.captures[0].error == null'
+  echo "$result" | jq -e '.captures[0].receipt.id | startswith("blake2b256-stub-")'
+}
+
+function capture_batch_markdown_reader_emits_receipt { # @test
+  result=$(batch_input "markdown-reader" | timeout 30 "$CHREST_BIN" capture-batch)
+  echo "$result" | jq -e '.captures[0].error == null'
+  echo "$result" | jq -e '.captures[0].receipt.id | startswith("blake2b256-stub-")'
+}
+
+function capture_batch_html_monolith_emits_receipt { # @test
   if ! command -v monolith >/dev/null 2>&1; then
     skip "monolith binary not found on PATH"
   fi
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": false},
-  "captures": [{"name": "m", "format": "html-monolith"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 60 "$CHREST_BIN" capture-batch)
+  result=$(batch_input "html-monolith" | timeout 60 "$CHREST_BIN" capture-batch)
   echo "$result" | jq -e '.captures[0].error == null'
-  echo "$result" | jq -e '.captures[0].payload.media_type == "text/html; charset=utf-8"'
-  echo "$result" | jq -e '.captures[0].payload.size > 100'
-  echo "$result" | jq -e '.captures[0].spec.id | startswith("blake2b256-stub-")'
-  # split=false: envelope MUST be omitted.
-  echo "$result" | jq -e '.captures[0].envelope == null'
+  echo "$result" | jq -e '.captures[0].receipt.id | startswith("blake2b256-stub-")'
 }
 
-function capture_batch_split_false_text_emits_payload_and_spec { # @test
+function capture_batch_invocation_node_echoes_options { # @test
+  # The resolved capture options are echoed (via JCS) into the invocation
+  # node of the receipt tree. Record the tree and assert the selector
+  # round-trips.
+  rec_dir="$BATS_TEST_TMPDIR/rec-sel"
+  writer=$(make_recording_writer "$rec_dir")
   input=$(
     cat <<JSON
 {
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": false},
-  "captures": [{"name": "txt", "format": "text"}]
+  "schema": "capture-plugin/v1",
+  "writer": {"cmd": ["$writer"]},
+  "target": "$FIXTURE",
+  "defaults": {"normalize": true, "plugin": {"browser": "firefox"}},
+  "captures": [{"name": "cap", "format": "markdown-selector", "options": {"selector": "h1"}}]
 }
 JSON
   )
   result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].name == "txt"'
-  echo "$result" | jq -e '.captures[0].payload.id | startswith("blake2b256-stub-")'
-  echo "$result" | jq -e '.captures[0].payload.media_type == "text/plain; charset=utf-8"'
-  echo "$result" | jq -e '.captures[0].spec.id | startswith("blake2b256-stub-")'
-  echo "$result" | jq -e '.captures[0].spec.media_type == "application/vnd.web-capture-archive.spec+json"'
-  # Envelope MUST be omitted when split=false.
-  echo "$result" | jq -e '.captures[0].envelope == null'
   echo "$result" | jq -e '.captures[0].error == null'
+  echo "$result" | jq -e '.captures[0].receipt.id | startswith("blake2b256-rec-")'
+
+  # The selector appears only in the invocation node's JCS options echo.
+  grep -rq '"selector":"h1"' "$rec_dir"
 }
 
-function capture_batch_split_false_screenshot_emits_png { # @test
-  input=$(
-    cat <<JSON
-{
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$STUB_WRITER"]},
-  "url": "$FIXTURE",
-  "defaults": {"browser": "firefox", "split": false},
-  "captures": [{"name": "shot", "format": "screenshot"}]
-}
-JSON
-  )
-  result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
-  echo "$result" | jq -e '.captures[0].payload.media_type == "image/png"'
-  echo "$result" | jq -e '.captures[0].payload.size > 100'
-}
-
-function capture_batch_split_true_text_envelope_has_http_fields { # @test
-  # Stage 1b of chrest#22: envelope http.* populated from BiDi
-  # network.responseCompleted events. Uses a recording writer that
-  # saves every artifact's raw bytes to disk so we can inspect the
-  # envelope JSON rather than the stub's synthesized ref.
-  #
-  # Needs HTTP (not file://) because BiDi network events only fire
-  # for real network requests. We serve the fixture over a throwaway
-  # Python HTTP server on an ephemeral port.
+function capture_batch_outcome_node_has_http_fields { # @test
+  # http.* lives in chrest's plugin-outcome node, populated from BiDi
+  # network.responseCompleted events — which only fire for real network
+  # requests, so serve the fixture over a throwaway HTTP server.
   port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
-  rec_dir="$BATS_TEST_TMPDIR/rec"
-  mkdir -p "$rec_dir"
-  cat >"$BATS_TEST_TMPDIR/recording-writer.sh" <<EOF
-#!/usr/bin/env bash
-out=\$(mktemp "$rec_dir/artifact.XXXXXX")
-cat > "\$out"
-size=\$(wc -c < "\$out")
-echo "{\"id\":\"blake2b256-rec-\$(basename \$out)\",\"size\":\$size}"
-EOF
-  chmod +x "$BATS_TEST_TMPDIR/recording-writer.sh"
-  REC_WRITER="$BATS_TEST_TMPDIR/recording-writer.sh"
+  rec_dir="$BATS_TEST_TMPDIR/rec-http"
+  writer=$(make_recording_writer "$rec_dir")
 
   (cd "$BATS_TEST_TMPDIR" && timeout 30 python3 -m http.server "$port" >/dev/null 2>&1) &
   srv_pid=$!
   trap "kill $srv_pid 2>/dev/null || true" EXIT
-  # Wait up to 5s for port to come up.
   for _ in $(seq 1 50); do
     if curl -sf "http://127.0.0.1:$port/test.html" >/dev/null; then break; fi
     sleep 0.1
@@ -321,35 +175,26 @@ EOF
   input=$(
     cat <<JSON
 {
-  "schema": "web-capture-archive/v1",
-  "writer": {"cmd": ["$REC_WRITER"]},
-  "url": "http://127.0.0.1:$port/test.html",
-  "defaults": {"browser": "firefox", "split": true},
-  "captures": [{"name": "txt", "format": "text"}]
+  "schema": "capture-plugin/v1",
+  "writer": {"cmd": ["$writer"]},
+  "target": "http://127.0.0.1:$port/test.html",
+  "defaults": {"normalize": true, "plugin": {"browser": "firefox"}},
+  "captures": [{"name": "cap", "format": "text"}]
 }
 JSON
   )
   result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
   echo "$result" | jq -e '.captures[0].error == null'
 
-  # Find the envelope artifact by content sniffing — it's the one that
-  # parses as JSON with a "schema" key starting with "web-capture-archive.envelope".
-  envelope_path=""
-  for f in "$rec_dir"/artifact.*; do
-    if jq -e '.schema | startswith("web-capture-archive.envelope")' <"$f" >/dev/null 2>&1; then
-      envelope_path="$f"
-      break
-    fi
-  done
-  [ -n "$envelope_path" ] || {
-    echo "no envelope artifact found"
+  # The outcome node carries the HTTP response: status 200 + a lowercased
+  # content-type header. Its bytes are JCS-canonical inside the hyphence
+  # node framing, so grep rather than parse.
+  outcome=$(grep -l 'jcs-chrest-capture-outcome-v1' "$rec_dir"/artifact.* | head -n1)
+  [ -n "$outcome" ] || {
+    echo "no plugin-outcome node found"
     ls -la "$rec_dir"
     exit 1
   }
-
-  # Schema should be v1 (not v1-preview) now that http.* is populated.
-  jq -e '.schema == "web-capture-archive.envelope/v1"' <"$envelope_path"
-  jq -e '.http.status == 200' <"$envelope_path"
-  jq -e '.http.headers | length > 0' <"$envelope_path"
-  jq -e '.http.headers | map(.name) | any(ascii_downcase == "content-type")' <"$envelope_path"
+  grep -q '"status":200' "$outcome"
+  grep -qi 'content-type' "$outcome"
 }

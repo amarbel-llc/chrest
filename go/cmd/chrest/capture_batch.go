@@ -26,7 +26,7 @@ func registerCaptureBatchCommand(app *command.Utility) {
 	app.AddCommand(&command.Command{
 		Name: "capture-batch",
 		Description: command.Description{
-			Short: "Run a batch of web captures; reads JSON from stdin, writes JSON to stdout (RFC 0001).",
+			Short: "Run a batch of web captures; reads JSON from stdin, writes JSON to stdout (cutting-garden capture-plugin/v1).",
 		},
 		RunCLI: func(ctx context.Context, args json.RawMessage) error {
 			return fmt.Errorf(
@@ -37,11 +37,14 @@ func registerCaptureBatchCommand(app *command.Utility) {
 	})
 }
 
-// cmdCaptureBatch implements the `chrest capture-batch` subcommand per
-// RFC 0001 (Web Capture Archive Protocol). It reads a single JSON
-// document from stdin, runs every capture sequentially, spawns a fresh
-// writer subprocess per artifact to obtain its content-addressed ID,
-// and writes a single JSON result object to stdout.
+// cmdCaptureBatch implements the `chrest capture-batch` subcommand — the
+// capture-plugin role of the cutting-garden Capture Plugin Protocol (RFC
+// 0002) under the web-archive binding (RFC 0003). It reads a single
+// capture-plugin/v1 JSON document from stdin, runs every capture
+// sequentially, assembles each capture's receipt merkle tree, streams
+// every node through a fresh writer.cmd subprocess to obtain its
+// content-addressed ID, and writes a single JSON result object (one
+// receipt ref per capture) to stdout.
 //
 // Unlike `chrest capture`, this command is entirely machine-driven:
 // its contract is JSON-on-stdin / JSON-on-stdout, not flags.
@@ -65,18 +68,18 @@ func cmdCaptureBatch(ctx context.Context, version string, args []string) error {
 		return fmt.Errorf("read stdin: %w", err)
 	}
 
-	var input capturebatch.Input
+	var input capturebatch.BatchInput
 	if err := json.Unmarshal(raw, &input); err != nil {
 		return fmt.Errorf("parse batch input: %w", err)
 	}
-	if input.Schema != capturebatch.InputSchema {
-		return fmt.Errorf("schema MUST be %q, got %q", capturebatch.InputSchema, input.Schema)
+	if input.Schema != capturebatch.BatchSchema {
+		return fmt.Errorf("schema MUST be %q, got %q", capturebatch.BatchSchema, input.Schema)
 	}
 
 	out, err := capturebatch.Run(ctx, input.Captures, capturebatch.Options{
 		CapturerVersion: version,
 		Writer:          input.Writer,
-		URL:             input.URL,
+		Target:          input.Target,
 		Defaults:        input.Defaults,
 	})
 	if err != nil {
@@ -94,14 +97,15 @@ func cmdCaptureBatch(ctx context.Context, version string, args []string) error {
 func printCaptureBatchHelp(w io.Writer) {
 	fmt.Fprintln(w, "Usage: chrest capture-batch < input.json")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Run a batch of web captures per the Web Capture Archive Protocol")
-	fmt.Fprintln(w, "(RFC 0001). The single JSON document read from stdin has the shape:")
+	fmt.Fprintln(w, "Run a batch of web captures — the capture-plugin role of the")
+	fmt.Fprintln(w, "cutting-garden Capture Plugin Protocol (RFC 0002) under the web-archive")
+	fmt.Fprintln(w, "binding (RFC 0003). The single JSON document read from stdin has the shape:")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "  {")
-	fmt.Fprintln(w, `    "schema":   "web-capture-archive/v1",`)
-	fmt.Fprintln(w, `    "writer":   {"cmd": ["madder", "--format=json", "write", "--store", "NAME"]},`)
-	fmt.Fprintln(w, `    "url":      "https://example.com",`)
-	fmt.Fprintln(w, `    "defaults": {"browser": "firefox", "split": false},`)
+	fmt.Fprintln(w, `    "schema":   "capture-plugin/v1",`)
+	fmt.Fprintln(w, `    "writer":   {"cmd": ["cutting-garden", "__write-blob", "--store", "NAME"]},`)
+	fmt.Fprintln(w, `    "target":   "https://example.com",`)
+	fmt.Fprintln(w, `    "defaults": {"normalize": true, "plugin": {"browser": "firefox"}},`)
 	fmt.Fprintln(w, `    "captures": [{"name": "text", "format": "text"}, …]`)
 	fmt.Fprintln(w, "  }")
 	fmt.Fprintln(w)

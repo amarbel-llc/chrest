@@ -1,146 +1,131 @@
-// Package capturebatch implements the chrest side of the Web Capture
-// Archive Protocol (RFC 0001). The capturer reads a batch of capture
-// requests as JSON on stdin, runs them sequentially, streams each
-// artifact to a writer subprocess for content-addressed storage, and
-// emits a JSON result envelope on stdout.
-//
-// MVP scope: split=false only. For split=true, the runner emits a
-// per-capture not-implemented error.
+// Package capturebatch implements the chrest side of the cutting-garden
+// Capture Plugin Protocol (RFC 0002) under the web-archive binding (RFC
+// 0003). The `capture-batch` subcommand reads a batch of capture requests
+// as JSON on stdin, runs them sequentially, assembles each capture's
+// receipt merkle tree of typed hyphence blobs via the shared
+// cutting-garden capture_plugin builder, streams every node through the
+// orchestrator-supplied writer.cmd subprocess, and emits one receipt ref
+// per capture in a JSON result envelope on stdout.
 package capturebatch
 
 import "encoding/json"
 
-// InputSchema is the constant `schema` value for the batch input.
-const InputSchema = "web-capture-archive/v1"
+// BatchSchema is the wire schema token for both the batch input and the
+// batch output (cutting-garden capture-plugin/v1).
+const BatchSchema = "capture-plugin/v1"
 
-// OutputSchema is the constant `schema` value for the batch output.
-const OutputSchema = "web-capture-archive/v1"
-
-// CapturerName is chrest's identifier in the protocol. Hardcoded so
-// other capturers implementing RFC 0001 can be distinguished.
+// CapturerName is chrest's plugin identifier — the `environment.binary.name`
+// discriminator that identifies chrest as the binary that produced a
+// receipt's bytes (RFC 0002 §Environment).
 const CapturerName = "chrest"
 
-// Input is the single JSON document read from stdin.
-type Input struct {
-	Schema   string           `json:"schema"`
-	Writer   WriterSpec       `json:"writer"`
-	URL      string           `json:"url"`
-	Defaults *CaptureDefaults `json:"defaults,omitempty"`
-	Captures []InputCapture   `json:"captures"`
+// BatchInput is the single JSON document read from stdin.
+type BatchInput struct {
+	Schema   string        `json:"schema"`
+	Writer   WriterSpec    `json:"writer"`
+	Target   string        `json:"target"`
+	Defaults *Defaults     `json:"defaults,omitempty"`
+	Captures []CaptureSpec `json:"captures"`
 }
 
-// WriterSpec is the writer-command contract from the orchestrator.
+// WriterSpec is the writer-command contract from the orchestrator: each
+// node blob is streamed through one invocation of this argv, which prints
+// a single `{id, size}` JSON object for the content-addressed blob.
 type WriterSpec struct {
 	Cmd []string `json:"cmd"`
 }
 
-// CaptureDefaults are applied to any fields a given capture leaves
-// unset. RFC 0001 §Capturer Protocol.
-type CaptureDefaults struct {
-	Browser   string `json:"browser,omitempty"`
-	Isolation string `json:"isolation,omitempty"`
-	Split     *bool  `json:"split,omitempty"`
+// Defaults carries batch-level fields applied to every capture. `plugin`
+// is the plugin-namespaced defaults object; chrest reads `plugin.browser`.
+type Defaults struct {
+	Normalize *bool          `json:"normalize,omitempty"`
+	Plugin    map[string]any `json:"plugin,omitempty"`
 }
 
-// InputCapture is one entry in the batch input `captures` array.
-type InputCapture struct {
-	Name       string          `json:"name"`
-	Format     string          `json:"format"`
-	Options    json.RawMessage `json:"options,omitempty"`
-	Browser    string          `json:"browser,omitempty"`
-	Isolation  string          `json:"isolation,omitempty"`
-	Split      *bool           `json:"split,omitempty"`
-	Extensions []Extension     `json:"extensions,omitempty"`
+// CaptureSpec is one entry in the batch input `captures` array. Options
+// stay raw so the format dispatcher and the invocation echo each parse
+// them independently.
+type CaptureSpec struct {
+	Name    string          `json:"name"`
+	Format  string          `json:"format"`
+	Options json.RawMessage `json:"options,omitempty"`
 }
 
-// Extension is a loaded browser extension declared in the batch input
-// or echoed in the spec artifact.
+// Extension is a browser extension echoed into the plugin-environment
+// node. The orchestrator does not yet send extensions on the wire (the
+// CaptureSpec has no extensions field); this type backs the
+// preinstalled-extension mapping until fetched-extension support (#55).
 type Extension struct {
 	ID             string `json:"id"`
 	Version        string `json:"version"`
 	ManifestDigest string `json:"manifest_digest,omitempty"`
 }
 
-// Resolved is a capture after defaults have been applied.
+// Resolved is a capture after batch defaults have been applied.
 type Resolved struct {
 	Name       string
 	Format     string
 	Options    json.RawMessage
 	Browser    string
+	Normalize  bool
 	Isolation  string
-	Split      bool
 	Extensions []Extension
 }
 
-// Output is the single JSON document written to stdout.
-type Output struct {
+// BatchOutput is the single JSON document written to stdout.
+type BatchOutput struct {
 	Schema   string          `json:"schema"`
-	Capturer CapturerInfo    `json:"capturer"`
-	Errors   []Error         `json:"errors"`
-	Captures []OutputCapture `json:"captures"`
+	Plugin   PluginInfo      `json:"plugin"`
+	Errors   []ProtocolError `json:"errors"`
+	Captures []CaptureResult `json:"captures"`
 }
 
-// CapturerInfo identifies the capturer implementation + version.
-type CapturerInfo struct {
+// PluginInfo identifies the capture plugin + version.
+type PluginInfo struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
 }
 
-// OutputCapture is one entry in the batch output `captures` array.
-// Exactly one of `Error` or the artifact refs is set.
-type OutputCapture struct {
-	Name     string        `json:"name"`
-	Spec     *ArtifactRef  `json:"spec,omitempty"`
-	Payload  *ArtifactRef  `json:"payload,omitempty"`
-	Envelope *ArtifactRef  `json:"envelope,omitempty"`
-	Error    *CaptureError `json:"error,omitempty"`
+// CaptureResult is one entry in the batch output `captures` array.
+// Exactly one of Receipt or Error is set.
+type CaptureResult struct {
+	Name    string         `json:"name"`
+	Receipt *ReceiptRef    `json:"receipt,omitempty"`
+	Error   *ProtocolError `json:"error,omitempty"`
 }
 
-// ArtifactRef points to a content-addressed blob via its markl ID.
-type ArtifactRef struct {
-	ID         string `json:"id"`
-	Size       int64  `json:"size"`
-	MediaType  string `json:"media_type"`
-	Normalized *bool  `json:"normalized,omitempty"`
+// ReceiptRef points to a capture's root receipt blob by its markl id.
+type ReceiptRef struct {
+	ID   string `json:"id"`
+	Size int64  `json:"size"`
 }
 
-// Error is a batch-level error (e.g. malformed input).
-type Error struct {
+// ProtocolError is a batch-level (errors[]) or per-capture
+// (captures[].error) failure.
+type ProtocolError struct {
 	Kind    string `json:"kind"`
 	Message string `json:"message"`
 }
 
-// CaptureError is a per-capture error embedded in OutputCapture.
-type CaptureError struct {
-	Kind    string `json:"kind"`
-	Message string `json:"message"`
-}
-
-// Resolve applies batch-level defaults to a single input capture and
-// produces the final tuple used by the runner.
-func Resolve(in InputCapture, def *CaptureDefaults) Resolved {
+// Resolve applies batch defaults to a single capture spec. Browser comes
+// from `defaults.plugin.browser` (default firefox, the only backend);
+// normalize comes from `defaults.normalize`.
+func Resolve(c CaptureSpec, def *Defaults) Resolved {
 	r := Resolved{
-		Name:       in.Name,
-		Format:     in.Format,
-		Options:    in.Options,
-		Browser:    in.Browser,
-		Isolation:  in.Isolation,
-		Extensions: in.Extensions,
+		Name:    c.Name,
+		Format:  c.Format,
+		Options: c.Options,
 	}
-
 	if def != nil {
-		if r.Browser == "" {
-			r.Browser = def.Browser
+		if b, ok := def.Plugin["browser"].(string); ok {
+			r.Browser = b
 		}
-		if r.Isolation == "" {
-			r.Isolation = def.Isolation
+		if def.Normalize != nil {
+			r.Normalize = *def.Normalize
 		}
 	}
-	switch {
-	case in.Split != nil:
-		r.Split = *in.Split
-	case def != nil && def.Split != nil:
-		r.Split = *def.Split
+	if r.Browser == "" {
+		r.Browser = "firefox"
 	}
 	return r
 }

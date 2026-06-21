@@ -247,37 +247,56 @@ RFC 0002](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/00
 under the **web-archive binding** ([cutting-garden RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)).
 The canonical RFCs live in the cutting-garden repo; chrest is the reference
 implementation of the `web` capture kind. See `docs/features/0001-web-page-capture.md`
-for the chrest-side feature surface and the deferred migration work.
+for the chrest-side feature surface. The `capture-plugin/v1` emitter (RFC
+0002/0003 receipt tree) has landed (chrest#83); the RFC 0008 `capture-serve`
+JSON-RPC transport remains deferred until cutting-garden ships an orchestrator
+driver for it.
 
 Fixtures shared with the nebulous orchestrator live under `~/eng/aim/fixtures/`
 and are referenced by `explore-capture-batch` and `explore-jcs-fixture`.
 
-Schema tokens **currently emitted** (legacy `web-capture-archive/v1`, inherited
-from nebulous RFC 0001; will hard-cut to RFC 0002+0003 merkle shape per the
-FDR's Implementation Status section):
+Emits the **`capture-plugin/v1`** wire shape (RFC 0002): one **receipt** ref
+per capture, where each capture is a merkle tree of typed hyphence blobs rooted
+at `cutting_garden-capture-receipt-web-v1`, assembled via the shared
+`github.com/amarbel-llc/cutting-garden/pkgs/capture_plugin.WriteReceipt`. chrest
+supplies only the plugin-namespaced node bodies
+(`jcs-chrest-capture-environment-v1`, `jcs-chrest-capture-outcome-v1`) and the
+payload bytes; the tree is byte-identical to an in-process binding's.
 
-- Input/output schema: `web-capture-archive/v1`
-- Envelope schema: `web-capture-archive.envelope/v1` when `http.status` +
-  `http.headers` are populated (Firefox/BiDi backend). The `v1-preview` schema
-  token is retained in the codebase for future backends that can't observe
-  network events; Firefox/BiDi always emits `v1`.
-- Capturer identifier: `chrest` (`CapturerName` constant).
+- Input/output schema: `capture-plugin/v1` (`BatchSchema`). Input:
+  `{schema, writer:{cmd}, target, defaults:{normalize, plugin:{browser}}, captures[]}`.
+  Output: one `receipt:{id,size}` per capture (no separate spec/payload/envelope refs).
+- Receipt type `cutting_garden-capture-receipt-web-v1`; capturer identifier
+  `chrest` (`CapturerName`).
+
+The `cutting-garden` dependency resolves **organically** through gomod2nix.toml —
+deliberately NOT bridged via `go/gomod.nix`. Bridging inherits cutting-garden's
+`passthru.goFlakeInputs`, which drags in `/v2+` transitive deps that igloo's
+`mkMergedGoMod` synthesizes with an invalid `v0.0.0` sentinel (chrest#98). So
+bumping it is a `go get` + `just build-gomod2nix` lockstep, not a flake.lock-only
+edit.
 
 Files of note:
 
-- `runner.go` - Drives the batch; orchestrates per-capture fingerprint,
-  normalize, spec+envelope emission, and writer fan-out.
-- `envelope.go` / `spec.go` - Artifact shapes + constants. `spec.isolation`
-  is omitted when unset (chrest#28); never emit `""` — absence means "not
-  set", not "empty".
-- `fingerprint.go` - Content-addressed hashing (blake2b-256).
-- `jcs.go` + `jcs_test.go` - JSON Canonicalization Scheme used for
-  deterministic envelope/spec bytes.
-- `mhtml.go`, `pdf.go`, `png.go`, `normalize.go` - Format-specific
-  normalizers. Normalizers strip non-deterministic bits and return a
-  `stripped.<format>` sidecar describing what they removed.
-- `writer.go` - Streams artifacts to the orchestrator-supplied writer
-  subprocess (RFC 0001 `WriterSpec.Cmd`).
+- `types.go` - capture-plugin/v1 wire structs (`BatchInput`, `CaptureSpec`,
+  `BatchOutput`, `ReceiptRef`) + `Resolve` (applies `defaults.plugin.browser` /
+  `defaults.normalize`).
+- `receipt.go` - assembles the receipt tree via `capture_plugin.WriteReceipt`;
+  `cmdWriter` adapts the `writer.cmd` subprocess to the `capture_plugin.Writer`
+  sink.
+- `mapping.go` - chrest-owned RFC 0003 node bodies: `environmentBody`
+  (browser/extensions/isolation, isolation defaults to `fresh`), `outcomeHTTPBody`
+  (lowercased headers, `timing_ms:{load}`, `resolved_ip` omitted), and the
+  payload type-segment mapper (hyphen→underscore).
+- `runner.go` - drives the batch; per capture: navigate, capture, optional
+  normalize, then `buildReceipt`.
+- `mhtml.go`, `pdf.go`, `png.go`, `normalize.go` - format-specific normalizers;
+  applied when `normalize` is requested and the format has one, stripping
+  non-deterministic bits into the outcome subtree.
+- `writer.go` - streams each node blob through the orchestrator-supplied
+  `writer.cmd` subprocess (`WriteThrough`).
+- `jcs.go` + `jcs_test.go` - homegrown JCS, retained for the standalone
+  `chrest-jcs` byte-stability tool; the receipt path uses `capture_plugin.JCS`.
 
 Known open issues:
 
