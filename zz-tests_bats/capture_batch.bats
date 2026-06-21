@@ -166,7 +166,6 @@ function capture_batch_outcome_node_has_http_fields { # @test
 
   (cd "$BATS_TEST_TMPDIR" && timeout 30 python3 -m http.server "$port" >/dev/null 2>&1) &
   srv_pid=$!
-  trap "kill $srv_pid 2>/dev/null || true" EXIT
   for _ in $(seq 1 50); do
     if curl -sf "http://127.0.0.1:$port/test.html" >/dev/null; then break; fi
     sleep 0.1
@@ -184,6 +183,12 @@ function capture_batch_outcome_node_has_http_fields { # @test
 JSON
   )
   result=$(echo "$input" | timeout 30 "$CHREST_BIN" capture-batch)
+  # Stop the server explicitly rather than via `trap ... EXIT`: a test-level
+  # EXIT trap clobbers bats's own, so the test would never emit its TAP
+  # result (a missing line that breaks the lane's plan count). The server's
+  # `timeout 30` backstops cleanup if an assertion exits early.
+  kill "$srv_pid" 2>/dev/null || true
+
   echo "$result" | jq -e '.captures[0].error == null'
 
   # The outcome node carries the HTTP response: status 200 + a lowercased
