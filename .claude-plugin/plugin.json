@@ -4,7 +4,9 @@
     "chrest": {
       "type": "stdio",
       "command": "chrest",
-      "args": ["mcp"]
+      "args": [
+        "mcp"
+      ]
     }
   }
 }
