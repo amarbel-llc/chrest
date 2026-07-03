@@ -1,0 +1,74 @@
+# conformist config for chrest, mirroring ./treefmt.nix 1:1 (same formatter
+# chains, same global excludes). It exists to SHADOW eng's baked catch-all:
+# the cwd-aware conformist wrapper (and the eng-sweatfile pre-commit/repair
+# hooks built on it) prefers a root conformist.toml and cannot see a
+# treefmt.NIX module — without this file the fallback formatted chrest with
+# ENG's config, violating the go/pkgs/** generated-facade exclusion and
+# breaking validate-dagnabit-export (grouped vs raw decls). `just lint-fmt`
+# (checks.treefmt) remains the read-only gate; keep the two configs in sync
+# when editing either.
+
+excludes = [
+  "flake.lock",
+  "go/go.sum",
+  "go/gomod2nix.toml",
+  # Generated dagnabit facades are committed RAW (validate-dagnabit-export
+  # diffs against the exporter's byte-exact output); never reformat them.
+  "go/pkgs/**",
+  "extension/bun.lock",
+  "extension/bun.nix",
+  "extension/dist-*/**",
+  "extension/assets/**",
+  "result",
+  "result-*/**",
+  "dist-*/**",
+  ".tmp/**",
+  ".direnv/**",
+  ".worktrees/**",
+  "sweatfile",
+  "LICENSE",
+  "go/**/*.json",
+  # Test fixtures are captured byte-exact (e.g. live DDG SERP pages in
+  # */websearch/testdata); formatters must never rewrite them.
+  "go/**/testdata/**",
+]
+
+# Go: goimports → gofumpt chain (import-group first, then re-canonicalize).
+[formatter.goimports]
+command = "goimports"
+options = ["-w"]
+includes = ["*.go"]
+priority = 1
+
+[formatter.gofumpt]
+command = "gofumpt"
+options = ["-w"]
+includes = ["*.go"]
+priority = 2
+
+[formatter.nixfmt]
+command = "nixfmt"
+includes = ["*.nix"]
+
+# JavaScript, JSON, CSS, HTML, YAML, markdown — prettier's default mapping,
+# narrowed by the global excludes above.
+[formatter.prettier]
+command = "prettier"
+options = ["--write"]
+includes = [
+  "*.css",
+  "*.html",
+  "*.js",
+  "*.cjs",
+  "*.mjs",
+  "*.ts",
+  "*.json",
+  "*.md",
+  "*.yaml",
+  "*.yml",
+]
+
+[formatter.shfmt]
+command = "shfmt"
+options = ["-i", "2", "-s", "-ci", "-w"]
+includes = ["*.sh", "*.bash", "*.bats"]

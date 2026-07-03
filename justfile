@@ -138,9 +138,16 @@ build-gomod2nix:
 # export` directives in go/internal/. Stage the regenerated pkgs/
 # tree alongside any source changes; external consumers (e.g.
 # dodder) import via pkgs/<leaf>, so the facade is the API contract.
+#
+# DAGNABIT_CEILING_DIRECTORIES pins dagnabit's facade-format config
+# ascent at the repo root (chrest ships no conformist.toml, so an
+# unpinned ascent escapes into a stray ancestor ~/eng/conformist.toml
+# and formats the facades with eng's config — nondeterministically,
+# via conformist's change cache). Same guard madder threads; see
+# madder's justfile and the eng update-nix cascade debugging notes.
 [group("build")]
 build-dagnabit-export:
-  cd go && dagnabit export
+  cd go && DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" dagnabit export
 
 # CI drift gate: pkgs/ must match what `dagnabit export` would emit
 # right now. Re-runs the exporter into a sibling dir (dagnabit's
@@ -155,7 +162,11 @@ validate-dagnabit-export:
   cd go
   tmp_rel="pkgs.validate-dagnabit-export.tmp"
   trap 'rm -rf "$tmp_rel"' EXIT
-  dagnabit export -output-dir "$tmp_rel"
+  # Same config-ascent ceiling as build-dagnabit-export: without it the
+  # check and the regen can format with DIFFERENT configs and this diff
+  # flip-flops.
+  DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" \
+    dagnabit export -output-dir "$tmp_rel"
   diff -ru pkgs "$tmp_rel"
 
 # CI drift gate: NATO-level tiering of go/internal/ must match what

@@ -12,10 +12,7 @@
     "firefox": {}
   },
   "categories": {
-    "firefox": [
-      "tabs",
-      "bookmarks"
-    ]
+    "firefox": ["tabs", "bookmarks"]
   },
   "contributions_url": "https://donate.mozilla.org",
   "requires_payment": false,
