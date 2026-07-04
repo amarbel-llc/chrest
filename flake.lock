@@ -117,11 +117,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783088625,
-        "narHash": "sha256-F+BfiYJjOlEMfyXsPVt2XCypE1f0HB3hBRpdFtyexg4=",
+        "lastModified": 1783173935,
+        "narHash": "sha256-+LCy+e+CrLOMgGu+tOC7G21jsZcxWKEsfEkqgB6LuKo=",
         "owner": "amarbel-llc",
         "repo": "doppelgang",
-        "rev": "3166a117d3acf1061b7c435dce06216ae2e1e057",
+        "rev": "e07fe4fa76d29c29d4d5d2c3d6fcce3e30339378",
         "type": "github"
       },
       "original": {
