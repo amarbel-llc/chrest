@@ -240,63 +240,96 @@ moment `just codemod-dagnabit-reposition apply` runs.
   against the nebulous-side implementation.
 - `chrest-server` - Native messaging host server binary.
 
-### Capture Pipeline (`go/internal/*/capturebatch/`)
+### Capture Pipeline (`go/cmd/chrest/capture_batch.go`, `capture_serve.go`, `go/internal/*/capturebatch/`)
 
-Implements the chrest side of the **Capture Plugin Protocol** ([cutting-garden
-RFC 0002](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md))
-under the **web-archive binding** ([cutting-garden RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)).
-The canonical RFCs live in the cutting-garden repo; chrest is the reference
-implementation of the `web` capture kind. See `docs/features/0001-web-page-capture.md`
-for the chrest-side feature surface. The `capture-plugin/v1` emitter (RFC
-0002/0003 receipt tree) has landed (chrest#83); the RFC 0008 `capture-serve`
-JSON-RPC transport remains deferred until cutting-garden ships an orchestrator
-driver for it.
+Implements both chrest-side transports of the **Capture Plugin Protocol**
+([cutting-garden RFC 0002](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md))
+under the **web-archive binding** ([cutting-garden RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)):
+`capture-batch` (RFC 0002 subprocess transport, v1) and `capture-serve`
+(RFC 0008 JSON-RPC transport, v2). The canonical RFCs live in the
+cutting-garden repo; chrest is the reference implementation of the `web`
+capture kind. See `docs/features/0001-web-page-capture.md` for the
+chrest-side feature surface. Both transports landed (chrest#83,
+chrest#98); RFC 0008 was accepted 2026-07-12, citing chrest's own
+v1-vs-v2 conformance run as ratification evidence.
 
 Fixtures shared with the nebulous orchestrator live under `~/eng/aim/fixtures/`
 and are referenced by `explore-capture-batch` and `explore-jcs-fixture`.
 
-Emits the **`capture-plugin/v1`** wire shape (RFC 0002): one **receipt** ref
-per capture, where each capture is a merkle tree of typed hyphence blobs rooted
-at `cutting_garden-capture-receipt-web-v1`, assembled via the shared
-`github.com/amarbel-llc/cutting-garden/pkgs/capture_plugin.WriteReceipt`. chrest
-supplies only the plugin-namespaced node bodies
-(`jcs-chrest-capture-environment-v1`, `jcs-chrest-capture-outcome-v1`) and the
-payload bytes; the tree is byte-identical to an in-process binding's.
+Both transports emit the same receipt shape: one **receipt** ref per
+capture, where each capture is a merkle tree of typed hyphence blobs
+rooted at `cutting_garden-capture-receipt-web-v1`, assembled via the
+shared `code.linenisgreat.com/cutting-garden/pkgs/capture_plugin.WriteReceipt`.
+chrest supplies only the plugin-namespaced node bodies
+(`jcs-chrest-capture-environment-v2`, `jcs-chrest-capture-outcome-v2` /
+`-v2-preview`) and the payload bytes; the tree is byte-identical
+regardless of transport — verified by
+`go/cmd/chrest/capture_serve_conformance_test.go` — since receipt
+assembly itself (`runOneWithWriter`/`buildReceipt`, below) has no
+transport-specific branching.
 
-- Input/output schema: `capture-plugin/v1` (`BatchSchema`). Input:
-  `{schema, writer:{cmd}, target, defaults:{normalize, plugin:{browser}}, captures[]}`.
-  Output: one `receipt:{id,size}` per capture (no separate spec/payload/envelope refs).
-- Receipt type `cutting_garden-capture-receipt-web-v1`; capturer identifier
-  `chrest` (`CapturerName`).
+- `capture-batch`: JSON-stdin/stdout, one `writer.cmd` subprocess per
+  blob. Input/output schema `capture-plugin/v1` (`BatchSchema`).
+- `capture-serve`: persistent JSON-RPC session over a self-created
+  unixpacket rendezvous socket; blob bytes travel via `SCM_RIGHTS`
+  fd-passing (`blob.begin`/`blob.finish`). Launched by an orchestrator
+  with `CAPTURE_PLUGIN_COOKIE` set; never invoked directly. cutting-garden's
+  web plugin always tries this first, falling back to `capture-batch` on
+  clean bring-up failure.
+- Receipt type `cutting_garden-capture-receipt-web-v1`; capturer
+  identifier `chrest` (`CapturerName`).
 
-The `cutting-garden` dependency resolves **organically** through gomod2nix.toml —
-deliberately NOT bridged via `go/gomod.nix`. Bridging inherits cutting-garden's
-`passthru.goFlakeInputs`, which drags in `/v2+` transitive deps that igloo's
-`mkMergedGoMod` synthesizes with an invalid `v0.0.0` sentinel (chrest#98). So
-bumping it is a `go get` + `just build-gomod2nix` lockstep, not a flake.lock-only
-edit.
+The `cutting-garden` dependency is bridged via `go/gomod.nix`'s
+`goFlakeInputs` (the same mechanism chrest uses for its other
+amarbel-llc dependencies) — a real flake input fetched over SSH from the
+forge. Its module path is `code.linenisgreat.com/cutting-garden` (the
+`amarbel-llc/cutting-garden` GitHub mirror is archived/frozen at
+v0.1.24). Transitive bridges (madder, hyphence, piggy, tap, crap, tommy)
+inherit automatically at depth-1 through cutting-garden's own
+`passthru.goFlakeInputs` — chrest does not re-declare them.
+`GOPRIVATE=code.linenisgreat.com` in the devshell `shellHook` lets plain
+`go build`/`go test`/`dagnabit` resolve the same dependency outside of
+`nix build` too (there's no public go-get path via GOPROXY for a
+self-hosted forge otherwise).
 
-Files of note:
+Files of note (`go/internal/echo/capturebatch/`):
 
 - `types.go` - capture-plugin/v1 wire structs (`BatchInput`, `CaptureSpec`,
   `BatchOutput`, `ReceiptRef`) + `Resolve` (applies `defaults.plugin.browser` /
   `defaults.normalize`).
 - `receipt.go` - assembles the receipt tree via `capture_plugin.WriteReceipt`;
-  `cmdWriter` adapts the `writer.cmd` subprocess to the `capture_plugin.Writer`
-  sink.
+  `cmdWriter` adapts the v1 `writer.cmd` subprocess to `capture_plugin.Writer`;
+  `sizeTrackingWriter` wraps any `capture_plugin.Writer` (v1's `cmdWriter`
+  or v2's Serve-supplied writer) to recover the root receipt's size, which
+  `WriteReceipt` returns only the digest for.
 - `mapping.go` - chrest-owned RFC 0003 node bodies: `environmentBody`
-  (browser/extensions/isolation, isolation defaults to `fresh`), `outcomeHTTPBody`
-  (lowercased headers, `timing_ms:{load}`, `resolved_ip` omitted), and the
-  payload type-segment mapper (hyphen→underscore).
-- `runner.go` - drives the batch; per capture: navigate, capture, optional
-  normalize, then `buildReceipt`.
+  (browser/extensions/isolation, isolation defaults to `fresh` —
+  `command_line` deliberately excluded here, chrest#102) and
+  `outcomeBody` (`process.command_line` whenever available, `http.*`
+  when observed; lowercased headers, `timing_ms:{load}`, `resolved_ip`
+  omitted; the returned type string is the full `-v2` schema iff `http.*`
+  was observed, else `-v2-preview` — `process` presence never affects
+  that choice), plus the payload type-segment mapper (hyphen→underscore).
+- `serve.go` - `NewBatchHandler` adapts the same receipt-assembly path to
+  cutting-garden's `capture_serve.BatchFunc` signature (RFC 0008).
+- `runner.go` - `runOneWithWriter` drives one capture end to end
+  (open session, navigate, capture, optional normalize, `buildReceipt`)
+  against any `sizeTrackingWriter`; shared verbatim by both transports.
 - `mhtml.go`, `pdf.go`, `png.go`, `normalize.go` - format-specific normalizers;
   applied when `normalize` is requested and the format has one, stripping
   non-deterministic bits into the outcome subtree.
 - `writer.go` - streams each node blob through the orchestrator-supplied
-  `writer.cmd` subprocess (`WriteThrough`).
+  `writer.cmd` subprocess (`WriteThrough`) — v1 only.
 - `jcs.go` + `jcs_test.go` - homegrown JCS, retained for the standalone
   `chrest-jcs` byte-stability tool; the receipt path uses `capture_plugin.JCS`.
+
+`go/cmd/chrest/capture_serve.go` is the v2 bring-up sequence:
+`CookieFromEnv` → `ListenRendezvous` → print `AnnounceLine` on stdout →
+`AcceptUnix` → `Serve`, with a lifecycle wrapper for stdin-EOF/SIGTERM —
+including closing the rendezvous listener on lifecycle-context
+cancellation, so a pending `AcceptUnix` doesn't block forever if the
+orchestrator never dials in (a real gap this implementation and
+cutting-garden's own reference plugin found independently).
 
 Known open issues:
 

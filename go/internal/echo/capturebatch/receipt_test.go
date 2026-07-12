@@ -82,16 +82,18 @@ func TestBuildReceiptPostOrder(t *testing.T) {
 	}
 }
 
-// TestBuildReceiptOmitsPluginOutcomeWithoutHTTP asserts the plugin-outcome
-// node is skipped when no HTTP response was observed (the shared outcome
-// node still carries datetime), and that the payload type maps hyphens to
-// underscores.
-func TestBuildReceiptOmitsPluginOutcomeWithoutHTTP(t *testing.T) {
+// TestBuildReceiptEmitsPreviewOutcomeWithoutHTTP pins chrest#102 (RFC 0003
+// v2): with no HTTP response observed but a command line available — the
+// realistic case, since chrest always has one whenever a browser session
+// opened — the plugin-outcome node is still emitted (carrying
+// process.command_line), typed as the preview variant, not omitted. Also
+// checks the payload type maps hyphens to underscores.
+func TestBuildReceiptEmitsPreviewOutcomeWithoutHTTP(t *testing.T) {
 	w := &recordingWriter{}
 	if _, err := buildReceipt(
 		context.Background(), w,
 		Resolved{Name: "md", Format: "markdown-reader"},
-		firefox.BrowserInfo{Name: "firefox"},
+		firefox.BrowserInfo{Name: "firefox", CommandLine: []string{"firefox", "--headless"}},
 		nil, // no HTTP response observed
 		nil,
 		bytes.NewReader([]byte("# hi")),
@@ -101,9 +103,35 @@ func TestBuildReceiptOmitsPluginOutcomeWithoutHTTP(t *testing.T) {
 	}
 
 	if slices.Contains(w.types, outcomeType) {
-		t.Errorf("plugin-outcome node %q should be omitted when no HTTP response observed", outcomeType)
+		t.Errorf("plugin-outcome node should use the preview type (no http), not %q: %v", outcomeType, w.types)
+	}
+	if !slices.Contains(w.types, outcomeTypePreview) {
+		t.Errorf("plugin-outcome node %q missing (command_line was available): %v", outcomeTypePreview, w.types)
 	}
 	if w.types[0] != "chrest-capture-payload-markdown_reader-v1" {
 		t.Errorf("payload type = %q, want hyphen->underscore mapping", w.types[0])
+	}
+}
+
+// TestBuildReceiptOmitsPluginOutcomeWithNeitherHTTPNorCommandLine covers
+// the true omission case: no HTTP response AND no command line gathered
+// (BrowserInfo{}'s zero value — chrest doesn't hit this in practice, since
+// a session is always open by the time buildReceipt runs, but the
+// omission path itself is still real behavior worth pinning).
+func TestBuildReceiptOmitsPluginOutcomeWithNeitherHTTPNorCommandLine(t *testing.T) {
+	w := &recordingWriter{}
+	if _, err := buildReceipt(
+		context.Background(), w,
+		Resolved{Name: "md", Format: "markdown-reader"},
+		firefox.BrowserInfo{Name: "firefox"},
+		nil, nil,
+		bytes.NewReader([]byte("# hi")),
+		"https://example.com", "0.0.0-test",
+	); err != nil {
+		t.Fatalf("buildReceipt: %v", err)
+	}
+
+	if slices.Contains(w.types, outcomeType) || slices.Contains(w.types, outcomeTypePreview) {
+		t.Errorf("plugin-outcome node should be fully omitted when neither http nor command_line is available: %v", w.types)
 	}
 }

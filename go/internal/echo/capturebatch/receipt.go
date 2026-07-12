@@ -119,9 +119,9 @@ func buildReceipt(
 			capture_plugin.LockedRef("payload", payloadDigest, pType),
 		},
 	}
-	if body := outcomeHTTPBody(httpResp, target); body != nil {
+	if body, typeString := outcomeBody(httpResp, target, browser.CommandLine); body != nil {
 		params.OutcomePlugin = &capture_plugin.PluginEnv{
-			TypeString: outcomeType,
+			TypeString: typeString,
 			Body:       body,
 		}
 	}

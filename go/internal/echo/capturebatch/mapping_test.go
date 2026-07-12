@@ -47,28 +47,37 @@ func TestEnvironmentBodyHonorsExplicitIsolation(t *testing.T) {
 }
 
 func TestEnvironmentBodyBrowserOptionalFields(t *testing.T) {
-	// js_engine and command_line are omitted when empty.
+	// js_engine is omitted when empty.
 	bare := environmentBody(Resolved{}, firefox.BrowserInfo{Name: "firefox", Version: "120"})
 	browser := bare["browser"].(map[string]any)
 	if _, ok := browser["js_engine"]; ok {
 		t.Errorf("js_engine should be omitted when empty")
 	}
-	if _, ok := browser["command_line"]; ok {
-		t.Errorf("command_line should be omitted when empty")
-	}
 
 	// present when set.
 	full := environmentBody(Resolved{}, firefox.BrowserInfo{
-		Name:        "firefox",
-		JSEngine:    "SpiderMonkey",
-		CommandLine: []string{"firefox", "--headless"},
+		Name:     "firefox",
+		JSEngine: "SpiderMonkey",
 	})
 	fb := full["browser"].(map[string]any)
 	if fb["js_engine"] != "SpiderMonkey" {
 		t.Errorf("js_engine = %v, want SpiderMonkey", fb["js_engine"])
 	}
-	if !reflect.DeepEqual(fb["command_line"], []any{"firefox", "--headless"}) {
-		t.Errorf("command_line = %v", fb["command_line"])
+}
+
+// TestEnvironmentBodyNeverIncludesCommandLine pins chrest#102: command_line
+// is a per-run observation (RFC 0003 v2), not identity-affecting config, so
+// environmentBody must never emit it regardless of what BrowserInfo carries
+// — even a populated CommandLine field must not leak into the identity
+// tree. See TestOutcomeBodyIncludesCommandLine for where it actually goes.
+func TestEnvironmentBodyNeverIncludesCommandLine(t *testing.T) {
+	body := environmentBody(Resolved{}, firefox.BrowserInfo{
+		Name:        "firefox",
+		CommandLine: []string{"firefox", "--headless", "--profile", "/tmp/volatile-per-launch"},
+	})
+	browser := body["browser"].(map[string]any)
+	if _, ok := browser["command_line"]; ok {
+		t.Errorf("command_line must not appear in the environment node (chrest#102): %v", browser)
 	}
 }
 
@@ -94,22 +103,67 @@ func TestEnvironmentBodyPreinstalledExtensions(t *testing.T) {
 	}
 }
 
-func TestOutcomeHTTPBodyNilWhenNoResponse(t *testing.T) {
-	if got := outcomeHTTPBody(nil, "https://example.com"); got != nil {
-		t.Errorf("outcomeHTTPBody(nil) = %v, want nil", got)
+func TestOutcomeBodyNilWhenNothingObserved(t *testing.T) {
+	body, typeString := outcomeBody(nil, "https://example.com", nil)
+	if body != nil || typeString != "" {
+		t.Errorf("outcomeBody(nil, _, nil) = (%v, %q), want (nil, \"\")", body, typeString)
 	}
 }
 
-func TestOutcomeHTTPBodyLowercasesHeaders(t *testing.T) {
-	body := outcomeHTTPBody(&firefox.HTTPResponse{
+// TestOutcomeBodyIncludesCommandLine pins chrest#102 (RFC 0003 v2): the
+// browser's launch argv is a per-run observation, not identity, and lives
+// under outcome's process.command_line. Its presence alone (no HTTP
+// response) yields the preview type — see
+// TestOutcomeBodyTypeKeyedOnHTTPCompletenessAlone for why.
+func TestOutcomeBodyIncludesCommandLine(t *testing.T) {
+	body, typeString := outcomeBody(nil, "https://example.com", []string{"firefox", "--headless"})
+	if typeString != outcomeTypePreview {
+		t.Errorf("type = %q, want preview (no http observed)", typeString)
+	}
+	process, ok := body["process"].(map[string]any)
+	if !ok {
+		t.Fatalf("process = %T, want map[string]any: %v", body["process"], body)
+	}
+	if !reflect.DeepEqual(process["command_line"], []any{"firefox", "--headless"}) {
+		t.Errorf("command_line = %v", process["command_line"])
+	}
+	if _, ok := body["http"]; ok {
+		t.Errorf("http key should be absent when no response was observed: %v", body)
+	}
+}
+
+// TestOutcomeBodyTypeKeyedOnHTTPCompletenessAlone pins the RFC 0003
+// §Preview Schema revision (chrest#102): the outcome node's type — full
+// vs preview — depends only on whether an HTTP response was observed,
+// never on whether process.command_line is present (it's present in
+// both cases here).
+func TestOutcomeBodyTypeKeyedOnHTTPCompletenessAlone(t *testing.T) {
+	commandLine := []string{"firefox", "--headless"}
+
+	_, withoutHTTP := outcomeBody(nil, "https://example.com", commandLine)
+	if withoutHTTP != outcomeTypePreview {
+		t.Errorf("type without http = %q, want %q", withoutHTTP, outcomeTypePreview)
+	}
+
+	_, withHTTP := outcomeBody(&firefox.HTTPResponse{Status: 200}, "https://example.com", commandLine)
+	if withHTTP != outcomeType {
+		t.Errorf("type with http = %q, want %q", withHTTP, outcomeType)
+	}
+}
+
+func TestOutcomeBodyLowercasesHeaders(t *testing.T) {
+	body, typeString := outcomeBody(&firefox.HTTPResponse{
 		Status: 200,
 		Headers: []firefox.HTTPHeader{
 			{Name: "Content-Type", Value: "text/html"},
 			{Name: "Set-Cookie", Value: "a=1"},
 			{Name: "Set-Cookie", Value: "b=2"},
 		},
-	}, "https://example.com")
+	}, "https://example.com", nil)
 
+	if typeString != outcomeType {
+		t.Errorf("type = %q, want %q", typeString, outcomeType)
+	}
 	http := body["http"].(map[string]any)
 	if http["status"] != 200 {
 		t.Errorf("status = %v, want 200", http["status"])
@@ -125,14 +179,14 @@ func TestOutcomeHTTPBodyLowercasesHeaders(t *testing.T) {
 	}
 }
 
-func TestOutcomeHTTPBodyFinalURLAndTiming(t *testing.T) {
+func TestOutcomeBodyFinalURLAndTiming(t *testing.T) {
 	// final_url present when it differs from the target; timing_ms is the
 	// object form {load: <int>} when measured.
-	body := outcomeHTTPBody(&firefox.HTTPResponse{
+	body, _ := outcomeBody(&firefox.HTTPResponse{
 		Status:   200,
 		URL:      "https://example.com/landing",
 		TimingMs: 42,
-	}, "https://example.com")
+	}, "https://example.com", nil)
 	http := body["http"].(map[string]any)
 	if http["final_url"] != "https://example.com/landing" {
 		t.Errorf("final_url = %v", http["final_url"])
@@ -142,10 +196,10 @@ func TestOutcomeHTTPBodyFinalURLAndTiming(t *testing.T) {
 	}
 
 	// final_url omitted when equal to target; timing_ms omitted when 0.
-	same := outcomeHTTPBody(&firefox.HTTPResponse{
+	same, _ := outcomeBody(&firefox.HTTPResponse{
 		Status: 200,
 		URL:    "https://example.com",
-	}, "https://example.com")
+	}, "https://example.com", nil)
 	sh := same["http"].(map[string]any)
 	if _, ok := sh["final_url"]; ok {
 		t.Errorf("final_url should be omitted when equal to target")

@@ -31,11 +31,11 @@ import (
 // per-run even for two v1 runs back to back:
 //   - the shared outcome node's `datetime` (cutting-garden's own design;
 //     see capture_plugin's TestWriteReceipt_IdentityStableAcrossRuns)
-//   - chrest's plugin-environment node's `browser.command_line`, which
-//     embeds a randomly-generated Firefox profile path per launch — a
-//     real, separate bug (chrest#102: it's identity-affecting data that
-//     should live in the per-run plugin-outcome node instead), tracked
-//     independently and NOT fixed here.
+//   - chrest's plugin-outcome node's `process.command_line`, which embeds
+//     a randomly-generated Firefox profile path per launch — an
+//     intentional per-run *observation* (chrest#102 moved it out of the
+//     identity-affecting environment node specifically because it isn't
+//     stable; see mapping.go's outcomeBody).
 //
 // Excluding exactly those two fields, every node in the post-order
 // sequence — type, ref structure (alias + referenced type; NOT the
@@ -249,18 +249,23 @@ func (s *sha256Store) WriteBlob(_ context.Context, r io.Reader) (string, int64, 
 	return id, int64(len(b)), nil
 }
 
-// chrestEnvironmentType mirrors capturebatch's unexported environmentType
-// (mapping.go) — duplicated here because this test lives in package main
-// and that constant isn't exported. Keep in sync if the type string ever
-// changes.
-const chrestEnvironmentType = "jcs-chrest-capture-environment-v1"
+// chrestOutcomeTypePreview mirrors capturebatch's unexported
+// outcomeTypePreview (mapping.go) — duplicated here because this test
+// lives in package main and that constant isn't exported. This
+// conformance run targets a file:// fixture (no HTTP response observed),
+// so chrest's plugin-outcome node is always the preview variant, carrying
+// process.command_line. Keep in sync if the type string ever changes.
+const chrestOutcomeTypePreview = "jcs-chrest-capture-outcome-v2-preview"
 
 // nodeExclusions names the one field per excludable node type that
 // legitimately varies per capture run — see the test doc comment above
-// for why each is excluded and where it's tracked.
+// for why each is excluded and where it's tracked. chrest's environment
+// node needs no entry here post-chrest#102: with command_line relocated
+// to outcome, environment is fully stable and compared byte-for-byte
+// like every other node.
 var nodeExclusions = map[string]string{
 	capture_plugin.TypeOutcome: "datetime", // per-run by cutting-garden's own design
-	chrestEnvironmentType:      "browser",  // chrest#102: command_line volatility (nested under browser)
+	chrestOutcomeTypePreview:   "process",  // chrest#102: command_line volatility, now under outcome's process key
 }
 
 // assertEquivalentNodeSequences compares two post-order node sequences
@@ -301,12 +306,9 @@ func assertEquivalentNodeSequences(t *testing.T, v1, v2 []capture_plugin.Node) {
 }
 
 // assertBodiesEqualExcluding parses both bodies as JSON, deletes the
-// named top-level key from each (a shallow delete — command_line lives
-// one level under "browser" in chrest's environment body, which this
-// test excludes wholesale via the "browser" key rather than reaching
-// inside it, since browser.name/version/user_agent/platform are already
-// covered by other assertions being exact matches at the parent level),
-// and compares what remains for deep equality.
+// named top-level key from each (a shallow delete — sufficient since both
+// exclusions, datetime and process, are top-level keys in their
+// respective node bodies), and compares what remains for deep equality.
 func assertBodiesEqualExcluding(t *testing.T, i int, nodeType string, bodyA, bodyB []byte, key string) {
 	t.Helper()
 	var a, b map[string]any
@@ -316,25 +318,8 @@ func assertBodiesEqualExcluding(t *testing.T, i int, nodeType string, bodyA, bod
 	if err := json.Unmarshal(bodyB, &b); err != nil {
 		t.Fatalf("node %d (%s) v2 body parse: %v (body: %s)", i, nodeType, err, bodyB)
 	}
-	if key == "browser" {
-		// Excluding the whole browser object (not just command_line)
-		// keeps this test from re-litigating chrest#102's exact field
-		// path; still assert the identity-relevant sub-fields other than
-		// command_line match, so a real transport-level divergence in
-		// name/version/user_agent/platform/isolation would still fail.
-		ba, _ := a["browser"].(map[string]any)
-		bb, _ := b["browser"].(map[string]any)
-		delete(ba, "command_line")
-		delete(bb, "command_line")
-		if !reflect.DeepEqual(ba, bb) {
-			t.Errorf("node %d (%s) browser (minus command_line) differs:\n v1=%+v\n v2=%+v", i, nodeType, ba, bb)
-		}
-		delete(a, "browser")
-		delete(b, "browser")
-	} else {
-		delete(a, key)
-		delete(b, key)
-	}
+	delete(a, key)
+	delete(b, key)
 	if !reflect.DeepEqual(a, b) {
 		t.Errorf("node %d (%s) body (minus %q) differs:\n v1=%+v\n v2=%+v", i, nodeType, key, a, b)
 	}
