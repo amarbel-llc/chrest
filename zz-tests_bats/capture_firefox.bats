@@ -303,7 +303,7 @@ function firefox_capture_multi_format_pdf_with_landscape { # @test
 # to the next equal-or-higher heading), not just the heading element.
 # Pre-unification the markdown-selector format used ConvertSelector
 # (just the matched element); post-unification it uses
-# ConvertSelectorSection, matching web-fetch.
+# ConvertSelectorSection, matching the capture MCP tool.
 function firefox_capture_markdown_selector_heading_section { # @test
   cat >"$BATS_TEST_TMPDIR/sections.html" <<'EOF'
 <!doctype html>

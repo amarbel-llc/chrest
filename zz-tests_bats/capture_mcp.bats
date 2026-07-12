@@ -2,9 +2,10 @@
 
 # bats file_tags=firefox
 
-# End-to-end coverage for the web-fetch content-type-aware dispatcher.
-# Pins the contract of the CHREST_WEB_FETCH_DISPATCH=bidi-intercept path
-# (default) against real upstream URLs:
+# End-to-end coverage for the capture tool's content-type-aware dispatcher
+# (markdown/text/html formats). Pins the contract of the
+# CHREST_WEB_FETCH_DISPATCH=bidi-intercept path (default) against real
+# upstream URLs:
 #   - HTML (example.com)         → existing TOC + body (regression).
 #   - Raw .md (anthropic SDK)    → body + TOC built from raw markdown.
 #   - Raw .toml (anthropic SDK)  → text body, no schema crash.
@@ -24,7 +25,7 @@ teardown() {
   teardown_test_home
 }
 
-# Common skip gate; mirrors the pattern used by the web_fetch_* tests
+# Common skip gate; mirrors the pattern used by the capture_* tests
 # in mcp.bats.
 require_firefox() {
   firefox="$(command -v firefox || command -v firefox-esr || true)"
@@ -36,7 +37,7 @@ require_firefox() {
   fi
 }
 
-function web_fetch_html_url_regression { # @test
+function capture_html_url_regression { # @test
   require_firefox
 
   # example.com is too minimal for readability to extract a non-empty
@@ -44,7 +45,7 @@ function web_fetch_html_url_regression { # @test
   # response still travels the HTML-class branch of fetchViaDispatch
   # since the response is text/html.
   url="https://example.com"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url,format:"text"}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -57,11 +58,11 @@ function web_fetch_html_url_regression { # @test
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("Example Domain")'
 }
 
-function web_fetch_raw_md_url_returns_body_and_toc { # @test
+function capture_raw_md_url_returns_body_and_toc { # @test
   require_firefox
 
   url="https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/78c73600b714fcb036893768df8ee122f33d4cb3/README.md"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url,format:"markdown"}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"markdown"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -75,11 +76,11 @@ function web_fetch_raw_md_url_returns_body_and_toc { # @test
   echo "$resp" | jq -e '.result.content[0].text | (contains("#installation") or contains("#getting-started"))'
 }
 
-function web_fetch_raw_toml_url_returns_text_body { # @test
+function capture_raw_toml_url_returns_text_body { # @test
   require_firefox
 
   url="https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/78c73600b714fcb036893768df8ee122f33d4cb3/pyproject.toml"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url,format:"text"}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -92,11 +93,11 @@ function web_fetch_raw_toml_url_returns_text_body { # @test
   echo "$resp" | jq -e '.result.content[0].type == "text"'
 }
 
-function web_fetch_404_url_returns_structured_http_error { # @test
+function capture_404_url_returns_structured_http_error { # @test
   require_firefox
 
   url="https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/78c73600b714fcb036893768df8ee122f33d4cb3/THIS-DOES-NOT-EXIST"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -111,11 +112,11 @@ function web_fetch_404_url_returns_structured_http_error { # @test
   echo "$resp" | jq -e '.result.content[0].text | contains("invalid_union") | not'
 }
 
-function web_fetch_binary_url_returns_structured_refusal { # @test
+function capture_binary_url_returns_structured_refusal { # @test
   require_firefox
 
   url="https://github.com/anthropics/anthropic-sdk-python/archive/refs/tags/v0.97.0.tar.gz"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -130,7 +131,7 @@ function web_fetch_binary_url_returns_structured_refusal { # @test
   echo "$resp" | jq -e '.result.content[0].text | contains("invalid_union") | not'
 }
 
-function web_fetch_subresource_heavy_page_completes { # @test
+function capture_subresource_heavy_page_completes { # @test
   require_firefox
 
   # Regression test for the BiDi navigate timeout on subresource-heavy
@@ -183,7 +184,7 @@ EOF
   done
 
   url="http://127.0.0.1:$port/index.html"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url,format:"text"}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -195,7 +196,7 @@ EOF
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("UNIQUE_BODY_MARKER")'
 }
 
-function web_fetch_many_subresources_overflow_buffer { # @test
+function capture_many_subresources_overflow_buffer { # @test
   require_firefox
 
   # Regression test for chrest#66: when many subresources arrive in a
@@ -237,7 +238,7 @@ function web_fetch_many_subresources_overflow_buffer { # @test
   done
 
   url="http://127.0.0.1:$port/index.html"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url,format:"text"}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 
@@ -249,7 +250,7 @@ function web_fetch_many_subresources_overflow_buffer { # @test
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("OVERFLOW_BODY_MARKER")'
 }
 
-function web_fetch_empty_extraction_returns_diagnostic { # @test
+function capture_empty_extraction_returns_diagnostic { # @test
   require_firefox
 
   # Regression test for chrest#74: when readability/text extraction
@@ -262,7 +263,7 @@ function web_fetch_empty_extraction_returns_diagnostic { # @test
   #
   # The marshal contract that closed chrest#65 is now exercised by
   # a Go unit test in golf/protocol/content_v1_test.go; this BATS
-  # test asserts the user-facing behavior of the web-fetch tool.
+  # test asserts the user-facing behavior of the capture tool.
 
   port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
 
@@ -285,7 +286,7 @@ EOF
   done
 
   url="http://127.0.0.1:$port/index.html"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",arguments:{url:$url,format:"markdown"}}}')
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"markdown"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
 

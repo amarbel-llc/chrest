@@ -35,34 +35,34 @@ function tools_call_list_windows_returns_quickly_with_no_sockets { # @test
   echo "$result" | grep '"id":2' | jq -e '.result or .error'
 }
 
-function web_fetch_appears_in_tools_list { # @test
+function capture_appears_in_tools_list { # @test
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
     '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | run_mcp)
   echo "$result" | grep '"id":2' | jq -e '
-    [.result.tools[] | select(.name == "web-fetch")] | length == 1
+    [.result.tools[] | select(.name == "capture")] | length == 1
   '
 }
 
 # V1 negotiation exposes annotations (readOnlyHint). The shared INIT_MSG
 # uses protocol 2025-03-26 which falls back to V0 where annotations are
 # dropped, so this test uses the V1 version string explicitly.
-function web_fetch_annotations_visible_under_v1 { # @test
+function capture_annotations_visible_under_v1 { # @test
   v1_init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}'
   result=$(printf '%s\n' "$v1_init" "$INITIALIZED_MSG" \
     '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | run_mcp)
-  tool=$(echo "$result" | grep '"id":2' | jq '[.result.tools[] | select(.name == "web-fetch")] | first')
+  tool=$(echo "$result" | grep '"id":2' | jq '[.result.tools[] | select(.name == "capture")] | first')
   echo "DEBUG V1 tool: $tool" >&2
   echo "$tool" | jq -e '.annotations.readOnlyHint == true'
 }
 
-function web_fetch_rejects_missing_url { # @test
+function capture_rejects_missing_url { # @test
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"web-fetch","arguments":{}}}' | run_mcp)
+    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"capture","arguments":{}}}' | run_mcp)
   echo "$result" | grep '"id":2' | jq -e '.result.isError == true'
 }
 
 # bats test_tags=firefox
-function web_fetch_defaults_to_markdown_with_resource_links { # @test
+function capture_defaults_to_markdown_with_resource_links { # @test
   firefox="$(command -v firefox || command -v firefox-esr || true)"
   if [ -z "$firefox" ]; then
     skip "no Firefox found on PATH"
@@ -74,13 +74,13 @@ function web_fetch_defaults_to_markdown_with_resource_links { # @test
   cat >"$BATS_TEST_TMPDIR/fetch.html" <<'FIXTURE'
 <!doctype html>
 <html><head><title>Fetch Test</title></head>
-<body><h1>Hello web-fetch</h1><p>Body text.</p></body>
+<body><h1>Hello capture</h1><p>Body text.</p></body>
 </html>
 FIXTURE
   url="file://$BATS_TEST_TMPDIR/fetch.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\"}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\"}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -95,7 +95,7 @@ FIXTURE
 }
 
 # bats test_tags=firefox
-function web_fetch_format_text_returns_text_inline { # @test
+function capture_format_text_returns_text_inline { # @test
   firefox="$(command -v firefox || command -v firefox-esr || true)"
   if [ -z "$firefox" ]; then
     skip "no Firefox found on PATH"
@@ -107,13 +107,13 @@ function web_fetch_format_text_returns_text_inline { # @test
   cat >"$BATS_TEST_TMPDIR/fetch.html" <<'FIXTURE'
 <!doctype html>
 <html><head><title>Fetch Test</title></head>
-<body><h1>Hello web-fetch</h1><p>Body text.</p></body>
+<body><h1>Hello capture</h1><p>Body text.</p></body>
 </html>
 FIXTURE
   url="file://$BATS_TEST_TMPDIR/fetch.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\",\"format\":\"text\"}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"format\":\"text\"}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -128,7 +128,7 @@ FIXTURE
 }
 
 # bats test_tags=firefox
-function web_fetch_toc_lists_anchors { # @test
+function capture_toc_lists_anchors { # @test
   firefox="$(command -v firefox || command -v firefox-esr || true)"
   if [ -z "$firefox" ]; then
     skip "no Firefox found on PATH"
@@ -152,7 +152,7 @@ FIXTURE
   url="file://$BATS_TEST_TMPDIR/anchors.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\"}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\"}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -163,7 +163,7 @@ FIXTURE
 }
 
 # bats test_tags=firefox
-function web_fetch_selector_hit_trims_body { # @test
+function capture_selector_hit_trims_body { # @test
   firefox="$(command -v firefox || command -v firefox-esr || true)"
   if [ -z "$firefox" ]; then
     skip "no Firefox found on PATH"
@@ -187,7 +187,7 @@ FIXTURE
   url="file://$BATS_TEST_TMPDIR/selector-hit.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\",\"selector\":\"#intro\"}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"selector\":\"#intro\"}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -211,7 +211,7 @@ FIXTURE
 }
 
 # bats test_tags=firefox
-function web_fetch_selector_miss_returns_diagnostic { # @test
+function capture_selector_miss_returns_diagnostic { # @test
   firefox="$(command -v firefox || command -v firefox-esr || true)"
   if [ -z "$firefox" ]; then
     skip "no Firefox found on PATH"
@@ -235,7 +235,7 @@ FIXTURE
   url="file://$BATS_TEST_TMPDIR/selector-miss.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\",\"selector\":\"#does-not-exist\"}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"selector\":\"#does-not-exist\"}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -251,7 +251,7 @@ FIXTURE
 }
 
 # bats test_tags=firefox
-function web_fetch_selector_rejected_with_non_markdown_format { # @test
+function capture_selector_rejected_with_non_markdown_format { # @test
   firefox="$(command -v firefox || command -v firefox-esr || true)"
   if [ -z "$firefox" ]; then
     skip "no Firefox found on PATH"
@@ -272,7 +272,7 @@ FIXTURE
   url="file://$BATS_TEST_TMPDIR/selector-reject.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\",\"format\":\"text\",\"selector\":\"#intro\"}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"format\":\"text\",\"selector\":\"#intro\"}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -281,7 +281,7 @@ FIXTURE
 }
 
 # bats test_tags=firefox
-function web_fetch_refresh_param_accepted { # @test
+function capture_refresh_param_accepted { # @test
   # full cache-vs-refresh behavior requires a single-session driver; this just
   # validates the refresh param is accepted and produces a valid envelope.
   firefox="$(command -v firefox || command -v firefox-esr || true)"
@@ -301,7 +301,7 @@ FIXTURE
   url="file://$BATS_TEST_TMPDIR/refresh.html"
 
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
-    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"web-fetch\",\"arguments\":{\"url\":\"$url\",\"refresh\":true}}}" |
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"refresh\":true}}}" |
     timeout 20 "$CHREST_BIN" mcp)
 
   resp=$(echo "$result" | grep '"id":2')
@@ -309,6 +309,91 @@ FIXTURE
   echo "$resp" | jq -e '.result.content[0].type == "text"'
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.uri | test("#markdown$")'
   echo "$resp" | jq -e '[.result.content[] | select(.type == "resource_link")] | length == 2'
+}
+
+# bats test_tags=firefox
+function capture_format_screenshot_png_returns_inline_image { # @test
+  firefox="$(command -v firefox || command -v firefox-esr || true)"
+  if [ -z "$firefox" ]; then
+    skip "no Firefox found on PATH"
+  fi
+  if ! timeout 5 "$firefox" --headless --version >/dev/null 2>&1; then
+    skip "headless Firefox not functional"
+  fi
+
+  cat >"$BATS_TEST_TMPDIR/shot.html" <<'FIXTURE'
+<!doctype html>
+<html><head><title>Screenshot Fixture</title></head>
+<body><h1>Hello screenshot</h1></body>
+</html>
+FIXTURE
+  url="file://$BATS_TEST_TMPDIR/shot.html"
+
+  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"format\":\"screenshot-png\"}}}" |
+    timeout 30 "$CHREST_BIN" mcp)
+
+  resp=$(echo "$result" | grep '"id":2')
+  echo "$resp" | jq -e '.result.isError != true'
+  echo "$resp" | jq -e '.result.content | length == 1'
+  echo "$resp" | jq -e '.result.content[0].type == "image"'
+  echo "$resp" | jq -e '.result.content[0].mimeType == "image/png"'
+  # Decode and check the PNG magic bytes (\x89PNG).
+  magic=$(echo "$resp" | jq -r '.result.content[0].data' | base64 -d | head -c4 | od -An -tx1 | tr -d ' \n')
+  [ "$magic" = "89504e47" ]
+}
+
+# bats test_tags=firefox
+function capture_format_pdf_returns_inline_blob { # @test
+  firefox="$(command -v firefox || command -v firefox-esr || true)"
+  if [ -z "$firefox" ]; then
+    skip "no Firefox found on PATH"
+  fi
+  if ! timeout 5 "$firefox" --headless --version >/dev/null 2>&1; then
+    skip "headless Firefox not functional"
+  fi
+
+  cat >"$BATS_TEST_TMPDIR/print.html" <<'FIXTURE'
+<!doctype html>
+<html><head><title>PDF Fixture</title></head>
+<body><h1>Hello pdf</h1></body>
+</html>
+FIXTURE
+  url="file://$BATS_TEST_TMPDIR/print.html"
+
+  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"format\":\"pdf\"}}}" |
+    timeout 30 "$CHREST_BIN" mcp)
+
+  resp=$(echo "$result" | grep '"id":2')
+  echo "$resp" | jq -e '.result.isError != true'
+  echo "$resp" | jq -e '.result.content | length == 1'
+  echo "$resp" | jq -e '.result.content[0].type == "resource"'
+  echo "$resp" | jq -e '.result.content[0].resource.mimeType == "application/pdf"'
+  echo "$resp" | jq -e '.result.content[0].resource.uri | endswith("#pdf")'
+  # Decode and check the PDF magic bytes ("%PDF").
+  magic=$(echo "$resp" | jq -r '.result.content[0].resource.blob' | base64 -d | head -c4)
+  [ "$magic" = "%PDF" ]
+}
+
+# bats test_tags=firefox
+function capture_pdf_only_flags_rejected_with_other_formats { # @test
+  firefox="$(command -v firefox || command -v firefox-esr || true)"
+  if [ -z "$firefox" ]; then
+    skip "no Firefox found on PATH"
+  fi
+  if ! timeout 5 "$firefox" --headless --version >/dev/null 2>&1; then
+    skip "headless Firefox not functional"
+  fi
+
+  url="https://example.com"
+  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" \
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"capture\",\"arguments\":{\"url\":\"$url\",\"format\":\"screenshot-png\",\"landscape\":true}}}" |
+    timeout 30 "$CHREST_BIN" mcp)
+
+  resp=$(echo "$result" | grep '"id":2')
+  echo "$resp" | jq -e '.result.isError == true'
+  echo "$resp" | jq -e '.result.content[0].text | contains("only valid with --format pdf")'
 }
 
 function tools_call_list_windows_handles_stale_socket { # @test

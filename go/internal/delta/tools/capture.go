@@ -253,7 +253,7 @@ func registerCaptureCommands(app *command.Utility, _ *proxy.BrowserProxy) {
 
 // StreamCapture runs a single-format capture and copies the bytes to w.
 // Routes through MultiExtract so the CLI single-format path shares one
-// engine with the multi-format path and with web-fetch — see
+// engine with the multi-format path and with the capture MCP tool — see
 // MultiExtractParams. The browser session is opened, the URL navigated
 // to, the format extracted, and the session closed before returning.
 func StreamCapture(

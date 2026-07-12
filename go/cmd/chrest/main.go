@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -186,10 +187,10 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			if err := json.Unmarshal(args, &p0); err != nil {
 				return protocol.ErrorResultV1(err.Error()), nil
 			}
-			if strings.HasPrefix(p0.URI, "web-fetch://") {
-				url, fragment := splitWebFetchURI(p0.URI)
+			if strings.HasPrefix(p0.URI, "capture://") {
+				url, fragment := splitCaptureURI(p0.URI)
 				if url == "" {
-					return protocol.ErrorResultV1("invalid web-fetch URI: " + p0.URI), nil
+					return protocol.ErrorResultV1("invalid capture URI: " + p0.URI), nil
 				}
 				v, ok := fetchCache.Load(url)
 				if !ok {
@@ -222,9 +223,9 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 						},
 					}, nil
 				case "markdown-selector":
-					return protocol.ErrorResultV1("selector-derived resources are not re-readable; call web-fetch with the selector arg to regenerate"), nil
+					return protocol.ErrorResultV1("selector-derived resources are not re-readable; call capture with the selector arg to regenerate"), nil
 				default:
-					return protocol.ErrorResultV1("unknown web-fetch fragment: " + fragment + " (expected text, markdown, html, or toc)"), nil
+					return protocol.ErrorResultV1("unknown capture fragment: " + fragment + " (expected text, markdown, html, or toc)"), nil
 				}
 			}
 			result, err := itemResources.ReadResource(ctx, p0.URI)
@@ -244,40 +245,50 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 
 	registry.Register(
 		protocol.ToolV1{
-			Name: "web-fetch",
-			Description: "Fetch a web page via headless Firefox and return its content " +
-				"as reader-mode Markdown (default). All three base formats (text, markdown, html) " +
-				"are always rendered; non-selected formats are returned as resource_link URIs " +
-				"that can be read via read-resource. A TOC of `#id` anchors is included as the " +
-				"first content block when no selector is supplied (or when a selector misses) — " +
-				"pass one of those ids as `selector` to trim the returned markdown to that " +
-				"section only. When a selector matches, the TOC is returned as a resource_link " +
-				"(`web-fetch://<url>#toc`) instead of inline so it doesn't dwarf the section. " +
-				"Results are cached per URL for the lifetime of the MCP session; pass " +
-				"`refresh: true` to force a re-fetch. Use instead of the built-in WebFetch when " +
-				"you need complete, unsummarized content or when the page requires JavaScript " +
-				"to render.",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"},"format":{"type":"string","description":"Format to return inline: 'markdown' (default), 'text', or 'html'. Other formats are returned as resource_link URIs.","enum":["markdown","text","html"]},"selector":{"type":"string","description":"Optional CSS selector to trim the returned markdown to a specific section (e.g. '#chap-stdenv', 'article#main'). Requires format=markdown. On a miss, the tool returns a diagnostic plus a resource_link to the full page - it never silently returns empty. The TOC of #id selectors is included inline when no selector is supplied or a selector misses; when a selector matches, the TOC is returned as a resource_link (web-fetch://<url>#toc) to avoid dwarfing the matched section."},"refresh":{"type":"boolean","description":"Force a re-fetch even if this URL was fetched earlier in the session. Default false: reuse cached HTML. Selector-only re-runs against the same URL never relaunch Firefox."}},"required":["url"]}`),
+			Name: "capture",
+			Description: "Fetch or capture a web page via headless Firefox. Five formats: " +
+				"'markdown' (default, reader-mode extraction), 'text', 'html', 'pdf', and " +
+				"'screenshot-png'.\n\n" +
+				"For markdown/text/html: all three base formats are always rendered; " +
+				"non-selected formats are returned as resource_link URIs that can be read via " +
+				"read-resource. A TOC of `#id` anchors is included as the first content block " +
+				"when no selector is supplied (or when a selector misses) — pass one of those " +
+				"ids as `selector` to trim the returned markdown to that section only. When a " +
+				"selector matches, the TOC is returned as a resource_link (`capture://<url>#toc`) " +
+				"instead of inline so it doesn't dwarf the section. Results are cached per URL " +
+				"for the lifetime of the MCP session; pass `refresh: true` to force a re-fetch. " +
+				"Use instead of the built-in WebFetch when you need complete, unsummarized " +
+				"content or when the page requires JavaScript to render.\n\n" +
+				"For pdf/screenshot-png: renders the page and returns the bytes inline as " +
+				"base64 (an image content block for screenshot-png, a base64 blob resource for " +
+				"pdf) — not cached, a fresh capture every call. `full-page` (screenshot-png only) " +
+				"captures the full scrollable page instead of just the viewport. `landscape`, " +
+				"`no-headers`, `background`, `paper-width`, `paper-height`, and the four " +
+				"`margin-*` flags (inches) are pdf-only page-setup options; unset values use the " +
+				"browser default (typically US Letter, ~0.4\" margins, headers on, no background).",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch or capture"},"format":{"type":"string","description":"'markdown' (default) / 'text' / 'html' return inline; other formats are resource_link URIs. 'pdf' / 'screenshot-png' render and return bytes inline as base64.","enum":["markdown","text","html","pdf","screenshot-png"]},"selector":{"type":"string","description":"Optional CSS selector to trim the returned markdown to a specific section (e.g. '#chap-stdenv', 'article#main'). Requires format=markdown. On a miss, the tool returns a diagnostic plus a resource_link to the full page - it never silently returns empty. The TOC of #id selectors is included inline when no selector is supplied or a selector misses; when a selector matches, the TOC is returned as a resource_link (capture://<url>#toc) to avoid dwarfing the matched section."},"refresh":{"type":"boolean","description":"markdown/text/html only: force a re-fetch even if this URL was fetched earlier in the session. Default false: reuse cached HTML. Selector-only re-runs against the same URL never relaunch Firefox."},"landscape":{"type":"boolean","description":"pdf only: use landscape orientation"},"no-headers":{"type":"boolean","description":"pdf only: disable header and footer"},"background":{"type":"boolean","description":"pdf only: print background graphics"},"paper-width":{"type":"number","description":"pdf only: page width in inches (default: browser default, typically 8.5)"},"paper-height":{"type":"number","description":"pdf only: page height in inches (default: browser default, typically 11)"},"margin-top":{"type":"number","description":"pdf only: top margin in inches (0 for borderless)"},"margin-bottom":{"type":"number","description":"pdf only: bottom margin in inches (0 for borderless)"},"margin-left":{"type":"number","description":"pdf only: left margin in inches (0 for borderless)"},"margin-right":{"type":"number","description":"pdf only: right margin in inches (0 for borderless)"},"full-page":{"type":"boolean","description":"screenshot-png only: capture the full scrollable page instead of just the viewport"}},"required":["url"]}`),
 			Annotations: &protocol.ToolAnnotations{ReadOnlyHint: protocol.BoolPtr(true)},
 		},
 		func(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResultV1, error) {
 			var p0 struct {
-				URL      string `json:"url"`
-				Format   string `json:"format"`
-				Selector string `json:"selector"`
-				Refresh  bool   `json:"refresh"`
+				tools.CaptureParams
+				Refresh bool `json:"refresh"`
 			}
 			if err := json.Unmarshal(args, &p0); err != nil {
 				return protocol.ErrorResultV1(err.Error()), nil
 			}
 			if p0.URL == "" {
-				return protocol.ErrorResultV1("web-fetch: url is required"), nil
+				return protocol.ErrorResultV1("capture: url is required"), nil
 			}
 			if p0.Format == "" {
 				p0.Format = "markdown"
 			}
 			if p0.Selector != "" && p0.Format != "markdown" {
 				return protocol.ErrorResultV1("selector is only supported with format=markdown; got format=" + p0.Format), nil
+			}
+
+			if p0.Format == tools.FormatPDF || p0.Format == tools.FormatScreenshotPNG {
+				return captureBinaryFormat(ctx, p0.CaptureParams)
 			}
 
 			var entry *fetchCacheEntry
@@ -309,7 +320,7 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 					return protocol.ErrorResultV1(err.Error()), nil
 				}
 				if entry == nil {
-					return protocol.ErrorResultV1("web-fetch: empty result"), nil
+					return protocol.ErrorResultV1("capture: empty result"), nil
 				}
 				fetchCache.Store(p0.URL, entry)
 			}
@@ -320,9 +331,9 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			}
 			tocBlock := protocol.TextContentV1(markdown.FormatTOC(entry.TOC, p0.URL, urlFragment))
 
-			textURI := fmt.Sprintf("web-fetch://%s#text", p0.URL)
-			markdownURI := fmt.Sprintf("web-fetch://%s#markdown", p0.URL)
-			htmlURI := fmt.Sprintf("web-fetch://%s#html", p0.URL)
+			textURI := fmt.Sprintf("capture://%s#text", p0.URL)
+			markdownURI := fmt.Sprintf("capture://%s#markdown", p0.URL)
+			htmlURI := fmt.Sprintf("capture://%s#html", p0.URL)
 
 			if p0.Selector == "" {
 				blocks := []protocol.ContentBlockV1{tocBlock}
@@ -381,7 +392,7 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			if err != nil {
 				if errors.Is(err, markdown.ErrSelectorNoMatch) {
 					diag := fmt.Sprintf(
-						"selector %q matched no element on %s.\nThe TOC above lists the anchors that are present on this page.\nFull markdown is available via the resource_link below; call read-resource on web-fetch://%s#markdown to fetch it.",
+						"selector %q matched no element on %s.\nThe TOC above lists the anchors that are present on this page.\nFull markdown is available via the resource_link below; call read-resource on capture://%s#markdown to fetch it.",
 						p0.Selector, p0.URL, p0.URL,
 					)
 					return &protocol.ToolCallResultV1{
@@ -406,8 +417,8 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			// (nixpkgs renders to ~150 KB) the inline TOC dwarfs the
 			// matched section. Callers can read-resource the toc URI
 			// if they need to pick a different section.
-			selectorURI := fmt.Sprintf("web-fetch://%s#markdown-selector", p0.URL)
-			tocURI := fmt.Sprintf("web-fetch://%s#toc", p0.URL)
+			selectorURI := fmt.Sprintf("capture://%s#markdown-selector", p0.URL)
+			tocURI := fmt.Sprintf("capture://%s#toc", p0.URL)
 			return &protocol.ToolCallResultV1{
 				Content: []protocol.ContentBlockV1{
 					protocol.EmbeddedTextResourceContent(selectorURI, string(trimmed), mimeMarkdown),
@@ -428,7 +439,7 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 		// V0-protocol clients still get V1-shape responses (resource_link,
 		// embedded resource, tool annotations). Without this the V0 handler
 		// downgrades V1 ContentBlocks and drops Annotations, breaking the
-		// web_fetch_* bats suite. See pkgs/server Options doc.
+		// capture_mcp bats suite. See pkgs/server Options doc.
 		PreferV1Providers: true,
 	})
 	if err != nil {
@@ -436,6 +447,45 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 	}
 
 	return srv.Run(ctx)
+}
+
+// captureBinaryFormat handles the pdf and screenshot-png branches of the
+// capture tool: render a fresh capture (no caching — every call re-renders)
+// and return the bytes inline as base64. screenshot-png comes back as an
+// image content block; pdf comes back as an embedded blob resource (MCP has
+// no "type": "pdf" content block, so resource+blob is the closest fit).
+func captureBinaryFormat(ctx context.Context, p tools.CaptureParams) (*protocol.ToolCallResultV1, error) {
+	if err := p.Validate(); err != nil {
+		return protocol.ErrorResultV1(err.Error()), nil
+	}
+
+	results, err := tools.MultiExtract(ctx, p.ToMultiExtractParams())
+	if err != nil {
+		return protocol.ErrorResultV1(err.Error()), nil
+	}
+	if len(results) != 1 {
+		return protocol.ErrorResultV1(fmt.Sprintf("capture: expected 1 result, got %d", len(results))), nil
+	}
+	r := results[0]
+	if r.Err != nil {
+		return protocol.ErrorResultV1(r.Err.Error()), nil
+	}
+	if len(r.Data) == 0 {
+		return protocol.ErrorResultV1("capture: empty result"), nil
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(r.Data)
+
+	if p.Format == tools.FormatScreenshotPNG {
+		return &protocol.ToolCallResultV1{
+			Content: []protocol.ContentBlockV1{protocol.ImageContentV1(b64, "image/png")},
+		}, nil
+	}
+	return &protocol.ToolCallResultV1{
+		Content: []protocol.ContentBlockV1{
+			protocol.EmbeddedBlobResourceContent(fmt.Sprintf("capture://%s#pdf", p.URL), b64, "application/pdf"),
+		},
+	}, nil
 }
 
 // emptyExtractionDiagnostic builds the user-facing message we surface
@@ -450,18 +500,18 @@ func emptyExtractionDiagnostic(url, format string) string {
 		"No %s content extracted from %s. The page may be a redirect, "+
 			"a single-page app shell, or have no readable body. "+
 			"The raw HTML is available via the resource_link below; "+
-			"call read-resource on web-fetch://%s#html to fetch it.",
+			"call read-resource on capture://%s#html to fetch it.",
 		format, url, url,
 	)
 }
 
-// splitWebFetchURI parses "web-fetch://<url>#<fragment>" into its url and
+// splitCaptureURI parses "capture://<url>#<fragment>" into its url and
 // fragment halves. The URL itself may contain '#' characters if the caller
 // passed a fragmented URL, so the last '#' is treated as the delimiter
-// (matching the format emitted by the web-fetch handler). Returns empty
-// strings if the URI doesn't carry the web-fetch:// prefix or lacks a '#'.
-func splitWebFetchURI(uri string) (url, fragment string) {
-	const prefix = "web-fetch://"
+// (matching the format emitted by the capture handler). Returns empty
+// strings if the URI doesn't carry the capture:// prefix or lacks a '#'.
+func splitCaptureURI(uri string) (url, fragment string) {
+	const prefix = "capture://"
 	if !strings.HasPrefix(uri, prefix) {
 		return "", ""
 	}
@@ -473,7 +523,7 @@ func splitWebFetchURI(uri string) (url, fragment string) {
 	return rest[:idx], rest[idx+1:]
 }
 
-// fetchCacheEntry is the cached payload for a single web-fetch URL.
+// fetchCacheEntry is the cached payload for a single capture URL.
 // Path identifies which dispatch branch produced the entry
 // ("firefox-only", "html", "text", or "unknown") and is set for
 // observability when investigating slot population issues.
@@ -518,7 +568,7 @@ func fetchViaFirefox(ctx context.Context, url string) (*fetchCacheEntry, error) 
 	if entry.HTML != nil {
 		toc, tocErr := markdown.ExtractTOC(bytes.NewReader(entry.HTML))
 		if tocErr != nil {
-			log.Printf("web-fetch: ExtractTOC failed for %s: %v", url, tocErr)
+			log.Printf("capture: ExtractTOC failed for %s: %v", url, tocErr)
 		} else {
 			entry.TOC = toc
 		}
@@ -596,7 +646,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 					// forever on <-outcome unless we write something.
 					if !navHandled {
 						outcome <- dispatchOutcome{
-							err: fmt.Errorf("web-fetch: intercept channel closed before navigation event for %s", scrubURL(urlStr)),
+							err: fmt.Errorf("capture: intercept channel closed before navigation event for %s", scrubURL(urlStr)),
 						}
 					}
 					return
@@ -639,7 +689,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 				ct := headerValue(ev.Headers, "Content-Type")
 				class := rawfetch.Classify(httpHeaderFrom(ev.Headers), urlStr, ev.Status)
 
-				log.Printf("web-fetch: dispatch=bidi-intercept class=%v ct=%s status=%d url=%s",
+				log.Printf("capture: dispatch=bidi-intercept class=%v ct=%s status=%d url=%s",
 					class, ct, ev.Status, scrubURL(urlStr))
 
 				switch class {
@@ -664,7 +714,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 				case rawfetch.ClassBinary:
 					_ = session.FailRequest(ctx, ev.RequestID)
 					outcome <- dispatchOutcome{
-						err: fmt.Errorf("web-fetch refused binary content-type %q from %s; use `chrest capture` to save binary downloads",
+						err: fmt.Errorf("capture refused binary content-type %q from %s; use `chrest capture` to save binary downloads",
 							ct, ev.URL),
 						failedDeliberately: true,
 					}
@@ -672,7 +722,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 				case rawfetch.ClassHTTPError:
 					_ = session.FailRequest(ctx, ev.RequestID)
 					outcome <- dispatchOutcome{
-						err:                fmt.Errorf("web-fetch: HTTP %d from %s", ev.Status, ev.URL),
+						err:                fmt.Errorf("capture: HTTP %d from %s", ev.Status, ev.URL),
 						failedDeliberately: true,
 					}
 					return
@@ -682,7 +732,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 					// can't silently produce an empty result.
 					_ = session.FailRequest(ctx, ev.RequestID)
 					outcome <- dispatchOutcome{
-						err:                fmt.Errorf("web-fetch: unhandled class %v for %s", class, ev.URL),
+						err:                fmt.Errorf("capture: unhandled class %v for %s", class, ev.URL),
 						failedDeliberately: true,
 					}
 					return
@@ -736,7 +786,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 		return nil, out.err
 	}
 	if out.entry == nil {
-		return nil, fmt.Errorf("web-fetch: dispatcher produced no entry")
+		return nil, fmt.Errorf("capture: dispatcher produced no entry")
 	}
 
 	// Now actually fill the entry. For HTML, extract from the existing

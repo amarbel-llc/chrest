@@ -18,7 +18,7 @@ type Result struct {
 	TOC      []markdown.Heading
 }
 
-// BuildFromText populates the three web-fetch content slots and a TOC
+// BuildFromText populates the three capture content slots and a TOC
 // from a body that was already classified as ClassText.
 func BuildFromText(body []byte, contentType, urlStr string) *Result {
 	r := &Result{Text: body}

@@ -24,7 +24,9 @@ type MultiExtractParams struct {
 	// PDF-only flags. Forwarded verbatim to firefox.PDFOptions when
 	// FormatPDF is in Formats. nil pointers and false bools mean "use
 	// the browser default" (typically US Letter, 0.4" margins, headers
-	// on, no background, portrait). Web-fetch leaves these zero.
+	// on, no background, portrait). The capture MCP tool's
+	// markdown/text/html branch leaves these zero; only its pdf branch
+	// populates them from caller-supplied args.
 	Landscape    bool
 	NoHeaders    bool
 	Background   bool
@@ -221,7 +223,7 @@ func extractOne(
 		// Heading-aware: an `#id` selector matching a heading returns
 		// the whole section (heading + following siblings up to the
 		// next equal-or-higher heading) rather than just the heading
-		// element. Matches web-fetch's selector behavior.
+		// element. Matches the capture tool's selector behavior.
 		return readAllCloser(markdown.ConvertSelectorSection(bytes.NewReader(domBytes), params.Selector))
 
 	case FormatPDF:

@@ -197,7 +197,8 @@ moment `just codemod-dagnabit-reposition apply` runs.
   `codeberg.org/readeck/go-readability/v2` (for the reader variant) and
   `andybalholm/cascadia` (for the selector variant).
 - `*/rawfetch` - Content-type classification + raw-text content
-  building for the web-fetch dispatcher. `Classify` decides HTML / Text /
+  building for the `capture` MCP tool's markdown/text/html dispatcher.
+  `Classify` decides HTML / Text /
   Binary / HTTPError from response headers + URL ext + status;
   `BuildFromText` builds the text/markdown/html slots from a raw text body;
   `ExtractMarkdownTOCFromText` regex-scans markdown for ATX headings.
@@ -346,6 +347,28 @@ Exposes browser management as MCP tools and resources over stdio (JSON-RPC 2.0).
 
 **Tools** — all browser tools (list-windows, create-tab, close-tab, etc.) plus:
 
+- `capture` — fetch or capture a web page via headless Firefox. Five formats:
+  `markdown` (default), `text`, `html`, `pdf`, `screenshot-png`. Hand-registered
+  directly against the MCP tool registry in `go/cmd/chrest/main.go` (not
+  wired through dewey's `Command`/`RegisterMCPToolsV1`, which can't carry
+  binary content blocks) — the handler unmarshals args into
+  `tools.CaptureParams` (the same struct the `chrest capture` CLI uses) plus a
+  `refresh` bool.
+  - `markdown`/`text`/`html`: all three base formats are always rendered;
+    non-selected formats come back as `resource_link` URIs (`capture://<url>#<fragment>`)
+    readable via `read-resource`. A TOC of `#id` anchors is included inline
+    unless a `selector` is supplied and matches, in which case the TOC becomes
+    a resource_link instead. Results are cached per URL for the session
+    lifetime (`fetchCache`); pass `refresh: true` to force a re-fetch.
+  - `pdf`/`screenshot-png`: reuses `tools.CaptureParams.Validate()` and
+    `tools.MultiExtract` (the same machinery as `chrest capture`) to render a
+    **fresh, uncached** capture every call, then returns the bytes inline as
+    base64 — `protocol.ImageContentV1` for screenshot-png, an
+    `protocol.EmbeddedBlobResourceContent` blob (`application/pdf`) for pdf.
+    Accepts the same pdf/screenshot flags as the CLI (`landscape`,
+    `no-headers`, `background`, `paper-width`, `paper-height`, `margin-*`,
+    `full-page`), validated the same way. Not part of the `capture://`
+    resource-link/cache scheme — no re-fetch via `read-resource`.
 - `read-resource` — bridge tool so subagents can access MCP resources via tools/call
 
 **Resources:**
@@ -358,7 +381,9 @@ Exposes browser management as MCP tools and resources over stdio (JSON-RPC 2.0).
 
 ### Runtime configuration
 
-`CHREST_WEB_FETCH_DISPATCH` controls how the `web-fetch` MCP tool fetches URLs:
+`CHREST_WEB_FETCH_DISPATCH` controls how the `capture` MCP tool's
+markdown/text/html formats fetch URLs (pdf/screenshot-png always go through
+`tools.MultiExtract` directly and are unaffected by this variable):
 
 - `bidi-intercept` (default) — classify via WebDriver BiDi response interception;
   HTML routes through Firefox/MultiExtract, raw text routes through

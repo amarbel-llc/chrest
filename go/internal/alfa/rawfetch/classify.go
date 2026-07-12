@@ -1,6 +1,7 @@
-// Package rawfetch classifies HTTP responses for the web-fetch MCP
-// tool's content-type-aware dispatch and builds the text/markdown/html
-// content slots when the body is already plain text.
+// Package rawfetch classifies HTTP responses for the capture MCP
+// tool's content-type-aware dispatch (markdown/text/html formats) and
+// builds the text/markdown/html content slots when the body is
+// already plain text.
 //
 // See docs/plans/2026-04-29-web-fetch-content-type-dispatch-design.md.
 package rawfetch
@@ -12,7 +13,7 @@ import (
 	"strings"
 )
 
-// Class is the dispatch decision for a single web-fetch response.
+// Class is the dispatch decision for a single capture response.
 type Class int
 
 const (
@@ -23,9 +24,9 @@ const (
 	ClassHTTPError
 )
 
-// Classify decides which web-fetch path a response should take, based
-// on HTTP status, Content-Type, Content-Disposition, and (as a last-
-// resort fallback) URL extension.
+// Classify decides which capture dispatch path a response should
+// take, based on HTTP status, Content-Type, Content-Disposition, and
+// (as a last-resort fallback) URL extension.
 func Classify(headers http.Header, urlStr string, status int) Class {
 	if status < 200 || status >= 300 {
 		return ClassHTTPError
@@ -58,7 +59,7 @@ func Classify(headers http.Header, urlStr string, status int) Class {
 }
 
 // isTextMediaType returns true for media types whose body should be
-// returned as raw text in the web-fetch tool. The list is deliberately
+// returned as raw text in the capture tool. The list is deliberately
 // narrow: text/css, text/javascript, text/csv etc. are not included
 // because the tool is intended for prose/documentation/source code,
 // not for treating every text/* response as readable content.

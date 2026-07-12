@@ -227,7 +227,7 @@ test-mcp:
   echo "$resources" | jq -e '.resources | length > 0'
   echo "$templates" | jq -e '.resourceTemplates | length > 0'
   # Verify readOnlyHint annotations
-  for tool in browser-info list-windows get-window list-tabs get-tab list-extensions items-get state-get read-resource web-fetch; do
+  for tool in browser-info list-windows get-window list-tabs get-tab list-extensions items-get state-get read-resource capture; do
     echo "$tools" | jq -e --arg t "$tool" '.tools[] | select(.name == $t) | .annotations.readOnlyHint == true' \
       || { echo "FAIL: $tool missing readOnlyHint"; exit 1; }
   done
@@ -247,7 +247,7 @@ test-mcp-bats:
   #    under fence (network denied, /tmp-only writes, credential dirs
   #    blocked) for free baseline isolation.
   # 2. Firefox lane: --no-sandbox --filter-tags 'firefox'. Runs the
-  #    capture / web-fetch tests that launch headless Firefox.
+  #    capture tests that launch headless Firefox.
   #    Firefox's content-process sandbox wants to write its own
   #    /proc/self/uid_map, which fails inside fence's userns
   #    (EACCES → ECONNRESET → per-test timeout). --no-sandbox
@@ -532,17 +532,17 @@ explore-mcp-v1-debug:
   result=$(printf '%s\n' "$v1_init" "$notif" "$list" | go/build/release/chrest mcp)
   echo "=== init response ==="
   echo "$result" | grep '"id":1' | jq .
-  echo "=== tools/list response (web-fetch) ==="
-  echo "$result" | grep '"id":2' | jq '[.result.tools[] | select(.name == "web-fetch")] | first'
+  echo "=== tools/list response (capture) ==="
+  echo "$result" | grep '"id":2' | jq '[.result.tools[] | select(.name == "capture")] | first'
 
 [group("explore")]
-explore-mcp-web-fetch-blocks url="https://example.com" selector="":
+explore-mcp-capture-blocks url="https://example.com" selector="":
   #!/usr/bin/env bash
   set -euo pipefail
   init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}'
   notif='{"jsonrpc":"2.0","method":"notifications/initialized"}'
   call=$(jq -nc --arg url "{{url}}" --arg sel "{{selector}}" '
-    {jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",
+    {jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",
       arguments: ($sel | if . == "" then {url:$url,format:"markdown"}
                         else {url:$url,format:"markdown",selector:.} end)}}')
   result=$(printf '%s\n' "$init" "$notif" "$call" | go/build/release/chrest mcp)
@@ -553,11 +553,11 @@ explore-mcp-web-fetch-blocks url="https://example.com" selector="":
   echo "$result" | grep '"id":2' | jq -r '.result.content[0].text' | head -20
 
 # Smoke-test that the nix-built Firefox actually launches on this host.
-# Unlike explore-mcp-web-fetch-blocks (which uses the devshell-PATH
+# Unlike explore-mcp-capture-blocks (which uses the devshell-PATH
 # firefox), this drives the *nix-built* chrest, whose PATH wrapper carries
 # the firefox from nix/firefox.nix — so it verifies a firefox.nix change
 # without a devshell reload. Confirms the patched binary executes (--version)
-# and that web-fetch reaches the BiDi WebSocket (no "WebSocket URL" error).
+# and that capture reaches the BiDi WebSocket (no "WebSocket URL" error).
 # Serves the firefox.nix maintenance loop (portability / version bumps).
 [group("explore")]
 explore-firefox-smoke url="https://example.com":
@@ -566,11 +566,11 @@ explore-firefox-smoke url="https://example.com":
   out=$(nix build --no-link --print-out-paths)
   echo "=== firefox --version (proves the ELF loader resolves) ==="
   "$out/bin/firefox" --version
-  echo "=== web-fetch via nix-built chrest (proves BiDi launch) ==="
+  echo "=== capture via nix-built chrest (proves BiDi launch) ==="
   init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"0.0.1"}}}'
   notif='{"jsonrpc":"2.0","method":"notifications/initialized"}'
   call=$(jq -nc --arg url "{{url}}" '
-    {jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"web-fetch",
+    {jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",
       arguments:{url:$url,format:"markdown"}}}')
   result=$(printf '%s\n' "$init" "$notif" "$call" | "$out/bin/chrest" mcp)
   echo "$result" | grep '"id":2' | jq -r '.result.content[0].text' | head -20
