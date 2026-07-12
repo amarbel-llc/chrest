@@ -87,7 +87,8 @@ func TestCaptureServeEndToEnd(t *testing.T) {
 	bin := buildChrestBinary(t)
 
 	fixture := filepath.Join(t.TempDir(), "test.html")
-	if err := os.WriteFile(fixture,
+	if err := os.WriteFile(
+		fixture,
 		[]byte("<!doctype html><html><head><title>Test</title></head>"+
 			"<body><h1>Hello from chrest</h1></body></html>"), 0o644,
 	); err != nil {

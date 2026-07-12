@@ -101,6 +101,15 @@
       inputs.bats.follows = "bats";
       inputs.tommy.follows = "tommy";
     };
+    cutting-garden.inputs.madder.inputs.piggy.follows = "cutting-garden/piggy";
+    # Remaining multi-version dedups doppelgang lint --fix reported but
+    # didn't auto-collapse (chrest#87): cutting-garden's own transitive
+    # chain pins conformist/doppelgang/tommy separately from chrest's
+    # existing (purse-first-, and chrest's own top-level) pins of the
+    # same flakes.
+    cutting-garden.inputs.conformist.follows = "purse-first/conformist";
+    cutting-garden.inputs.hyphence.inputs.doppelgang.follows = "doppelgang";
+    cutting-garden.inputs.madder.inputs.tommy.follows = "tommy";
   };
 
   outputs =
@@ -390,6 +399,20 @@
             export BATS_LIB_PATH="${
               bats.packages.${system}.bats-libs.batsLibPath
             }''${BATS_LIB_PATH:+:}''${BATS_LIB_PATH:-}"
+            # code.linenisgreat.com now serves go-import meta
+            # (linenisgreat#64) for repos migrated off GitHub to the
+            # self-hosted Forgejo forge — currently just cutting-garden's
+            # fork-replace (go/go.mod: `replace
+            # github.com/amarbel-llc/cutting-garden =>
+            # code.linenisgreat.com/cutting-garden <pseudo-version>`).
+            # GOPRIVATE skips GOPROXY + GOSUMDB for that host so plain `go`
+            # tooling (go build, go test, go vet, dagnabit) resolves it —
+            # the nix build resolves it independently via the
+            # flake-input-go_mod bridge (go/gomod.nix), which needs no env
+            # var. Drop this once cutting-garden's own module path
+            # migrates to code.linenisgreat.com/cutting-garden and the
+            # fork-replace becomes a plain require bump.
+            export GOPRIVATE="code.linenisgreat.com''${GOPRIVATE:+,$GOPRIVATE}"
           '';
         };
       }

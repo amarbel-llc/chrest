@@ -102,3 +102,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	mvdan.cc/sh/v3 v3.13.1 // indirect
 )
+
+replace github.com/amarbel-llc/cutting-garden => code.linenisgreat.com/cutting-garden v0.1.25-0.20260712123916-794577ef2528

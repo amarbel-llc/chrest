@@ -171,7 +171,7 @@ rev) — `nix build .#chrest` succeeds with the bridge wired. Cross-repo
 diagnosis credit: igloo/plain-ebony, coordinating on igloo#54.
 
 **Known gap, unresolved as of 2026-07-12:** the flake bridge fixes the
-*nix build* path only. Plain devshell Go tooling (`go build`, `go test`,
+_nix build_ path only. Plain devshell Go tooling (`go build`, `go test`,
 `go vet`, the `dagnabit` codegen tool) still cannot resolve
 `pkgs/capture_plugin` / `pkgs/capture_serve` — `go list` fails with
 "missing go.sum entry" — because there is still no `go get` path to the
@@ -210,6 +210,7 @@ really is reused unchanged; the only wire-level difference is per-capture
 back to reach the shared `Resolved` type).
 
 Verified in three layers, all in `go/cmd/chrest/`:
+
 - `capture_serve_test.go` — real end-to-end capture (real handshake, real
   headless Firefox, real receipt through the real blob-protocol transport)
   and the `CAPTURE_PLUGIN_COOKIE` guard (missing cookie → exit 1, empty

@@ -25,7 +25,8 @@ func NewBatchHandler(capturerVersion string) capture_serve.BatchFunc {
 	) (capture_serve.BatchResult, error) {
 		if params.Schema != capture_serve.SchemaV2 {
 			return capture_serve.BatchResult{}, fmt.Errorf(
-				"batch schema must be %q, got %q", capture_serve.SchemaV2, params.Schema)
+				"batch schema must be %q, got %q", capture_serve.SchemaV2, params.Schema,
+			)
 		}
 		if params.Target == "" {
 			return capture_serve.BatchResult{}, fmt.Errorf("target MUST be a non-empty string")
