@@ -104,12 +104,28 @@ func cmdCaptureServe(ctx context.Context, version string, args []string) error {
 		cancel()
 	}()
 
+	// AcceptUnix has no context parameter and does not observe
+	// sessionCtx on its own — if the orchestrator never dials (or stdin
+	// closes / SIGTERM arrives before it does), a bare AcceptUnix would
+	// block forever. Closing the listener on cancellation unblocks it;
+	// cleanup (deferred above) closing it again afterward is a no-op.
+	go func() {
+		<-sessionCtx.Done()
+		ln.Close()
+	}()
+
 	if _, err := os.Stdout.WriteString(line); err != nil {
 		return fmt.Errorf("write announce line: %w", err)
 	}
 
 	conn, err := ln.AcceptUnix()
 	if err != nil {
+		if sessionCtx.Err() != nil {
+			// The listener was closed because the session ended before
+			// the orchestrator ever dialed in — a clean exit, not a
+			// bring-up failure.
+			return nil
+		}
 		return fmt.Errorf("accept rendezvous connection: %w", err)
 	}
 

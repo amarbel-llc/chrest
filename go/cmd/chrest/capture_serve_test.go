@@ -171,6 +171,62 @@ func TestCaptureServeEndToEnd(t *testing.T) {
 	}
 }
 
+// TestCaptureServeExitsOnStdinEOFBeforeDial asserts the fix for a real gap:
+// net.UnixListener.AcceptUnix has no context parameter and does not
+// observe the lifecycle context on its own, so if stdin closes (or
+// SIGTERM arrives) before the orchestrator ever dials the rendezvous
+// socket, a naive implementation blocks in Accept forever. No Firefox
+// needed — this never reaches a capture.
+func TestCaptureServeExitsOnStdinEOFBeforeDial(t *testing.T) {
+	bin := buildChrestBinary(t)
+
+	cookie, err := capture_serve.NewCookie()
+	if err != nil {
+		t.Fatalf("NewCookie: %v", err)
+	}
+
+	cmd := exec.Command(bin, "capture-serve")
+	cmd.Env = append(os.Environ(), capture_serve.CookieEnv+"="+cookie)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start chrest capture-serve: %v", err)
+	}
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+	})
+
+	// Wait for the announce line (proves the rendezvous socket is bound
+	// and the process is blocked in Accept) before closing stdin without
+	// ever dialing.
+	if _, err := capture_serve.ReadAnnounce(stdout, cookie); err != nil {
+		t.Fatalf("ReadAnnounce: %v (stderr: %s)", err, stderr.String())
+	}
+	stdin.Close()
+
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("chrest capture-serve exit: %v (stderr: %s)", err, stderr.String())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("chrest capture-serve did not exit within 5s of stdin EOF with no dial — Accept is not honoring the lifecycle context")
+	}
+}
+
 // TestCaptureServeRequiresCookie asserts the RFC 0008 guard: invoked
 // without CAPTURE_PLUGIN_COOKIE, chrest MUST exit non-zero and print
 // nothing to stdout (the handshake-rejection contract other launchers rely
