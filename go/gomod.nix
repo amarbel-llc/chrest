@@ -17,6 +17,7 @@
   tap,
   tommy,
   purse-first,
+  cutting-garden,
   system,
 }:
 {
@@ -35,11 +36,16 @@
     src = purse-first.packages.${system}.go-pkgs;
     subPath = "libs/dewey";
   };
-  # NB: github.com/amarbel-llc/cutting-garden (chrest#83, pkgs/capture_plugin)
-  # and its transitive madder/go are deliberately NOT bridged here — they
-  # resolve organically through gomod2nix.toml. Bridging cutting-garden
-  # inherits its passthru.goFlakeInputs (RFC 0001), which drags in /v2+
-  # transitive deps (crap/go-crap/v2, ...) that igloo's mkMergedGoMod
-  # synthesizes with the v0.0.0 sentinel — invalid for a /v2 module. See
-  # chrest#98. Re-bridge once igloo emits a major-aware sentinel.
+  # github.com/amarbel-llc/cutting-garden (chrest#83 pkgs/capture_plugin,
+  # chrest#98 pkgs/capture_serve). Module is at the repo root, no subPath.
+  # MUST be go-pkgs, not raw source: passthru.goFlakeInputs only rides the
+  # mkGoPkgs output, which is what lets cutting-garden's own bridges
+  # (madder, hyphence, piggy, tap, crap, tommy) inherit at depth-1 instead
+  # of chrest re-declaring each one itself. Previously un-bridged because
+  # igloo's mkMergedGoMod synthesized an invalid v0.0.0 sentinel for /v2+
+  # transitive deps (crap/go-crap/v2) — fixed by igloo#38 (major-aware
+  # sentinelFor); re-bridged once chrest's igloo pin carried that fix.
+  "github.com/amarbel-llc/cutting-garden" = {
+    src = cutting-garden.packages.${system}.go-pkgs;
+  };
 }

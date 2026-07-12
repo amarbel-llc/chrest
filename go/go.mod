@@ -21,14 +21,6 @@ require (
 	golang.org/x/sys v0.44.0
 )
 
-// DEV-LOOP ONLY — DO NOT MERGE. The archived GitHub mirror for
-// cutting-garden is frozen at v0.1.24 (pre-dates pkgs/capture_serve);
-// there is no go-get path to post-freeze commits until the
-// flake-input-go_mod bridge (chrest#98) lands. Points at a local sibling
-// checkout so RFC 0008 capture-serve development can proceed against
-// real source in the meantime.
-replace github.com/amarbel-llc/cutting-garden => /home/sasha/eng/repos/cutting-garden
-
 require (
 	filippo.io/age v1.3.1 // indirect
 	filippo.io/hpke v0.4.0 // indirect

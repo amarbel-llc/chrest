@@ -81,6 +81,26 @@
       inputs.utils.follows = "utils";
       inputs.treefmt-nix.follows = "treefmt-nix";
     };
+
+    # Consumed via goFlakeInputs (./go/gomod.nix) for pkgs/capture_plugin
+    # and pkgs/capture_serve (chrest#83, chrest#98). Sourced from the
+    # forge, not GitHub — cutting-garden's canonical remote moved off
+    # GitHub (the amarbel-llc/cutting-garden mirror is archived, frozen
+    # at v0.1.24) to a self-hosted Forgejo instance; the bridge fetches
+    # over SSH at eval time, bypassing GOPROXY entirely, which is why
+    # this can see commits (pkgs/capture_serve) the frozen mirror can't.
+    # `follows` names verified against cutting-garden's own flake.nix
+    # (it calls the flake-utils input `flake-utils`, not `utils`).
+    cutting-garden = {
+      url = "git+ssh://git@code.linenisgreat.com/cutting-garden.git";
+      inputs.igloo.follows = "igloo";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.flake-utils.follows = "utils";
+      inputs.tap.follows = "tap";
+      inputs.purse-first.follows = "purse-first";
+      inputs.bats.follows = "bats";
+      inputs.tommy.follows = "tommy";
+    };
   };
 
   outputs =
@@ -96,6 +116,7 @@
       tap,
       purse-first,
       doppelgang,
+      cutting-garden,
     }:
     let
       # Single source of truth for the release version. Burnt into:
@@ -173,6 +194,7 @@
             tap
             tommy
             purse-first
+            cutting-garden
             system
             ;
         };
