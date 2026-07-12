@@ -19,7 +19,7 @@ Chrest is the reference implementation of the **web-archive binding** of the **C
 
 A web-archive plugin's receipt blob carries the type line `! cutting_garden-capture-receipt-web-v1`; the plugin discriminator inside the merkle tree (`environment.binary.name`) identifies chrest as the binary that produced the bytes. Other web-archive plugins (hypothetical wkhtmltopdf-based, monolith-only) slot into the same kind.
 
-This FDR documents chrest's capture-pipeline surface — the interactive `chrest capture --format` and orchestrator-driven `chrest capture-batch` commands. See [Implementation status](#implementation-status-migration-to-rfc-00020003) for the gap between current emitted bytes (legacy `web-capture-archive/v1`, inherited from nebulous RFC 0001) and the RFC 0002+0003 conforming shape.
+This FDR documents chrest's capture-pipeline surface — the interactive `chrest capture --format` and orchestrator-driven `chrest capture-batch` commands. `capture-batch` emits the RFC 0002+0003 conforming receipt shape (chrest#83); see [Implementation status](#implementation-status-migration-to-rfc-00020003) for the remaining gaps (capabilities artifact, DNS/fetched-extension fields) and for the RFC 0008 `capture-serve` transport, which is not yet implemented on the chrest side.
 
 ## Interface
 
@@ -59,20 +59,18 @@ The CLI exits non-zero on any error.
 
 ### `chrest capture-batch`
 
-JSON-stdin / JSON-stdout batch capture. This subcommand fills the **capture plugin** role of [cutting-garden RFC 0002 §Capture Plugin Protocol](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md#capture-plugin-protocol) under the **web-archive binding** ([RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)). At the wire level today it still emits the legacy `web-capture-archive/v1` byte shape inherited from nebulous RFC 0001 — see [Implementation status](#implementation-status-migration-to-rfc-00020003) for the gap.
+JSON-stdin / JSON-stdout batch capture. This subcommand fills the **capture plugin** role of [cutting-garden RFC 0002 §Capture Plugin Protocol](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md#capture-plugin-protocol) under the **web-archive binding** ([RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)) over the subprocess (v1) transport — stdin/stdout batch, one `writer.cmd` subprocess per blob. The RFC 0008 `capture-serve` JSON-RPC transport (v2, SEQPACKET + fd-passing) is a separate, not-yet-implemented command; see [Implementation status](#implementation-status-migration-to-rfc-00020003).
 
-The shape chrest implements today (legacy):
+Wire shape (`capture-plugin/v1`, chrest#83):
 
-- Reads a single JSON document on stdin with shape `{schema, writer, url, defaults, captures[]}`.
-- Runs every capture sequentially.
-- Streams each artifact to the orchestrator-supplied `writer.cmd` subprocess for content-addressed storage.
-- Emits a single JSON result envelope on stdout with per-capture `payload` / `spec` / `envelope` ArtifactRefs.
+- Input: `{schema, writer:{cmd}, target, defaults:{normalize, plugin:{browser}}, captures:[{name, format, options?}]}`.
+- Runs every capture sequentially: navigate, capture the format's bytes, optionally normalize (byte-stability residue moves into the outcome subtree), then assemble the capture's **receipt**.
+- Each capture's receipt is a merkle tree of typed hyphence blobs — `invocation → host → binary → plugin-environment → environment → plugin-outcome (if HTTP observed) → outcome → payload → identity → receipt`, built via the shared `cutting-garden/pkgs/capture_plugin.WriteReceipt` so the bytes are identical to an in-process binding's. Every node is streamed through the orchestrator-supplied `writer.cmd` subprocess (one invocation per blob) as it's built.
+- Output: `{schema, plugin:{name,version}, errors:[], captures:[{name, receipt:{id,size}} | {name, error:{kind,message}}]}` — exactly one `receipt` ref per capture (down from the legacy `spec`/`envelope`/`payload` triple); every other node is recoverable by tree-walking the receipt.
+- chrest's two plugin-namespaced node bodies: `!jcs-chrest-capture-environment-v1` (browser name/version/user-agent/platform, `extensions:[]`, `isolation:"fresh"` — chrest opens a fresh Firefox session per capture) and `!jcs-chrest-capture-outcome-v1` (`http.{status, headers (lowercased names, order+dupes preserved), timing_ms:{load}, final_url?}`; omitted entirely when no HTTP response was observed).
+- Per-capture options echo into the invocation node's `options` field via JCS canonicalization (defaults to `{}`, never omitted) so downstream consumers can reproduce the exact extraction parameters.
 
-Legacy schema tokens: input/output `web-capture-archive/v1`; spec artifacts `web-capture-archive.spec/v1`; envelope artifacts `web-capture-archive.envelope/v1` (when HTTP fields are populated by a network-event-capable backend) or `v1-preview` (when they can't be).
-
-Per-capture options echo into the spec artifact's `capture.options` via JCS canonicalization so downstream consumers can reproduce the exact extraction parameters.
-
-Target shape (post-migration to RFC 0002+0003) is a merkle tree of typed hyphence blobs rooted at a per-run **receipt** (`!cutting_garden-capture-receipt-web-v1`) referencing an **identity** subtree (invocation / environment {host, binary, plugin}) and an **outcome** subtree (datetime, stripped normalization residue, plugin-namespaced HTTP response). The batch output collapses from three artifact refs per capture (`spec`, `envelope`, `payload`) to a single `receipt` ref per capture; all other artifacts are recoverable by tree traversal through the writer's underlying store. See [RFC 0002 §Migration from web-capture-archive/v0+v1](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md) and [RFC 0003 §Compatibility](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md#compatibility) for the field-by-field relocation table.
+See [RFC 0002 §Migration from web-capture-archive/v0+v1](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md) and [RFC 0003 §Compatibility](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md#compatibility) for the field-by-field relocation table from the legacy nebulous RFC 0001 shape.
 
 ## Examples
 
@@ -96,13 +94,13 @@ Single-page captures piped to stdout or files:
         --url https://en.wikipedia.org/wiki/Markdown \
         --output wiki.md
 
-Batch capture (current legacy `web-capture-archive/v1` shape; will hard-cut to RFC 0002+0003):
+Batch capture (`capture-plugin/v1` shape):
 
     $ echo '{
-        "schema":   "web-capture-archive/v1",
+        "schema":   "capture-plugin/v1",
         "writer":   {"cmd": ["madder", "--format=json", "write", "--store", "archive"]},
-        "url":      "https://en.wikipedia.org/wiki/Ferris_wheel",
-        "defaults": {"browser": "firefox", "split": false},
+        "target":   "https://en.wikipedia.org/wiki/Ferris_wheel",
+        "defaults": {"normalize": true, "plugin": {"browser": "firefox"}},
         "captures": [
           {"name": "pdf",     "format": "pdf"},
           {"name": "md",      "format": "markdown-reader"},
@@ -110,7 +108,7 @@ Batch capture (current legacy `web-capture-archive/v1` shape; will hard-cut to R
         ]
       }' | chrest capture-batch | jq
 
-Every capture produces a `payload` ArtifactRef keyed on its blake2b-256 content hash plus a `spec` ArtifactRef echoing the resolved options — so the archive is content-addressed and re-derivable.
+Every capture produces one `receipt` ArtifactRef — a root markl-id over the capture's whole merkle tree — so the archive is content-addressed and re-derivable by walking the receipt.
 
 ## Limitations
 
@@ -118,28 +116,104 @@ Every capture produces a `payload` ArtifactRef keyed on its blake2b-256 content 
 - **`markdown-selector` takes the first match only.** No `--selector-mode=all` or similar. Selector misses are a typed error that names the selector.
 - **`--reader-engine=browser` is reserved but not implemented.** The Firefox `about:reader` engine is accepted as a valid flag value so the spec surface stays stable but rejects with `not-yet-implemented` at runtime.
 - **`html-monolith` requires the `monolith` binary on `PATH`.** The nix-built `chrest` wraps it in via `flake.nix` `postFixup`; a `go install`-ed chrest relies on the user's PATH.
-- **`capture-batch` only supports `split=false` for `html-monolith` and `markdown-*`** — no byte-stability normalizer has been wired for those formats. Existing formats (`text`, `pdf`, `screenshot`) do support `split=true`.
-- **BiDi network-event buffer drops events on heavy pages** (chrest#33). Affects envelope fidelity for `split=true` captures of media-heavy pages; harmless for `split=false`.
-- **No splitting of an `html-monolith` / `markdown-*` payload into a normalized form.** The payload is recorded verbatim; a future `split=true` path could strip asset bytes into the envelope and normalize the wrapper.
-- **`capture-batch` emits legacy `web-capture-archive/v1` bytes, not the RFC 0002+0003 merkle shape.** The wire-format rewrite is a hard cut (no parallel emission window); existing nebulous archive records pointing at old-shape blobs remain readable as immutable historical bytes, but cross-version dedup against post-migration archives is gone by design. See [Implementation status](#implementation-status-migration-to-rfc-00020003).
+- **`capture-batch` only has a byte-stability normalizer for `text`, `screenshot`, `pdf`, and `mhtml`.** `html-monolith` and `markdown-*` are recorded verbatim regardless of `defaults.normalize`; no normalization residue moves into the outcome subtree for those formats.
+- **BiDi network-event buffer drops events on heavy pages** (chrest#33). Can cause a capture to miss `LastNavigationHTTP()`, which drops the plugin-outcome node (`http.*`) from that capture's receipt entirely rather than emitting a degraded one — harmless for the payload itself.
+- **No capabilities artifact.** RFC 0003 defines `!jcs-chrest-capture-capabilities-v1` (`formats`, `browsers`, `normalizes`, `honors_dns`, `honors_preinstalled_extensions` / `honors_fetched_extensions`, `transport`) referenced from `environment.binary.capabilities_id`; chrest doesn't emit one yet (#53).
+- **`dns` is omitted from the plugin-environment node** — chrest doesn't honor or observe DNS resolution (#56).
+- **Only `source: "preinstalled"` extensions are reported**, and only because the orchestrator can request them — chrest always emits `extensions: []` today since `CaptureSpec` carries no extensions field on the wire yet. `source: "fetched"` (plugin-driven URL fetch into the blob store) is unimplemented (#55).
+- **`resolved_ip` is omitted from the outcome's `http` object** — BiDi has no remote-IP field to source it from (#52).
+- **The RFC 0008 `capture-serve` JSON-RPC transport (v2) is not implemented.** cutting-garden's orchestrator always tries `capture-serve` first and falls back to `capture-batch` on clean bring-up failure, so this is currently exercised via the v1 fallback path only. See [Implementation status](#implementation-status-migration-to-rfc-00020003).
 
 ## Implementation status: migration to RFC 0002+0003
 
-cutting-garden RFC 0002 (Capture Plugin Protocol) and RFC 0003 (Web-Archive Binding) are merged on cutting-garden master. The chrest-side emitter rewrite is deferred to a follow-up. Concrete deltas the rewrite must absorb:
+### Phase 1 — subprocess (v1) receipt emitter: landed (chrest#83)
 
-- **Hyphence emitter dependency.** Each blob the plugin writes is a hyphence document (dodder RFC 0001 framing) with typed blob refs (dodder FDR-0001). Chrest currently emits raw JCS-canonical JSON for `spec` and `envelope`. The rewrite adopts madder's hyphence package (`github.com/amarbel-llc/madder/go/pkgs/hyphence`) as a new Go dependency.
-- **Merkle-tree decomposition.** A single capture currently produces 2 or 3 artifacts (`payload` always, `envelope` when split, `spec` always). The new shape produces ~10 blobs per capture in post-order — `invocation`, `host`, `binary`, plugin-environment, `environment`, plugin-outcome, `outcome`, `payload`, `identity`, `receipt` — with writer-side dedup for `host` / `binary` / plugin-environment across captures in the same batch.
-- **Batch output reduction.** The output JSON's per-capture entry collapses from three artifact refs (`spec` / `envelope` / `payload`) to one `receipt` ref. All other markl-ids are recoverable by tree-walking the receipt blob.
-- **Type-tag mapping convention.** The batch-input `captures[].format` keeps the hyphenated form (`markdown-reader`, `html-monolith`); the type-string segment uses underscores (`markdown_reader`, `html_monolith`) per RFC 0002's segment-internal-words rule. The emitter MUST map between the two surfaces and MUST NOT mix them.
-- **`timing_ms` object wrap.** Current envelope emits `timing_ms` as a bare integer. RFC 0003 declares it an object `{dns, tcp, tls, ttfb, load}` with all sub-keys optional; chrest's BiDi-restricted backend will emit `{load: <int>}` only.
-- **`http.headers` shape.** RFC 0003 confirms array-of-`{name, value}` objects with lowercased names + preserved order + duplicates as separate entries — matches chrest's current emission. No change.
-- **Extension fetched mode.** Chrest currently only reports pre-installed extensions (mode `preinstalled` with `{source, id, version, manifest_digest?}`). RFC 0003 also defines a `fetched` mode with plugin-driven URL-fetch into the blob store (`{source, name, version, url, digest}`). The fetched mode is a new feature, not a wire-shape change; the `source` discriminator is identity-affecting.
-- **Capabilities artifact.** Chrest does not currently emit a capabilities blob; the spec carries no `capabilities_id`. RFC 0003 specifies `!jcs-chrest-capture-capabilities-v1` referenced from `environment.binary.capabilities_id`. The body lists `formats`, `browsers`, `normalizes`, `honors_dns`, `honors_preinstalled_extensions` / `honors_fetched_extensions`, `transport`.
-- **Drop legacy emitters.** `web-capture-archive/v0+v1` schema constants in `go/src/delta/capturebatch/{types.go, spec.go, envelope.go}` are removed once the new path lands; the `-v1-preview` outcome-plugin tag in `envelope.go` migrates to `!jcs-chrest-capture-outcome-v1-preview` per RFC 0003 §Preview Schema for Backends Without `http.*`.
+`capture-batch` emits the `capture-plugin/v1` receipt shape described above.
+Implementation lives in `go/internal/echo/capturebatch/` (`types.go` wire
+structs, `mapping.go` chrest-owned node bodies, `receipt.go` builds the tree
+via `cutting-garden/pkgs/capture_plugin.WriteReceipt` + a `cmdWriter` adapter
+over `writer.cmd`, `runner.go` drives the batch). The legacy
+`web-capture-archive/v0+v1` emitters (`spec.go`, `envelope.go`,
+`fingerprint.go`) are deleted; `capture_plugin.JCS` replaces the homegrown
+canonicalizer on the receipt path (`jcs.go` survives only to back the
+standalone `chrest-jcs` byte-stability tool).
+
+Remaining gaps against a fully RFC 0003-conformant plugin, tracked as
+follow-ups and listed in [Limitations](#limitations): no capabilities
+artifact (#53), `dns` omitted (#56), only `source: "preinstalled"`
+extensions and always `[]` today since the wire carries no extensions field
+yet (#55), `resolved_ip` omitted from the outcome (#52).
+
+**Dependency note:** `github.com/amarbel-llc/cutting-garden` and its
+transitive `madder/go` resolve _organically_ through `go/gomod2nix.toml`,
+not through the flake-input-go_mod bridge (`go/gomod.nix`) that chrest uses
+for its other amarbel-llc dependencies. Bridging cutting-garden inherits its
+`passthru.goFlakeInputs`, which drags in `/v2+` transitive deps (e.g.
+`crap/go-crap/v2`) that igloo's `mkMergedGoMod` synthesizes with an
+invalid `v0.0.0` sentinel for a `/v2` module (chrest#98). Re-bridging is
+gated on igloo shipping a major-aware sentinel or `goFlakeInputsMode =
+"workspace"`; until then, bump the pin with a normal `go get` +
+`just build-gomod2nix` cycle.
+
+**Repo-host note (2026-07-12):** cutting-garden's canonical remote moved
+off GitHub to a self-hosted Forgejo forge (`git@code.linenisgreat.com:cutting-garden.git`);
+the `amarbel-llc/cutting-garden` GitHub mirror is now archived and frozen
+as of `v0.1.24`. Because chrest resolves the dependency organically via
+the Go module path rather than a GitHub-pinned flake input, existing pins
+keep working unmodified — but bumping past `v0.1.24` (needed once
+`pkgs/capture_serve` for Phase 2 lands) will need the module path
+repointed at the forge remote. File future cutting-garden issues on the
+forge, not GitHub.
+
+### Phase 2 — `capture-serve` JSON-RPC transport (RFC 0008): not started
+
+RFC 0008 is still `proposed`, not yet implemented on the chrest side. cutting-garden's
+web plugin orchestrator always tries `capture-serve` first and falls back to
+`capture-batch` on a clean bring-up failure — so until this lands, and on
+any future error path, a missing/failing `capture-serve` must fail fast and
+unambiguously (nonzero exit, no hang, no partial stdout) rather than emit
+anything malformed.
+
+Coordination with cutting-garden (`sharp-hazel`) settled the handshake
+contract and de-risked the core transport mechanism:
+
+- **Phase 0 de-risk spike passed:** `SCM_RIGHTS` fd-passing over a
+  `SOCK_SEQPACKET` (`"unixpacket"`) connection works in Go's `net` package
+  on Linux — digest identity held across a sequential multi-blob run. No
+  fallback transport is needed.
+- **Handshake (go-plugin style, per madder RFC 0001):** the orchestrator
+  sets `CAPTURE_PLUGIN_COOKIE`; the plugin MUST refuse to serve without it
+  (exit 1, nothing on stdout). The plugin calls `net.Listen("unixpacket",
+<path>)`, then prints exactly one stdout line:
+  `<cookie>|capture-plugin/v2|unixpacket|<socket-path>|<metadata>|capture-plugin`.
+  Any other stdout output before that line is a rejected handshake.
+- **Socket path length:** `sun_path` is ~108 bytes; a nested worktree
+  `$TMPDIR` overflows it (`bind: invalid argument`, confirmed empirically
+  in the spike). The socket MUST be bound in a fresh `0700` directory under
+  `/tmp` or `$XDG_RUNTIME_DIR`, never a deep repo-relative tmp path.
+  - **Chrest-side risk:** this session's own `$CLAUDE_CODE_TMPDIR` lives
+    under a spinclass worktree path (`.../.worktrees/<name>/.tmp/...`),
+    which is exactly the deep-path shape the spike flagged as unsafe — the
+    `capture-serve` implementation must NOT default its socket directory to
+    a worktree-relative tmp; it needs its own short-path allocation
+    independent of `$TMPDIR`.
+- **Lifecycle:** stdin EOF, a `shutdown` notification, or `SIGTERM` → exit
+  and unlink the socket.
+- **Writer reuse:** `capture_plugin.WriteReceipt` is unchanged from Phase
+  1 — only the `Writer` implementation differs (`WriteBlob` = `blob.begin`
+  → copy to the passed fd → close → `blob.finish`, instead of one
+  `writer.cmd` subprocess per blob). Byte-identical receipts vs. the v1
+  path is the conformance bar that flips RFC 0008 from `proposed` to
+  `accepted`.
+- cutting-garden is building `pkgs/capture_serve` (wire types, SEQPACKET
+  peer, handshake, plugin-side `Serve`) for chrest to link against; pin
+  cutting-garden v0.1.24 in the meantime, and re-pin once `Serve` lands.
 
 ## More Information
 
-- [cutting-garden RFC 0002 — Capture Plugin Protocol](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md) — canonical abstract protocol (orchestrator / capture plugin / writer; merkle tree of typed hyphence blobs).
-- [cutting-garden RFC 0003 — Web-Archive Binding](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md) — canonical web-kind binding chrest implements.
+- [cutting-garden RFC 0002 — Capture Plugin Protocol](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md) — canonical abstract protocol (orchestrator / capture plugin / writer; merkle tree of typed hyphence blobs). Link points at the archived GitHub mirror (frozen at v0.1.24, still readable); canonical development has moved to the self-hosted forge (see Implementation status below).
+- [cutting-garden RFC 0003 — Web-Archive Binding](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md) — canonical web-kind binding chrest implements. Same archived-mirror caveat as above.
+- cutting-garden RFC 0008 — `capture-serve` JSON-RPC transport (`proposed`, v1→v2 schema bump pending) — not yet mirrored to a stable GitHub link; see the forge repo (Implementation status below) for the current doc.
 - [nebulous RFC 0001 — Web Capture Archive Protocol](https://github.com/amarbel-llc/nebulous/blob/master/docs/rfcs/0001-web-capture-archive-protocol.md) — origin RFC; superseded by cutting-garden RFC 0002+0003 paired. Retained as historical reference.
-- Related chrest issues: chrest#10 (original html-to-pdf migration, closed), chrest#11 (multi-format aggregator, closed, superseded), chrest#26 (html-monolith, closed), chrest#29 (markdown variants, closed), chrest#33 (BiDi buffer drops), chrest#34 (capture exit-code, closed), chrest#47 (Chrome CDP removal, closed).
+- `github.com/amarbel-llc/cutting-garden/pkgs/capture_plugin` — the shared Go package chrest imports for `WriteReceipt`/`BuildNode`/`JCS`/`Writer` (see `go/internal/echo/capturebatch/receipt.go`).
+- Related chrest issues: chrest#10 (original html-to-pdf migration, closed), chrest#11 (multi-format aggregator, closed, superseded), chrest#26 (html-monolith, closed), chrest#29 (markdown variants, closed), chrest#33 (BiDi buffer drops), chrest#34 (capture exit-code, closed), chrest#47 (Chrome CDP removal, closed), chrest#83 (RFC 0002+0003 receipt-emitter migration, landed), chrest#98 (igloo `/v2` sentinel bug blocking the cutting-garden flake-input bridge).
