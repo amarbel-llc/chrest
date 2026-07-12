@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	capture_serve "github.com/amarbel-llc/cutting-garden/pkgs/capture_serve"
+	capture_serve "code.linenisgreat.com/cutting-garden/pkgs/capture_serve"
 )
 
 // buildChrestBinary compiles the chrest binary this test package produces

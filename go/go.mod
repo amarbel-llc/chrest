@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/amarbel-llc/cutting-garden v0.1.23-0.20260620221103-207ce69560e8
+	code.linenisgreat.com/cutting-garden v0.1.25-0.20260712163250-ddf24c249f36
 	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2
 	github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb
 	golang.org/x/sys v0.44.0
@@ -102,5 +102,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	mvdan.cc/sh/v3 v3.13.1 // indirect
 )
-
-replace github.com/amarbel-llc/cutting-garden => code.linenisgreat.com/cutting-garden v0.1.25-0.20260712123916-794577ef2528

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	capture_plugin "github.com/amarbel-llc/cutting-garden/pkgs/capture_plugin"
+	capture_plugin "code.linenisgreat.com/cutting-garden/pkgs/capture_plugin"
 
 	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
 )

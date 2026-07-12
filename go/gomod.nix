@@ -36,16 +36,17 @@
     src = purse-first.packages.${system}.go-pkgs;
     subPath = "libs/dewey";
   };
-  # github.com/amarbel-llc/cutting-garden (chrest#83 pkgs/capture_plugin,
-  # chrest#98 pkgs/capture_serve). Module is at the repo root, no subPath.
-  # MUST be go-pkgs, not raw source: passthru.goFlakeInputs only rides the
+  # cutting-garden (chrest#83 pkgs/capture_plugin, chrest#98
+  # pkgs/capture_serve). Module is at the repo root, no subPath. MUST be
+  # go-pkgs, not raw source: passthru.goFlakeInputs only rides the
   # mkGoPkgs output, which is what lets cutting-garden's own bridges
   # (madder, hyphence, piggy, tap, crap, tommy) inherit at depth-1 instead
-  # of chrest re-declaring each one itself. Previously un-bridged because
-  # igloo's mkMergedGoMod synthesized an invalid v0.0.0 sentinel for /v2+
-  # transitive deps (crap/go-crap/v2) — fixed by igloo#38 (major-aware
-  # sentinelFor); re-bridged once chrest's igloo pin carried that fix.
-  "github.com/amarbel-llc/cutting-garden" = {
+  # of chrest re-declaring each one itself. Key is the Go module path,
+  # not a URL — code.linenisgreat.com/cutting-garden after cutting-garden's
+  # own module-path migration off github.com/amarbel-llc/cutting-garden
+  # (linenisgreat#64's second half); the flake input URL itself (the forge
+  # git remote) is unchanged.
+  "code.linenisgreat.com/cutting-garden" = {
     src = cutting-garden.packages.${system}.go-pkgs;
   };
 }

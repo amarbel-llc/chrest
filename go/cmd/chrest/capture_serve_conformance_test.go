@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	capture_plugin "github.com/amarbel-llc/cutting-garden/pkgs/capture_plugin"
-	capture_serve "github.com/amarbel-llc/cutting-garden/pkgs/capture_serve"
+	capture_plugin "code.linenisgreat.com/cutting-garden/pkgs/capture_plugin"
+	capture_serve "code.linenisgreat.com/cutting-garden/pkgs/capture_serve"
 
 	"code.linenisgreat.com/chrest/go/internal/echo/capturebatch"
 )

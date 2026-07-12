@@ -171,11 +171,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783859057,
-        "narHash": "sha256-QErsGOKkoCTsf3owkbdpkvFSuRM7FmXsf9BHHBbDd+0=",
+        "lastModified": 1783873970,
+        "narHash": "sha256-nXxR4J2htikNwunnsc2il5orH+ZoBsiOYFh7TlBoWqg=",
         "ref": "refs/heads/master",
-        "rev": "259f4be8f8269c342cb5a603d8b72474d05b3d31",
-        "revCount": 379,
+        "rev": "ddf24c249f3601d5001d37d3c67b40557c256f6b",
+        "revCount": 381,
         "type": "git",
         "url": "ssh://git@code.linenisgreat.com/cutting-garden.git"
       },

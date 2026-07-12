@@ -1,7 +1,7 @@
 c2sp.org/CCTV/age v0.0.0-20251208015420-e9274a7bdbfd h1:ZLsPO6WdZ5zatV4UfVpr7oAwLGRZ+sebTUruuM4Ra3M=
 c2sp.org/CCTV/age v0.0.0-20251208015420-e9274a7bdbfd/go.mod h1:SrHC2C7r5GkDk8R+NFVzYy/sdj0Ypg9htaPXQq5Cqeo=
-code.linenisgreat.com/cutting-garden v0.1.25-0.20260712123916-794577ef2528 h1:D9o4I+WiXiqSQU9lmqbOr3uETeGY4KiEfT/iJ5U+Ju0=
-code.linenisgreat.com/cutting-garden v0.1.25-0.20260712123916-794577ef2528/go.mod h1:E9FETIBJM2drSXvTG4pFj8yOy5DEGqafOQ+U+VnEPT4=
+code.linenisgreat.com/cutting-garden v0.1.25-0.20260712163250-ddf24c249f36 h1:TY1Of1Ed34DkLvdNsPXGfYhTgU9LM2vkIxlpjI9FobY=
+code.linenisgreat.com/cutting-garden v0.1.25-0.20260712163250-ddf24c249f36/go.mod h1:DNIg2eOdIO+yebYgA5Eg/X5oAl8RU8CN0wywE9367ec=
 codeberg.org/readeck/go-readability/v2 v2.1.1 h1:1tEwxFuUqDRP5JABzDHXGWRx5p9S7TElS3U8qQwXC5Y=
 codeberg.org/readeck/go-readability/v2 v2.1.1/go.mod h1:x3WG9GpWWnkRb7ajP1NmOKSHbafxNUb736lrDZXeXrs=
 filippo.io/age v1.3.1 h1:hbzdQOJkuaMEpRCLSN1/C5DX74RPcNCk6oqhKMXmZi0=

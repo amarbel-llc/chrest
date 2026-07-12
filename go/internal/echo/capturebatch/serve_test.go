@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	capture_serve "github.com/amarbel-llc/cutting-garden/pkgs/capture_serve"
+	capture_serve "code.linenisgreat.com/cutting-garden/pkgs/capture_serve"
 )
 
 // TestNewBatchHandlerRejectsWrongSchema and TestNewBatchHandlerRejectsEmptyTarget
