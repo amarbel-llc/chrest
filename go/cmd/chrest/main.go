@@ -99,6 +99,7 @@ func run(ctx errors.Context) (err error) {
 	registerInstallMCPCommand(app)
 	registerGeneratePluginCommand(app)
 	registerCaptureBatchCommand(app)
+	registerCaptureServeCommand(app)
 	registerVersionCommand(app)
 
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
@@ -128,6 +129,18 @@ func run(ctx errors.Context) (err error) {
 	// per-capture errors in the output JSON.
 	if len(os.Args) > 1 && os.Args[1] == "capture-batch" {
 		if err = cmdCaptureBatch(ctx, app.Version, os.Args[2:]); err != nil {
+			err = errors.Wrap(err)
+			return
+		}
+		return
+	}
+
+	// Bypass dewey for capture-serve: RFC 0008's contract is a persistent
+	// JSON-RPC session over a self-created rendezvous socket, announced on
+	// stdout as a single protocol-only line — none of which fits the
+	// Result path.
+	if len(os.Args) > 1 && os.Args[1] == "capture-serve" {
+		if err = cmdCaptureServe(ctx, app.Version, os.Args[2:]); err != nil {
 			err = errors.Wrap(err)
 			return
 		}

@@ -13,17 +13,17 @@ import (
 )
 
 // cmdWriter adapts the orchestrator-supplied writer.cmd subprocess to the
-// capture_plugin.Writer sink. Each node blob is streamed through one
-// writer.cmd invocation (WriteThrough); the returned content-addressed id
-// and size are recorded so the runner can report the root receipt's size
-// after WriteReceipt, which returns only the receipt digest.
+// capture_plugin.Writer sink: one writer.cmd invocation per node blob
+// (WriteThrough). Used by the v1 capture-batch transport only; the v2
+// capture-serve transport gets a ready-made capture_plugin.Writer from
+// cutting-garden's Serve instead (its blobProtocolWriter realizes the
+// same interface over the RFC 0008 blob protocol).
 type cmdWriter struct {
-	cmd   []string
-	sizes map[string]int64
+	cmd []string
 }
 
 func newCmdWriter(cmd []string) *cmdWriter {
-	return &cmdWriter{cmd: cmd, sizes: make(map[string]int64)}
+	return &cmdWriter{cmd: cmd}
 }
 
 // WriteBlob satisfies capture_plugin.Writer.
@@ -32,14 +32,35 @@ func (w *cmdWriter) WriteBlob(ctx context.Context, r io.Reader) (string, int64, 
 	if err != nil {
 		return "", 0, err
 	}
-	w.sizes[res.ID] = res.Size
 	return res.ID, res.Size, nil
 }
 
-// sizeOf returns the recorded byte size of a blob this writer wrote — used
-// to report the root receipt's size, which WriteReceipt does not return
-// (it yields only the receipt digest).
-func (w *cmdWriter) sizeOf(digest string) int64 { return w.sizes[digest] }
+// sizeTrackingWriter wraps any capture_plugin.Writer and remembers each
+// written blob's size for post-hoc lookup by digest. WriteReceipt returns
+// only the root receipt's digest, not its size, so runOneWithWriter looks
+// the size up here after the tree is built. Shared by both transports:
+// v1 wraps a cmdWriter, v2 wraps the capture_plugin.Writer Serve hands
+// the batch handler.
+type sizeTrackingWriter struct {
+	inner capture_plugin.Writer
+	sizes map[string]int64
+}
+
+func newSizeTrackingWriter(inner capture_plugin.Writer) *sizeTrackingWriter {
+	return &sizeTrackingWriter{inner: inner, sizes: make(map[string]int64)}
+}
+
+// WriteBlob satisfies capture_plugin.Writer.
+func (w *sizeTrackingWriter) WriteBlob(ctx context.Context, r io.Reader) (string, int64, error) {
+	id, size, err := w.inner.WriteBlob(ctx, r)
+	if err != nil {
+		return "", 0, err
+	}
+	w.sizes[id] = size
+	return id, size, nil
+}
+
+func (w *sizeTrackingWriter) sizeOf(digest string) int64 { return w.sizes[digest] }
 
 // buildReceipt assembles one capture's RFC 0002+0003 receipt merkle tree
 // via the shared cutting-garden builder and returns the root receipt's

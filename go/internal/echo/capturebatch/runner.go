@@ -68,6 +68,18 @@ func Run(ctx context.Context, captures []CaptureSpec, opts Options) (BatchOutput
 }
 
 func runOne(ctx context.Context, r Resolved, opts Options) CaptureResult {
+	w := newSizeTrackingWriter(newCmdWriter(opts.Writer.Cmd))
+	return runOneWithWriter(ctx, r, opts.Target, opts.CapturerVersion, w)
+}
+
+// runOneWithWriter drives one capture end-to-end — open a session,
+// navigate, capture the format's bytes, optionally normalize, assemble
+// the receipt — against an already-constructed sizeTrackingWriter. Shared
+// by the v1 capture-batch transport (runOne, wrapping a cmdWriter bound to
+// writer.cmd) and the v2 capture-serve transport (wrapping the
+// capture_plugin.Writer Serve hands the batch handler): the receipt
+// assembly itself has no transport-specific logic.
+func runOneWithWriter(ctx context.Context, r Resolved, target, capturerVersion string, w *sizeTrackingWriter) CaptureResult {
 	entry := CaptureResult{Name: r.Name}
 
 	if _, ok := PayloadMediaTypes[r.Format]; !ok {
@@ -85,12 +97,12 @@ func runOne(ctx context.Context, r Resolved, opts Options) CaptureResult {
 	}
 	defer session.Close()
 
-	if err := session.Navigate(ctx, opts.Target); err != nil {
+	if err := session.Navigate(ctx, target); err != nil {
 		entry.Error = &ProtocolError{Kind: "navigate-failed", Message: err.Error()}
 		return entry
 	}
 
-	rc, err := runCaptureFormat(ctx, session, r, opts.Target)
+	rc, err := runCaptureFormat(ctx, session, r, target)
 	if err != nil {
 		entry.Error = &ProtocolError{Kind: "capture-failed", Message: err.Error()}
 		return entry
@@ -123,8 +135,7 @@ func runOne(ctx context.Context, r Resolved, opts Options) CaptureResult {
 		browserInfo.Name = r.Browser
 	}
 
-	w := newCmdWriter(opts.Writer.Cmd)
-	receiptDigest, err := buildReceipt(ctx, w, r, browserInfo, httpResp, stripped, payload, opts.Target, opts.CapturerVersion)
+	receiptDigest, err := buildReceipt(ctx, w, r, browserInfo, httpResp, stripped, payload, target, capturerVersion)
 	if err != nil {
 		entry.Error = &ProtocolError{Kind: "receipt-write-failed", Message: err.Error()}
 		return entry

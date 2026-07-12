@@ -16,17 +16,28 @@ require (
 
 require (
 	github.com/amarbel-llc/cutting-garden v0.1.23-0.20260620221103-207ce69560e8
-	github.com/amarbel-llc/purse-first/libs/dewey v0.3.1-0.20260611180528-00c193ed49b4
+	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2
 	github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb
 	golang.org/x/sys v0.44.0
 )
+
+// DEV-LOOP ONLY — DO NOT MERGE. The archived GitHub mirror for
+// cutting-garden is frozen at v0.1.24 (pre-dates pkgs/capture_serve);
+// there is no go-get path to post-freeze commits until the
+// flake-input-go_mod bridge (chrest#98) lands. Points at a local sibling
+// checkout so RFC 0008 capture-serve development can proceed against
+// real source in the meantime.
+replace github.com/amarbel-llc/cutting-garden => /home/sasha/eng/repos/cutting-garden
 
 require (
 	filippo.io/age v1.3.1 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
-	github.com/amarbel-llc/madder/go v0.3.36 // indirect
+	github.com/amarbel-llc/hyphence/go v0.2.0 // indirect
+	github.com/amarbel-llc/madder/go v0.4.1-0.20260706024145-0063d397ab40 // indirect
+	github.com/amarbel-llc/piggy/go v0.0.0-20260706021717-a08ad5ae28b3 // indirect
+	github.com/amarbel-llc/purse-first/libs/go-mcp v0.3.1 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.7 // indirect
