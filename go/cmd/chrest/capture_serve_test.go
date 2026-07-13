@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -29,6 +30,20 @@ func buildChrestBinary(t *testing.T) string {
 		t.Fatalf("go build chrest: %v\n%s", err, out)
 	}
 	return bin
+}
+
+// requireUnixpacket skips the test on platforms where AF_UNIX+SOCK_SEQPACKET
+// ("unixpacket") isn't implemented — capture-serve's rendezvous socket
+// (cutting-garden's ListenRendezvous) always fails to bind there (net.Listen
+// returns EPROTONOSUPPORT). Confirmed via Go's own stdlib
+// (net/platform_test.go's testableNetwork excludes darwin/ios from
+// "unixpacket") and empirically reproduced on this host; see chrest#105.
+func requireUnixpacket(t *testing.T) {
+	t.Helper()
+	switch runtime.GOOS {
+	case "darwin", "ios", "aix", "android", "plan9", "windows":
+		t.Skipf("unixpacket (AF_UNIX+SOCK_SEQPACKET) is not supported on %s", runtime.GOOS)
+	}
 }
 
 // requireHeadlessFirefox skips the test when no functional headless
@@ -83,6 +98,7 @@ func (w *memWriter) WriteBlob(_ context.Context, r io.Reader) (string, int64, er
 // transport, and NewBatchHandler wiring work end to end, and that the
 // lifecycle wrapper (stdin EOF) shuts the session down cleanly.
 func TestCaptureServeEndToEnd(t *testing.T) {
+	requireUnixpacket(t)
 	requireHeadlessFirefox(t)
 	bin := buildChrestBinary(t)
 
@@ -179,6 +195,7 @@ func TestCaptureServeEndToEnd(t *testing.T) {
 // socket, a naive implementation blocks in Accept forever. No Firefox
 // needed — this never reaches a capture.
 func TestCaptureServeExitsOnStdinEOFBeforeDial(t *testing.T) {
+	requireUnixpacket(t)
 	bin := buildChrestBinary(t)
 
 	cookie, err := capture_serve.NewCookie()
