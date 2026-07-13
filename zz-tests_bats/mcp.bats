@@ -396,8 +396,22 @@ function capture_pdf_only_flags_rejected_with_other_formats { # @test
   echo "$resp" | jq -e '.result.content[0].text | contains("only valid with --format pdf")'
 }
 
+# bats test_tags=firefox
+#
+# Tagged into the unsandboxed lane (not because this test needs Firefox,
+# but because it's the only lane run with --no-sandbox) since the fence
+# backend has no working AF_UNIX toggle: binding a SOCK_STREAM unix socket
+# under fence fails with EPERM regardless of which writable directory it's
+# in. amarbel-llc/bats#27 fixed --allow-unix-sockets's CLI parsing but left
+# unverified "whether AF_UNIX access... is actually covered by fence's...
+# allowRead" — empirically it is not (confirmed here: mktemp/mkdir succeed,
+# socket.bind() alone gets EPERM).
 function tools_call_list_windows_handles_stale_socket { # @test
-  # Override XDG_STATE_HOME to a short /tmp path to avoid AF_UNIX 108-char limit
+  # Override XDG_STATE_HOME to a short path to avoid AF_UNIX's ~104-108 byte
+  # sun_path limit. $TMPDIR/$BATS_TEST_TMPDIR are NOT short enough here —
+  # both can resolve to a deeply nested worktree/nix-shell path — so this
+  # deliberately hardcodes /tmp, the shortest temp root any of Linux/macOS
+  # offers (macOS's /tmp is itself a short symlink to /private/tmp).
   short_state="$(mktemp -d /tmp/chrest-bats.XXXXXX)"
   export XDG_STATE_HOME="$short_state"
   mkdir -p "$short_state/chrest"
