@@ -111,6 +111,10 @@
     cutting-garden.inputs.madder.inputs.tommy.follows = "tommy";
     purse-first.inputs.conformist.follows = "doppelgang/conformist";
     tommy.inputs.conformist.follows = "doppelgang/conformist";
+    # Top-level alias so conformist.lib.evalModule is accessible in outputs
+    # without a new lock node — follows the same doppelgang/conformist node
+    # that purse-first and tommy already pin.
+    conformist.follows = "doppelgang/conformist";
   };
 
   outputs =
@@ -127,6 +131,7 @@
       purse-first,
       doppelgang,
       cutting-garden,
+      conformist,
     }:
     let
       # Single source of truth for the release version. Burnt into:
@@ -272,6 +277,40 @@
             version = chrestVersion;
           };
 
+        # Per-commit facade-repair eval (chrest#105). Carries only the
+        # dewey-facade-export repair lane (no formatter programs — treefmt-nix
+        # owns chrest's formatting; the facade-format pass uses the on-disk
+        # ./conformist.toml via DAGNABIT_CONFORMIST_CONFIG). build.preCommit
+        # from this eval is named conformist-pre-commit in packages and on
+        # the devShell PATH; the sweatfile [hooks].pre-commit command
+        # references it by that name so a commit that touches flake.lock or
+        # any go/**/*.go automatically regenerates and stages the pkgs/
+        # facades (stage-mutation tiers 2–4).
+        conformistCodegenEval = conformist.lib.evalModule pkgs {
+          imports = [
+            purse-first.lib.conformistLinters.dewey-facade-export
+          ];
+          package = conformist.packages.${system}.default;
+          linters.dewey-facade-export.enable = true;
+          linters.dewey-facade-export.deweyDir = "go";
+          linters.dewey-facade-export.library = false;
+          linters.dewey-facade-export.dagnabitPackage = purse-first.packages.${system}.dagnabit;
+          # ./conformist.toml is the repo's on-disk formatter config; passing
+          # it as a Nix path copies it to the store so dagnabit's
+          # facade-format pass can run `conformist --config-file <store-path>`
+          # without an upward walk that might escape the repo root.
+          linters.dewey-facade-export.conformistConfig = ./conformist.toml;
+          settings.linter.dewey-facade-export = {
+            # flake.lock added to the module's default go/**/*.go trigger so a
+            # purse-first bump commit (flake.lock only, no *.go staged) still
+            # fires the lane — facades embed dagnabit's version stamp.
+            includes = [ "flake.lock" ];
+            "restage-repair-outputs" = true; # tier 2: restage modified facades
+            "stage-new-outputs" = true; # tier 3: stage a brand-new pkgs/ facade
+            "stage-deleted-outputs" = true; # tier 4: stage a removed/relocated facade
+          };
+        };
+
         # `nix fmt` entry point. Config lives in ./treefmt.nix.
         treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
@@ -280,6 +319,11 @@
         packages.default = chrest;
         packages.extension-chrome = extension "chrome";
         packages.extension-firefox = extension "firefox";
+        # Toolchain-hermetic per-commit facade-repair hook (chrest#105).
+        # Named by the sweatfile [hooks].pre-commit command and put on the
+        # devShell PATH as `conformist-pre-commit`. `nix build
+        # .#conformist-pre-commit` dogfoods the codegen eval + facade lane.
+        packages.conformist-pre-commit = conformistCodegenEval.config.build.preCommit;
 
         apps.default = {
           type = "app";
@@ -369,6 +413,11 @@
             # which followed purse-first HEAD and surfaced upstream
             # emitter-format drift on unrelated PRs (chrest#90).
             purse-first.packages.${system}.dagnabit
+            # Per-commit facade-repair hook (chrest#105). Placed on PATH as
+            # `conformist-pre-commit`; spinclass installs it as a git pre-commit
+            # hook at session start/resume so a session restart is needed after
+            # this lands.
+            conformistCodegenEval.config.build.preCommit
           ];
 
           # Passthru: use the outer-shell git (user's nix profile, NixOS
