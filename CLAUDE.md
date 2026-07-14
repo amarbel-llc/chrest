@@ -59,10 +59,12 @@ parsing TAP output — bats has been observed to hang on shutdown in bwrap
 
 `sweatfile` wires `pre-merge = "just"` — spinclass merge runs the full suite
 before merging a worktree branch back to master. It also wires
-`pre-commit = "conformist-pre-commit"` (chrest#105): the store-pinned
+`pre-commit = "conformist-pre-commit"` (chrest#105, chrest#106): the
 conformist hook regenerates and stages go/pkgs/ dagnabit facades on every
-commit that touches flake.lock or go/\*_/_.go, so purse-first bumps self-heal
-instead of failing the validate-dagnabit-export gate.
+commit that touches flake.lock or go/\*_/_.go. On flake.lock commits it
+builds dagnabit from the staged lock via `nix build .#dagnabit` (chrest#106)
+so purse-first bumps self-heal instead of failing the
+validate-dagnabit-export gate.
 
 The chrest derivation (`flake.nix`) builds three binaries — `chrest` (main
 CLI + native messaging host + MCP server), `chrest-server`, and `chrest-jcs`

@@ -27,7 +27,7 @@ setup_fake_dagnabit() {
   local dag_dir="$BATS_TEST_TMPDIR/new-dag"
   mkdir -p "$dag_dir/bin" "$BATS_TEST_TMPDIR/fake-bin"
 
-  printf '#!/bin/sh\necho "new-dagnabit: $*"\n' > "$dag_dir/bin/dagnabit"
+  printf '#!/bin/sh\necho "new-dagnabit: $*"\n' >"$dag_dir/bin/dagnabit"
   chmod +x "$dag_dir/bin/dagnabit"
 }
 
@@ -35,7 +35,7 @@ setup_fake_dagnabit() {
 # as staged and returns $BATS_TEST_TMPDIR as the project root.
 make_fake_git_staged() {
   printf '#!/bin/sh\ncase "$1" in\n  diff) echo "flake.lock" ;;\n  rev-parse) echo "%s" ;;\nesac\n' \
-    "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/fake-bin/git"
+    "$BATS_TEST_TMPDIR" >"$BATS_TEST_TMPDIR/fake-bin/git"
   chmod +x "$BATS_TEST_TMPDIR/fake-bin/git"
 }
 
@@ -45,7 +45,7 @@ make_fake_git_staged() {
   make_fake_git_staged
 
   # fake nix: returns the new-dag dir so the wrapper execs the new dagnabit
-  printf '#!/bin/sh\necho "%s"\n' "$BATS_TEST_TMPDIR/new-dag" > "$BATS_TEST_TMPDIR/fake-bin/nix"
+  printf '#!/bin/sh\necho "%s"\n' "$BATS_TEST_TMPDIR/new-dag" >"$BATS_TEST_TMPDIR/fake-bin/nix"
   chmod +x "$BATS_TEST_TMPDIR/fake-bin/nix"
 
   run env PATH="$BATS_TEST_TMPDIR/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" export
@@ -58,7 +58,7 @@ make_fake_git_staged() {
   setup_fake_dagnabit
 
   # fake git: diff --cached returns nothing (no staged lock change)
-  printf '#!/bin/sh\ntrue\n' > "$BATS_TEST_TMPDIR/fake-bin/git"
+  printf '#!/bin/sh\ntrue\n' >"$BATS_TEST_TMPDIR/fake-bin/git"
   chmod +x "$BATS_TEST_TMPDIR/fake-bin/git"
 
   run env PATH="$BATS_TEST_TMPDIR/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" --version
@@ -71,7 +71,7 @@ make_fake_git_staged() {
   make_fake_git_staged
 
   # fake nix that fails (simulates network/build failure)
-  printf '#!/bin/sh\nexit 1\n' > "$BATS_TEST_TMPDIR/fake-bin/nix"
+  printf '#!/bin/sh\nexit 1\n' >"$BATS_TEST_TMPDIR/fake-bin/nix"
   chmod +x "$BATS_TEST_TMPDIR/fake-bin/nix"
 
   run env PATH="$BATS_TEST_TMPDIR/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" --version
