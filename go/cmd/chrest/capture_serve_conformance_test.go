@@ -48,6 +48,7 @@ import (
 // (convertCaptureSpec's options round-trip) is what this indirectly
 // exercises by using capture options.
 func TestCaptureBatchAndCaptureServeProduceEquivalentReceipts(t *testing.T) {
+	requireUnixpacket(t)
 	requireHeadlessFirefox(t)
 	bin := buildChrestBinary(t)
 

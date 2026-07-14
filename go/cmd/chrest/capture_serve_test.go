@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/nettest"
+
 	capture_serve "code.linenisgreat.com/cutting-garden/pkgs/capture_serve"
 )
 
@@ -35,13 +37,12 @@ func buildChrestBinary(t *testing.T) string {
 // requireUnixpacket skips the test on platforms where AF_UNIX+SOCK_SEQPACKET
 // ("unixpacket") isn't implemented — capture-serve's rendezvous socket
 // (cutting-garden's ListenRendezvous) always fails to bind there (net.Listen
-// returns EPROTONOSUPPORT). Confirmed via Go's own stdlib
-// (net/platform_test.go's testableNetwork excludes darwin/ios from
-// "unixpacket") and empirically reproduced on this host; see chrest#105.
+// returns EPROTONOSUPPORT). nettest.TestableNetwork mirrors Go stdlib's own
+// net/platform_test.go exclusion list, so this stays in sync with upstream
+// automatically; empirically reproduced on this host, see chrest#105.
 func requireUnixpacket(t *testing.T) {
 	t.Helper()
-	switch runtime.GOOS {
-	case "darwin", "ios", "aix", "android", "plan9", "windows":
+	if !nettest.TestableNetwork("unixpacket") {
 		t.Skipf("unixpacket (AF_UNIX+SOCK_SEQPACKET) is not supported on %s", runtime.GOOS)
 	}
 }
