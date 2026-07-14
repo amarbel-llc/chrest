@@ -277,6 +277,42 @@
             version = chrestVersion;
           };
 
+        # The stable dagnabit from the current purse-first rev.  Used directly
+        # in the devShell (see packages list below) and as the fast-path
+        # fallback in conformistDagnabit for commits that don't touch
+        # flake.lock.
+        dagnabitForHook = purse-first.packages.${system}.dagnabit;
+
+        # Hook-time dagnabit wrapper (chrest#106).
+        #
+        # Root cause: the repair/check scripts bake in the dagnabit store
+        # path at derivation eval time (the old purse-first rev).  When
+        # flake.lock is staged for a purse-first bump, those scripts call
+        # OLD dagnabit → it produces byte-identical facades → the lane
+        # stages nothing → the merge gate's fresh nix build sees version-
+        # stamp drift and fails.
+        #
+        # Fix: intercept `dagnabit` calls at hook time.  When flake.lock is
+        # staged, call `nix build <project>#dagnabit` to realise the dagnabit
+        # derivation from the *on-disk* (staged) lock and exec that binary
+        # instead.  The nix store already has the new derivation after
+        # `nix flake update`, so the build is typically a store-path lookup
+        # (instant).  Falls back to the pre-built binary on any failure so
+        # ordinary commits stay fast and unaffected.
+        conformistDagnabit = pkgs.writeShellScriptBin "dagnabit" ''
+          set -eu
+          if git diff --cached --name-only 2>/dev/null | grep -qF 'flake.lock'; then
+            project_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+            if [ -n "$project_root" ]; then
+              new_bin=$(nix build "$project_root#dagnabit" --no-link --print-out-paths 2>/dev/null || true)
+              if [ -n "$new_bin" ]; then
+                exec "$new_bin/bin/dagnabit" "$@"
+              fi
+            fi
+          fi
+          exec ${dagnabitForHook}/bin/dagnabit "$@"
+        '';
+
         # Per-commit facade-repair eval (chrest#105). Carries only the
         # dewey-facade-export repair lane (no formatter programs — treefmt-nix
         # owns chrest's formatting; the facade-format pass uses the on-disk
@@ -294,7 +330,9 @@
           linters.dewey-facade-export.enable = true;
           linters.dewey-facade-export.deweyDir = "go";
           linters.dewey-facade-export.library = false;
-          linters.dewey-facade-export.dagnabitPackage = purse-first.packages.${system}.dagnabit;
+          # chrest#106: use the hook-time wrapper so purse-first bump commits
+          # regenerate from the staged lock, not the pre-built binary.
+          linters.dewey-facade-export.dagnabitPackage = conformistDagnabit;
           # ./conformist.toml is the repo's on-disk formatter config; passing
           # it as a Nix path copies it to the store so dagnabit's
           # facade-format pass can run `conformist --config-file <store-path>`
@@ -324,6 +362,13 @@
         # devShell PATH as `conformist-pre-commit`. `nix build
         # .#conformist-pre-commit` dogfoods the codegen eval + facade lane.
         packages.conformist-pre-commit = conformistCodegenEval.config.build.preCommit;
+        # Re-export purse-first's dagnabit so `nix build .#dagnabit` resolves
+        # it from the project's lock — used by the conformistDagnabit wrapper
+        # at hook time to realise the post-bump dagnabit (chrest#106).
+        packages.dagnabit = dagnabitForHook;
+        # The hook-time dagnabit wrapper itself, exposed for BATS testing
+        # (CONFORMIST_DAGNABIT_BIN in test-mcp-bats — chrest#106).
+        packages.conformist-dagnabit = conformistDagnabit;
 
         apps.default = {
           type = "app";
@@ -412,7 +457,7 @@
             # Previously the justfile did `nix run github:.../#dagnabit`
             # which followed purse-first HEAD and surfaced upstream
             # emitter-format drift on unrelated PRs (chrest#90).
-            purse-first.packages.${system}.dagnabit
+            dagnabitForHook
             # Per-commit facade-repair hook (chrest#105). Placed on PATH as
             # `conformist-pre-commit`; spinclass installs it as a git pre-commit
             # hook at session start/resume so a session restart is needed after

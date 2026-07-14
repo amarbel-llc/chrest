@@ -271,6 +271,7 @@ test-mcp-bats:
   # zz-tests_bats/lib/common.bash).
   set -e
   out_path=$(nix build --no-link --print-out-paths)
+  dagnabit_wrapper=$(nix build --no-link --print-out-paths .#conformist-dagnabit)
   set +e
 
   run_lane() {
@@ -279,6 +280,7 @@ test-mcp-bats:
     logfile=$(mktemp)
     timeout --preserve-status 360 \
       env CHREST_BIN="$out_path/bin/chrest" \
+          CONFORMIST_DAGNABIT_BIN="$dagnabit_wrapper/bin/dagnabit" \
       "$@" > >(tee "$logfile") 2>&1
     local rc=$?
     local summary

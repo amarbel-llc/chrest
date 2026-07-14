@@ -246,15 +246,15 @@
       "locked": {
         "lastModified": 1782656014,
         "narHash": "sha256-/JTvDNbl9p6rK7XfFib9cbYJB6a3Td0nLW33tGOZMmI=",
-        "owner": "amarbel-llc",
-        "repo": "gomod2nix",
+        "ref": "refs/heads/master",
         "rev": "f2530333078779ff6565f2312ad891e82b233076",
-        "type": "github"
+        "revCount": 372,
+        "type": "git",
+        "url": "https://code.linenisgreat.com/gomod2nix.git"
       },
       "original": {
-        "owner": "amarbel-llc",
-        "repo": "gomod2nix",
-        "type": "github"
+        "type": "git",
+        "url": "https://code.linenisgreat.com/gomod2nix.git"
       }
     },
     "hyphence": {
@@ -523,11 +523,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1783992553,
-        "narHash": "sha256-nugXy3GOx6SVDokiQFimxeoTXZ+wbYz54Twzi4Pmmkk=",
+        "lastModified": 1784038924,
+        "narHash": "sha256-bTvaCStMprg1aoCVTBjRP2mWrkPOxtAlSPjazZMqUVU=",
         "owner": "amarbel-llc",
         "repo": "purse-first",
-        "rev": "f3ad3d58f15005c5caf0e32e85a1d48655ed25d6",
+        "rev": "7e15e981e7494ce0286a7cb279bbda083f726b19",
         "type": "github"
       },
       "original": {
