@@ -540,6 +540,10 @@
       "inputs": {
         "bats": "bats",
         "bun2nix": "bun2nix",
+        "conformist": [
+          "doppelgang",
+          "conformist"
+        ],
         "cutting-garden": "cutting-garden",
         "doppelgang": "doppelgang",
         "igloo": "igloo",
