@@ -79,7 +79,6 @@
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
-      inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     # Consumed via goFlakeInputs (./go/gomod.nix) for pkgs/capture_plugin
@@ -110,6 +109,8 @@
     cutting-garden.inputs.conformist.follows = "purse-first/conformist";
     cutting-garden.inputs.hyphence.inputs.doppelgang.follows = "doppelgang";
     cutting-garden.inputs.madder.inputs.tommy.follows = "tommy";
+    purse-first.inputs.conformist.follows = "doppelgang/conformist";
+    tommy.inputs.conformist.follows = "doppelgang/conformist";
   };
 
   outputs =
