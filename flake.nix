@@ -299,16 +299,17 @@
         # `nix flake update`, so the build is typically a store-path lookup
         # (instant).  Falls back to the pre-built binary on any failure so
         # ordinary commits stay fast and unaffected.
+        #
+        # Remove conformistDagnabit, packages.conformist-dagnabit, and
+        # CONFORMIST_DAGNABIT_BIN in the justfile once purse-first's conformist
+        # module exposes a dagnabitCommand string option (evaluated at hook
+        # time rather than baked in as a store path at evalModule time).
         conformistDagnabit = pkgs.writeShellScriptBin "dagnabit" ''
           set -eu
           if git diff --cached --name-only 2>/dev/null | grep -qF 'flake.lock'; then
             project_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
-            if [ -n "$project_root" ]; then
-              new_bin=$(nix build "$project_root#dagnabit" --no-link --print-out-paths 2>/dev/null || true)
-              if [ -n "$new_bin" ]; then
-                exec "$new_bin/bin/dagnabit" "$@"
-              fi
-            fi
+            new_bin=''${project_root:+$(nix build "$project_root#dagnabit" --no-link --print-out-paths 2>/dev/null || true)}
+            [ -n "$new_bin" ] && exec "$new_bin/bin/dagnabit" "$@"
           fi
           exec ${dagnabitForHook}/bin/dagnabit "$@"
         '';

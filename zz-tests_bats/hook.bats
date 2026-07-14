@@ -20,80 +20,60 @@ require_dagnabit_bin() {
   fi
 }
 
-# Set up a scratch dir with a fake git and fake nix so the wrapper's
-# dynamic dispatch path can be exercised without a real nix evaluation.
-setup_mock_env() {
-  local workdir="$1"
-  local new_dag_dir="$workdir/new-dag"
-  mkdir -p "$new_dag_dir/bin" "$workdir/fake-bin"
+# Create a fake "new" dagnabit in $BATS_TEST_TMPDIR/fake-bin that records
+# invocations. Callers add their own fake git (and optionally fake nix) to
+# fake-bin to exercise the full dispatch path.
+setup_fake_dagnabit() {
+  local dag_dir="$BATS_TEST_TMPDIR/new-dag"
+  mkdir -p "$dag_dir/bin" "$BATS_TEST_TMPDIR/fake-bin"
 
-  # fake dagnabit that records it was invoked ("new" version)
-  printf '#!/bin/sh\necho "new-dagnabit: $*"\n' > "$new_dag_dir/bin/dagnabit"
-  chmod +x "$new_dag_dir/bin/dagnabit"
+  printf '#!/bin/sh\necho "new-dagnabit: $*"\n' > "$dag_dir/bin/dagnabit"
+  chmod +x "$dag_dir/bin/dagnabit"
+}
 
-  # fake nix: always returns $new_dag_dir regardless of installable/flags
-  printf '#!/bin/sh\necho "%s"\n' "$new_dag_dir" > "$workdir/fake-bin/nix"
-  chmod +x "$workdir/fake-bin/nix"
+# Create a fake git in $BATS_TEST_TMPDIR/fake-bin that reports flake.lock
+# as staged and returns $BATS_TEST_TMPDIR as the project root.
+make_fake_git_staged() {
+  printf '#!/bin/sh\ncase "$1" in\n  diff) echo "flake.lock" ;;\n  rev-parse) echo "%s" ;;\nesac\n' \
+    "$BATS_TEST_TMPDIR" > "$BATS_TEST_TMPDIR/fake-bin/git"
+  chmod +x "$BATS_TEST_TMPDIR/fake-bin/git"
 }
 
 @test "dagnabit wrapper dispatches to nix-built binary when flake.lock is staged" {
   require_dagnabit_bin
+  setup_fake_dagnabit
+  make_fake_git_staged
 
-  local workdir
-  workdir=$(mktemp -d)
-  trap 'rm -rf "$workdir"' EXIT
+  # fake nix: returns the new-dag dir so the wrapper execs the new dagnabit
+  printf '#!/bin/sh\necho "%s"\n' "$BATS_TEST_TMPDIR/new-dag" > "$BATS_TEST_TMPDIR/fake-bin/nix"
+  chmod +x "$BATS_TEST_TMPDIR/fake-bin/nix"
 
-  setup_mock_env "$workdir"
-
-  # fake git: diff --cached reports flake.lock staged; rev-parse gives a
-  # non-empty project root so the nix build path proceeds.
-  printf '#!/bin/sh\ncase "$1" in\n  diff) echo "flake.lock" ;;\n  rev-parse) echo "%s" ;;\nesac\n' \
-    "$workdir" > "$workdir/fake-bin/git"
-  chmod +x "$workdir/fake-bin/git"
-
-  run env PATH="$workdir/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" export
+  run env PATH="$BATS_TEST_TMPDIR/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" export
   assert_success
   assert_output --partial "new-dagnabit: export"
 }
 
 @test "dagnabit wrapper falls through to built-in when flake.lock is not staged" {
   require_dagnabit_bin
-
-  local workdir
-  workdir=$(mktemp -d)
-  trap 'rm -rf "$workdir"' EXIT
-
-  setup_mock_env "$workdir"
+  setup_fake_dagnabit
 
   # fake git: diff --cached returns nothing (no staged lock change)
-  printf '#!/bin/sh\ntrue\n' > "$workdir/fake-bin/git"
-  chmod +x "$workdir/fake-bin/git"
+  printf '#!/bin/sh\ntrue\n' > "$BATS_TEST_TMPDIR/fake-bin/git"
+  chmod +x "$BATS_TEST_TMPDIR/fake-bin/git"
 
-  # The wrapper falls through to the built-in dagnabit (which runs the
-  # real binary — we just check the new-dagnabit path was NOT taken).
-  run env PATH="$workdir/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" --version 2>&1 || true
+  run env PATH="$BATS_TEST_TMPDIR/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" --version
   refute_output --partial "new-dagnabit:"
 }
 
 @test "dagnabit wrapper falls through to built-in when nix build fails" {
   require_dagnabit_bin
-
-  local workdir
-  workdir=$(mktemp -d)
-  trap 'rm -rf "$workdir"' EXIT
-
-  setup_mock_env "$workdir"
-
-  # fake git: flake.lock IS staged
-  printf '#!/bin/sh\ncase "$1" in\n  diff) echo "flake.lock" ;;\n  rev-parse) echo "%s" ;;\nesac\n' \
-    "$workdir" > "$workdir/fake-bin/git"
-  chmod +x "$workdir/fake-bin/git"
+  setup_fake_dagnabit
+  make_fake_git_staged
 
   # fake nix that fails (simulates network/build failure)
-  printf '#!/bin/sh\nexit 1\n' > "$workdir/fake-bin/nix"
-  chmod +x "$workdir/fake-bin/nix"
+  printf '#!/bin/sh\nexit 1\n' > "$BATS_TEST_TMPDIR/fake-bin/nix"
+  chmod +x "$BATS_TEST_TMPDIR/fake-bin/nix"
 
-  # Should not error — wrapper falls back gracefully to the built-in.
-  run env PATH="$workdir/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" --version 2>&1 || true
+  run env PATH="$BATS_TEST_TMPDIR/fake-bin:$PATH" "$CONFORMIST_DAGNABIT_BIN" --version
   refute_output --partial "new-dagnabit:"
 }
