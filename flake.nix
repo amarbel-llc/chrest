@@ -1,7 +1,7 @@
 {
   inputs = {
     igloo = {
-      url = "git+https://code.linenisgreat.com/igloo.git";
+      url = "git+https://github.com/amarbel-llc/igloo.git";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "treefmt-nix";
       inputs.bun2nix.follows = "bun2nix";
