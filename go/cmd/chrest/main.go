@@ -14,6 +14,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -308,7 +309,12 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				case "firefox-only":
 					entry, err = fetchViaFirefox(ctx, p0.URL)
 				case "bidi-intercept":
-					entry, err = fetchViaDispatch(ctx, p0.URL)
+					// Placeholder args: wiring real wait-strategy/idle-timeout
+					// MCP params through is a later task (Task 3). "strict"
+					// keeps this call's behavior inert (Navigate still blocks
+					// on wait:"complete" as today) until that task flips the
+					// default to "graceful".
+					entry, err = fetchViaDispatch(ctx, p0.URL, "strict", 30*time.Second)
 				default:
 					return protocol.ErrorResultV1(
 						"unknown CHREST_WEB_FETCH_DISPATCH=" + dispatchMode +
@@ -534,6 +540,7 @@ type fetchCacheEntry struct {
 	TOC            []markdown.Heading
 	FetchedAt      time.Time
 	Path           string
+	Degraded       atomic.Bool // true if returned via idle-timeout, not a real load event
 }
 
 // fetchViaFirefox preserves the legacy all-Firefox path. Used when
@@ -579,7 +586,14 @@ func fetchViaFirefox(ctx context.Context, url string) (*fetchCacheEntry, error) 
 // fetchViaDispatch implements the content-type-aware path: register
 // a BiDi response intercept, navigate, classify, and either continue
 // (for HTML/Text) or fail (for Binary/HTTPError) the request.
-func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, error) {
+//
+// waitStrategy selects how Navigate decides a page is "done":
+// "strict" preserves today's behavior (Navigate blocks on BiDi
+// wait:"complete"); "graceful" navigates with wait:"none" instead and
+// relies on the dispatcher's idle timer (idleTimeout) to decide when
+// to treat the page as settled, so a page whose `load` event never
+// fires doesn't hang the capture.
+func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, idleTimeout time.Duration) (*fetchCacheEntry, error) {
 	// Bound the entire dispatch — including the file://, data: short-circuit
 	// — so a Navigate that errors before any intercept event fires (e.g. DNS
 	// failure) cannot deadlock the goroutine + main goroutine waiting on each
@@ -631,9 +645,39 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 		// never fires `load`, and Navigate deadlocks on its
 		// wait:complete promise.
 		var navHandled bool
+		// sentEntry points at the same *fetchCacheEntry already sent
+		// through `outcome` once the top-level nav classifies as
+		// HTML/Text. The idle-timer case below mutates
+		// sentEntry.Degraded (via atomic.Bool, not a plain bool —
+		// see fetchCacheEntry) rather than trying to send a second
+		// value through `outcome`, which is buffered size 1 and
+		// already drained by the caller by the time the idle timer
+		// could ever fire.
+		var sentEntry *fetchCacheEntry
+		graceful := waitStrategy == "graceful"
+		var idleTimer *time.Timer
+		var idleC <-chan time.Time
+		if graceful {
+			idleTimer = time.NewTimer(idleTimeout)
+			defer idleTimer.Stop()
+			idleC = idleTimer.C
+		}
+		resetIdle := func() {
+			if !graceful {
+				return
+			}
+			if !idleTimer.Stop() {
+				select {
+				case <-idleTimer.C:
+				default:
+				}
+			}
+			idleTimer.Reset(idleTimeout)
+		}
 		for {
 			select {
 			case ev, ok := <-events:
+				resetIdle()
 				if !ok {
 					// Intercept producer closed the channel — happens
 					// when sub.Events closes, i.e. the BiDi connection
@@ -711,12 +755,12 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 						outcome <- dispatchOutcome{err: err}
 						return
 					}
-					outcome <- dispatchOutcome{
-						entry: &fetchCacheEntry{
-							FetchedAt: time.Now(),
-							Path:      classPathLabel(class),
-						},
+					entry := &fetchCacheEntry{
+						FetchedAt: time.Now(),
+						Path:      classPathLabel(class),
 					}
+					sentEntry = entry
+					outcome <- dispatchOutcome{entry: entry}
 				case rawfetch.ClassBinary:
 					_ = session.FailRequest(ctx, ev.RequestID)
 					outcome <- dispatchOutcome{
@@ -771,11 +815,30 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 						return
 					}
 				}
+
+			case <-idleC:
+				if !navHandled {
+					// Top-level response itself never arrived — not
+					// the case this feature targets. Let the existing
+					// ctx.Done() 60s dispatch timeout (or the caller's
+					// own deadline) handle it; don't manufacture a
+					// separate error here.
+					continue
+				}
+				if firefox.BiDiDebug() {
+					log.Printf("capture: idle-timeout after %s since last event, treating as settled url=%s", idleTimeout, scrubURL(urlStr))
+				}
+				sentEntry.Degraded.Store(true)
+				return
 			}
 		}
 	}()
 
-	navErr := session.Navigate(ctx, urlStr, firefox.NavigateOptions{})
+	navOpts := firefox.NavigateOptions{}
+	if waitStrategy == "graceful" {
+		navOpts.Wait = "none"
+	}
+	navErr := session.Navigate(ctx, urlStr, navOpts)
 	out := <-outcome
 
 	if out.failedDeliberately {
