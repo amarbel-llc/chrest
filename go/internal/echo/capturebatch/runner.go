@@ -97,7 +97,7 @@ func runOneWithWriter(ctx context.Context, r Resolved, target, capturerVersion s
 	}
 	defer session.Close()
 
-	if err := session.Navigate(ctx, target); err != nil {
+	if err := session.Navigate(ctx, target, firefox.NavigateOptions{}); err != nil {
 		entry.Error = &ProtocolError{Kind: "navigate-failed", Message: err.Error()}
 		return entry
 	}

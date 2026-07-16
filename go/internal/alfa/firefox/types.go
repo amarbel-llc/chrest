@@ -47,3 +47,13 @@ type ScreenshotOptions struct {
 	Quality  int    `json:"quality,omitempty"`
 	FullPage bool   `json:"-"`
 }
+
+// NavigateOptions controls how Navigate decides a page is "done".
+// The zero value (Wait == "") means "complete" — today's behavior.
+type NavigateOptions struct {
+	// Wait selects the BiDi browsingContext.navigate "wait" value:
+	// "none" (return once navigation is committed), "interactive"
+	// (DOMContentLoaded-equivalent), or "complete" (load event).
+	// Empty defaults to "complete".
+	Wait string
+}

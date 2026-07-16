@@ -775,7 +775,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 		}
 	}()
 
-	navErr := session.Navigate(ctx, urlStr)
+	navErr := session.Navigate(ctx, urlStr, firefox.NavigateOptions{})
 	out := <-outcome
 
 	if out.failedDeliberately {

@@ -19,7 +19,9 @@ type mockSession struct {
 	textCallCount int
 }
 
-func (m *mockSession) Navigate(ctx context.Context, url string) error           { return nil }
+func (m *mockSession) Navigate(ctx context.Context, url string, opts firefox.NavigateOptions) error {
+	return nil
+}
 func (m *mockSession) SetViewport(ctx context.Context, width, height int) error { return nil }
 
 func (m *mockSession) GetDocumentHTML(ctx context.Context) (io.ReadCloser, error) {

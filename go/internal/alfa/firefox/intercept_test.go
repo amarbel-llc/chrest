@@ -31,7 +31,7 @@ func TestSession_AddResponseIntercept_ContinueResponse(t *testing.T) {
 
 	url := "https://raw.githubusercontent.com/anthropics/anthropic-sdk-python/main/README.md"
 	navDone := make(chan error, 1)
-	go func() { navDone <- s.Navigate(ctx, url) }()
+	go func() { navDone <- s.Navigate(ctx, url, NavigateOptions{}) }()
 
 	select {
 	case ev := <-events:

@@ -196,7 +196,7 @@ func (s *Session) SetCookie(ctx context.Context, name, value, domain, path strin
 	return errors.Wrap(err)
 }
 
-func (s *Session) Navigate(ctx context.Context, url string) error {
+func (s *Session) Navigate(ctx context.Context, url string, opts NavigateOptions) error {
 	// Drain any stale events buffered from a prior navigation before
 	// issuing this one, so only the current navigation's events inform
 	// lastHTTP.
@@ -206,10 +206,14 @@ func (s *Session) Navigate(ctx context.Context, url string) error {
 	if BiDiDebug() {
 		log.Printf("bidi-debug: sending browsingContext.navigate url=%s", url)
 	}
+	wait := opts.Wait
+	if wait == "" {
+		wait = "complete"
+	}
 	_, err := s.conn.Send("browsingContext.navigate", map[string]any{
 		"context": s.contextID,
 		"url":     url,
-		"wait":    "complete",
+		"wait":    wait,
 	})
 	if BiDiDebug() {
 		log.Printf("bidi-debug: browsingContext.navigate returned err=%v", err)

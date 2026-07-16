@@ -80,7 +80,7 @@ func TestSpikeBiDiResponseIntercept(t *testing.T) {
 	// which won't fire until we either continueResponse or failRequest.
 	navDone := make(chan error, 1)
 	go func() {
-		navDone <- s.Navigate(ctx, url)
+		navDone <- s.Navigate(ctx, url, NavigateOptions{})
 	}()
 
 	// Wait for the responseStarted event for our top-level navigation.
@@ -165,7 +165,7 @@ Decide:
 	t.Logf("\n--- second navigation: failRequest path ---")
 	navDone2 := make(chan error, 1)
 	go func() {
-		navDone2 <- s.Navigate(ctx, url+"?second=1")
+		navDone2 <- s.Navigate(ctx, url+"?second=1", NavigateOptions{})
 	}()
 	deadline = time.After(20 * time.Second)
 	var second struct {

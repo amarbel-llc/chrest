@@ -67,7 +67,7 @@ func MultiExtract(
 		}
 	}
 
-	if err := session.Navigate(ctx, params.URL); err != nil {
+	if err := session.Navigate(ctx, params.URL, firefox.NavigateOptions{}); err != nil {
 		return nil, errors.Wrap(err)
 	}
 
@@ -124,7 +124,7 @@ func openCaptureSession(
 // extract helpers. Defined here so tests can inject a mock without depending
 // on the real Firefox binary.
 type captureSession interface {
-	Navigate(ctx context.Context, url string) error
+	Navigate(ctx context.Context, url string, opts firefox.NavigateOptions) error
 	SetViewport(ctx context.Context, width, height int) error
 	GetDocumentHTML(ctx context.Context) (io.ReadCloser, error)
 	ExtractText(ctx context.Context) (io.ReadCloser, error)
