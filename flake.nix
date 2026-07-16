@@ -1,7 +1,7 @@
 {
   inputs = {
     igloo = {
-      url = "git+https://github.com/amarbel-llc/igloo.git";
+      url = "git+https://code.linenisgreat.com/igloo.git";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "treefmt-nix";
       inputs.bun2nix.follows = "bun2nix";
@@ -31,7 +31,7 @@
     };
 
     tommy = {
-      url = "git+https://github.com/amarbel-llc/tommy.git";
+      url = "git+https://code.linenisgreat.com/tommy.git";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -67,7 +67,7 @@
 
     # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
     purse-first = {
-      url = "git+https://github.com/amarbel-llc/purse-first.git";
+      url = "git+https://code.linenisgreat.com/purse-first.git";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -75,7 +75,7 @@
 
     # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).
     doppelgang = {
-      url = "git+https://github.com/amarbel-llc/doppelgang.git";
+      url = "git+https://code.linenisgreat.com/doppelgang.git";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
