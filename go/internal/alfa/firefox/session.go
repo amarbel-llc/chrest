@@ -203,11 +203,17 @@ func (s *Session) Navigate(ctx context.Context, url string) error {
 	s.drainNetworkEvents()
 	s.lastHTTP = nil
 
+	if BiDiDebug() {
+		log.Printf("bidi-debug: sending browsingContext.navigate url=%s", url)
+	}
 	_, err := s.conn.Send("browsingContext.navigate", map[string]any{
 		"context": s.contextID,
 		"url":     url,
 		"wait":    "complete",
 	})
+	if BiDiDebug() {
+		log.Printf("bidi-debug: browsingContext.navigate returned err=%v", err)
+	}
 	if err != nil {
 		return errors.Wrap(err)
 	}

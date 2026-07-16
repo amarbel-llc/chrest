@@ -3,11 +3,21 @@ package firefox
 import (
 	"context"
 	"encoding/json"
+	"log"
+	"os"
 	"strings"
 
 	"code.linenisgreat.com/chrest/go/internal/0/bidi"
 	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
 )
+
+// BiDiDebug reports whether CHREST_BIDI_DEBUG is set, gating the
+// per-event tracing added to debug real-world navigate-timeout
+// hangs (e.g. chrest/eng#251) that don't reproduce against the
+// hermetic subresource-overflow fixtures.
+func BiDiDebug() bool {
+	return os.Getenv("CHREST_BIDI_DEBUG") != ""
+}
 
 // InterceptedResponse is delivered to the channel returned by
 // AddResponseIntercept whenever a top-level response matching the
@@ -129,6 +139,11 @@ func (s *Session) AddResponseIntercept(ctx context.Context, protocol, hostname s
 			// (or FailRequest) leaves it paused indefinitely. That keeps the
 			// page from reaching `load` and makes Navigate's wait:complete
 			// deadlock until the BiDi RPC times out at 30s.
+			if BiDiDebug() {
+				log.Printf("bidi-debug: intercept event nav=%q blocked=%v status=%d url=%s",
+					decoded.Navigation, decoded.IsBlocked, decoded.Response.Status, decoded.Response.URL)
+			}
+
 			select {
 			case out <- InterceptedResponse{
 				Navigation: decoded.Navigation,
@@ -148,6 +163,10 @@ func (s *Session) AddResponseIntercept(ctx context.Context, protocol, hostname s
 				// surface them to, and the connection death case is handled
 				// by the next `for ev := range sub.Events` iteration falling
 				// off the closed channel.
+				if BiDiDebug() {
+					log.Printf("bidi-debug: intercept buffer full, dropping+releasing nav=%q url=%s",
+						decoded.Navigation, decoded.Response.URL)
+				}
 				if decoded.IsBlocked {
 					_ = s.ContinueResponse(ctx, decoded.Request.Request)
 				}

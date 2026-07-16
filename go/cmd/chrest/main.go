@@ -644,6 +644,9 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 					// Navigate; nothing to do here. If nav was NOT
 					// classified, the main goroutine will block
 					// forever on <-outcome unless we write something.
+					if firefox.BiDiDebug() {
+						log.Printf("bidi-debug: intercept channel closed navHandled=%v url=%s", navHandled, scrubURL(urlStr))
+					}
 					if !navHandled {
 						outcome <- dispatchOutcome{
 							err: fmt.Errorf("capture: intercept channel closed before navigation event for %s", scrubURL(urlStr)),
@@ -662,6 +665,9 @@ func fetchViaDispatch(ctx context.Context, urlStr string) (*fetchCacheEntry, err
 				// browser's problem, not the dispatch's, and the page
 				// will still reach `load` for everything else.
 				if ev.Navigation == "" {
+					if firefox.BiDiDebug() {
+						log.Printf("bidi-debug: continuing subresource status=%d url=%s", ev.Status, ev.URL)
+					}
 					_ = session.ContinueResponse(ctx, ev.RequestID)
 					continue
 				}
