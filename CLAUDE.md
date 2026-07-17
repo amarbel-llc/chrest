@@ -366,6 +366,20 @@ Exposes browser management as MCP tools and resources over stdio (JSON-RPC 2.0).
     unless a `selector` is supplied and matches, in which case the TOC becomes
     a resource_link instead. Results are cached per URL for the session
     lifetime (`fetchCache`); pass `refresh: true` to force a re-fetch.
+  - `wait-strategy` (`graceful` default / `strict`) and `idle-timeout-ms`
+    (default 15000) control how `fetchViaDispatch` decides a page is done
+    settling, MCP-tool-only (the CLI/pdf/screenshot-png paths have no BiDi
+    intercept stream to drive this). `graceful` navigates with BiDi
+    `wait:"none"` and treats a real `browsingContext.load` event as the
+    settled signal, falling back to `idle-timeout-ms` of network silence
+    only if `load` never fires — fixing pages whose `load` event never
+    completes (e.g. delayed analytics beacons that never resolve). `strict`
+    preserves the original `wait:"complete"` behavior verbatim (hard-errors
+    after chrest's underlying BiDi RPC timeout if `load` never fires). A
+    degraded capture (settled via the idle-timeout fallback, not a real
+    `load`) gets an extra diagnostic text block warning content may be
+    incomplete. See
+    `docs/plans/2026-07-16-graceful-navigate-timeout-design.md`.
   - `pdf`/`screenshot-png`: reuses `tools.CaptureParams.Validate()` and
     `tools.MultiExtract` (the same machinery as `chrest capture`) to render a
     **fresh, uncached** capture every call, then returns the bytes inline as
