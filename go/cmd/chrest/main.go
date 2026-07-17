@@ -666,8 +666,23 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 		failedDeliberately bool // true if we explicitly failRequest'd
 	}
 	outcome := make(chan dispatchOutcome, 1)
+	// done closes when the dispatcher goroutine below actually exits —
+	// as opposed to `outcome`, which fires as soon as the goroutine's
+	// FIRST classifying send happens. Under waitStrategy=="graceful",
+	// Navigate returns almost immediately (wait:"none"), so `outcome`
+	// unblocks long before the page has actually settled; the caller
+	// waits on `done` too in that mode so extraction doesn't race ahead
+	// of subresources still loading. Under "strict", Navigate itself
+	// blocks on wait:"complete" until the browser's `load` event fires,
+	// so `outcome` already carries that guarantee — the caller does NOT
+	// wait on `done` there, since the goroutine can otherwise keep
+	// running past `load` (trickling subresources) and only exits once
+	// session.Close() (called after extraction, via defer) tears down
+	// the BiDi subscription and closes `events`.
+	done := make(chan struct{})
 
 	go func() {
+		defer close(done)
 		// Once we've classified the top-level navigation we keep
 		// looping to auto-continue subresources — they arrive on the
 		// same `events` channel after the nav event, and if we don't
@@ -875,6 +890,17 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 	}
 	navErr := session.Navigate(ctx, urlStr, navOpts)
 	out := <-outcome
+	if waitStrategy == "graceful" {
+		// Wait for the dispatcher goroutine to actually decide the page
+		// is settled (idle timer fired, or another terminal condition)
+		// rather than extracting the instant the first outcome arrives.
+		// wait:"none" means Navigate returned almost instantly, so
+		// without this the caller would race ahead of subresources
+		// still loading. This is a no-op if the goroutine has already
+		// exited (idle timer already fired) by the time we get here —
+		// receiving from a closed channel returns immediately.
+		<-done
+	}
 
 	if out.failedDeliberately {
 		// Navigate's NS_ERROR_ABORT is expected.
