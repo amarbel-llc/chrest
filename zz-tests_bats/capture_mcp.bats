@@ -250,34 +250,36 @@ function capture_many_subresources_overflow_buffer { # @test
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("OVERFLOW_BODY_MARKER")'
 }
 
-# Regression test for the graceful-degradation design
-# (docs/plans/2026-07-16-graceful-navigate-timeout-design.md).
-# The fixture's page embeds an <img> whose request hangs forever (no
-# RST, no response, no clean failure) — an <img> is a render-blocking
-# subresource that the `load` event genuinely waits on, unlike a
-# fire-and-forget fetch() from a <script> (verified empirically: an
-# initial draft of this fixture using fetch() did NOT reproduce a hang
-# under wait-strategy=strict, since fetch() doesn't hold `load` open).
-# This mirrors the confirmed web.dev shape: a subresource-style request
-# that never completes a response cycle at all. wait-strategy=graceful
-# must still return real content once idle-timeout-ms of silence
-# elapses after the top-level document classifies; wait-strategy=strict
-# must still hard-timeout waiting for `load`.
-function capture_graceful_wait_strategy_survives_hanging_request { # @test
-  require_firefox
-
+# Shared by the graceful/strict hanging-request tests below: writes a
+# fixture page whose <img> points at a non-routable address (hangs
+# forever, no RST/response/clean failure — an <img> is render-blocking
+# for the `load` event, unlike a fire-and-forget fetch() from a
+# <script>, which was verified empirically NOT to reproduce the hang
+# under wait-strategy=strict), starts a local python3 HTTP server for
+# it, and polls until it's serving.
+#
+# Must be called directly (NOT via `$(...)`) since it sets the
+# caller's `url`/`srv_pid` variables rather than echoing them — a
+# command-substitution call would run the `&` background job inside
+# the subshell created for the substitution, making `srv_pid` (and the
+# server's process group) invisible to the caller. Usage:
+#   _serve_hanging_fixture "SOME_BODY_MARKER"
+#   # now $url and $srv_pid are set
+function _serve_hanging_fixture {
+  local marker="$1"
+  local port
   port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
 
-  cat >"$BATS_TEST_TMPDIR/index.html" <<'EOF'
+  cat >"$BATS_TEST_TMPDIR/index.html" <<EOF
 <!doctype html>
 <html>
   <head><title>hanging-beacon</title></head>
   <body>
-    <p>GRACEFUL_BODY_MARKER</p>
+    <p>${marker}</p>
     <!--
       10.255.255.1 is a non-routable RFC 5737-adjacent address; a
       request to it hangs (no RST, no response) rather than failing
-      cleanly. An <img> is render-blocking for the `load` event, so
+      cleanly. An <img> is render-blocking for the \`load\` event, so
       this actually reproduces the "page never settles" condition
       (a fire-and-forget fetch() does not).
     -->
@@ -294,6 +296,19 @@ EOF
   done
 
   url="http://127.0.0.1:$port/index.html"
+}
+
+# Regression test for the graceful-degradation design
+# (docs/plans/2026-07-16-graceful-navigate-timeout-design.md).
+# wait-strategy=graceful must still return real content once
+# idle-timeout-ms of silence elapses after the top-level document
+# classifies, even though the page's render-blocking <img> never
+# settles. See _serve_hanging_fixture for the fixture shape rationale.
+function capture_graceful_wait_strategy_survives_hanging_request { # @test
+  require_firefox
+
+  _serve_hanging_fixture "GRACEFUL_BODY_MARKER"
+
   call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text","wait-strategy":"graceful","idle-timeout-ms":3000}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 30 "$CHREST_BIN" mcp)
@@ -314,27 +329,8 @@ EOF
 function capture_strict_wait_strategy_times_out_on_hanging_request { # @test
   require_firefox
 
-  port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
+  _serve_hanging_fixture "STRICT_BODY_MARKER"
 
-  cat >"$BATS_TEST_TMPDIR/index.html" <<'EOF'
-<!doctype html>
-<html>
-  <head><title>hanging-beacon-strict</title></head>
-  <body>
-    <p>STRICT_BODY_MARKER</p>
-    <img src="http://10.255.255.1/never-responds" alt="">
-  </body>
-</html>
-EOF
-
-  (cd "$BATS_TEST_TMPDIR" && timeout 60 python3 -m http.server "$port" </dev/null >/dev/null 2>&1) &
-  srv_pid=$!
-  for _ in $(seq 1 50); do
-    if curl -sf "http://127.0.0.1:$port/index.html" >/dev/null; then break; fi
-    sleep 0.1
-  done
-
-  url="http://127.0.0.1:$port/index.html"
   call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text","wait-strategy":"strict"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 45 "$CHREST_BIN" mcp)
