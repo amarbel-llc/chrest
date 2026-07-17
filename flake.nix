@@ -1,7 +1,7 @@
 {
   inputs = {
     igloo = {
-      url = "git+https://code.linenisgreat.com/igloo.git";
+      url = "https://code.linenisgreat.com/igloo/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.treefmt-nix.follows = "treefmt-nix";
       inputs.bun2nix.follows = "bun2nix";
@@ -31,7 +31,7 @@
     };
 
     tommy = {
-      url = "git+https://code.linenisgreat.com/tommy.git";
+      url = "https://code.linenisgreat.com/tommy/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -44,7 +44,7 @@
     # The fork's bats does NOT accept `--bin-dir`; tests find binaries
     # by env var (`CHREST_BIN`, etc.) instead.
     bats = {
-      url = "git+https://code.linenisgreat.com/bats.git";
+      url = "https://code.linenisgreat.com/bats/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -55,7 +55,7 @@
     # touches flake.lock — no go.mod / gomod2nix.toml lockstep edits.
     # See amarbel-llc/chrest#84 and amarbel-llc/nixpkgs RFC 0001.
     tap = {
-      url = "git+https://code.linenisgreat.com/tap.git";
+      url = "https://code.linenisgreat.com/tap/archive/master.tar.gz";
       inputs.bats.follows = "bats";
       inputs.gomod2nix.follows = "purse-first/gomod2nix";
       inputs.igloo.follows = "igloo";
@@ -67,7 +67,7 @@
 
     # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
     purse-first = {
-      url = "git+https://code.linenisgreat.com/purse-first.git";
+      url = "https://code.linenisgreat.com/purse-first/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -75,7 +75,7 @@
 
     # Provides `doppelgang lint`; flake.lock dedup gate (chrest#87).
     doppelgang = {
-      url = "git+https://code.linenisgreat.com/doppelgang.git";
+      url = "https://code.linenisgreat.com/doppelgang/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
@@ -91,7 +91,7 @@
     # `follows` names verified against cutting-garden's own flake.nix
     # (it calls the flake-utils input `flake-utils`, not `utils`).
     cutting-garden = {
-      url = "git+https://code.linenisgreat.com/cutting-garden.git";
+      url = "https://code.linenisgreat.com/cutting-garden/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.flake-utils.follows = "utils";
