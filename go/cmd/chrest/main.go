@@ -348,6 +348,16 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			markdownURI := fmt.Sprintf("capture://%s#markdown", p0.URL)
 			htmlURI := fmt.Sprintf("capture://%s#html", p0.URL)
 
+			appendDegradedDiagnostic := func(blocks []protocol.ContentBlockV1) []protocol.ContentBlockV1 {
+				if entry.Degraded.Load() {
+					blocks = append(blocks, protocol.TextContentV1(fmt.Sprintf(
+						"page did not settle within %s of network silence; content reflects the last observed network activity and may be incomplete",
+						idleTimeout,
+					)))
+				}
+				return blocks
+			}
+
 			if p0.Selector == "" {
 				blocks := []protocol.ContentBlockV1{tocBlock}
 				switch p0.Format {
@@ -393,12 +403,7 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				default:
 					return protocol.ErrorResultV1("unknown format: " + p0.Format), nil
 				}
-				if entry.Degraded.Load() {
-					blocks = append(blocks, protocol.TextContentV1(fmt.Sprintf(
-						"page did not settle within %s of network silence; content reflects the last observed network activity and may be incomplete",
-						idleTimeout,
-					)))
-				}
+				blocks = appendDegradedDiagnostic(blocks)
 				return &protocol.ToolCallResultV1{Content: blocks}, nil
 			}
 
@@ -414,15 +419,14 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 						"selector %q matched no element on %s.\nThe TOC above lists the anchors that are present on this page.\nFull markdown is available via the resource_link below; call read-resource on capture://%s#markdown to fetch it.",
 						p0.Selector, p0.URL, p0.URL,
 					)
-					return &protocol.ToolCallResultV1{
-						Content: []protocol.ContentBlockV1{
-							tocBlock,
-							protocol.TextContentV1(diag),
-							protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
-							protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
-							protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
-						},
-					}, nil
+					blocks := appendDegradedDiagnostic([]protocol.ContentBlockV1{
+						tocBlock,
+						protocol.TextContentV1(diag),
+						protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
+						protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
+						protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
+					})
+					return &protocol.ToolCallResultV1{Content: blocks}, nil
 				}
 				return protocol.ErrorResultV1(err.Error()), nil
 			}
@@ -438,15 +442,14 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			// if they need to pick a different section.
 			selectorURI := fmt.Sprintf("capture://%s#markdown-selector", p0.URL)
 			tocURI := fmt.Sprintf("capture://%s#toc", p0.URL)
-			return &protocol.ToolCallResultV1{
-				Content: []protocol.ContentBlockV1{
-					protocol.EmbeddedTextResourceContent(selectorURI, string(trimmed), mimeMarkdown),
-					protocol.ResourceLinkContent(tocURI, "Table of Contents", "", mimeMarkdown),
-					protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
-					protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
-					protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
-				},
-			}, nil
+			blocks := appendDegradedDiagnostic([]protocol.ContentBlockV1{
+				protocol.EmbeddedTextResourceContent(selectorURI, string(trimmed), mimeMarkdown),
+				protocol.ResourceLinkContent(tocURI, "Table of Contents", "", mimeMarkdown),
+				protocol.ResourceLinkContent(markdownURI, "Reader-mode Markdown", "", mimeMarkdown),
+				protocol.ResourceLinkContent(textURI, "Plain text", "", mimeText),
+				protocol.ResourceLinkContent(htmlURI, "Raw HTML", "", mimeHTML),
+			})
+			return &protocol.ToolCallResultV1{Content: blocks}, nil
 		},
 	)
 
