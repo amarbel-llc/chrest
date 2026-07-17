@@ -660,6 +660,26 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 	}
 	defer session.RemoveIntercept(ctx, interceptID)
 
+	// Under graceful mode, browsingContext.load is a genuine positive
+	// "page settled" signal (verified empirically against real headless
+	// Firefox — chrest#9): it fires once, shortly after the browser's
+	// native `load` event, and lets the dispatcher return immediately
+	// instead of always waiting out the idle timer. Under strict mode
+	// this would be redundant: Navigate itself already blocks on
+	// `wait: "complete"`, which is the same underlying signal.
+	var loadSignal <-chan struct{}
+	if waitStrategy == "graceful" {
+		loadSignal, err = session.AddLoadSignal(ctx)
+		if err != nil {
+			// Non-fatal: fall back to idle-timer-only behavior (today's
+			// contract) rather than failing the whole capture over a
+			// signal that's purely an optimization.
+			log.Printf("capture: AddLoadSignal failed, falling back to idle-timeout-only settledness: %v", err)
+		} else {
+			defer session.RemoveLoadSignal()
+		}
+	}
+
 	type dispatchOutcome struct {
 		entry              *fetchCacheEntry
 		err                error
@@ -865,6 +885,29 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 						return
 					}
 				}
+
+			case <-loadSignal:
+				// browsingContext.load fired: a genuine, positive
+				// "the page settled" signal (verified empirically
+				// against real headless Firefox — chrest#9), as
+				// opposed to the idle timer below, which only ever
+				// means "no intercept events for idleTimeout" — a
+				// signal indistinguishable between "ordinary page with
+				// nothing left to load" and "page that never settles".
+				// Ignore if nav hasn't classified yet — mirrors the
+				// idle-timer case's own guard, and matches reality:
+				// browsingContext.load cannot fire before the
+				// top-level document itself has been classified by
+				// the intercept above.
+				if !navHandled {
+					continue
+				}
+				if firefox.BiDiDebug() {
+					log.Printf("capture: browsingContext.load fired, treating as settled url=%s", scrubURL(urlStr))
+				}
+				// Do NOT mark Degraded — this is the genuine-settle
+				// path, not the idle-timeout fallback.
+				return
 
 			case <-idleC:
 				if !navHandled {

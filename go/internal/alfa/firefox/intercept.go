@@ -180,6 +180,88 @@ func (s *Session) AddResponseIntercept(ctx context.Context, protocol, hostname s
 	return added.Intercept, out, nil
 }
 
+// loadEvent is the subset of the WebDriver BiDi browsingContext.load
+// event params we need: just enough to filter for this session's
+// top-level browsing context.
+type loadEvent struct {
+	Context    string `json:"context"`
+	Navigation string `json:"navigation"`
+}
+
+// AddLoadSignal subscribes to the WebDriver BiDi browsingContext.load
+// event — fired when the page's native `load` event completes — scoped
+// to this session's browsing context, and returns a channel that
+// receives a value each time it fires. Verified empirically (chrest#9
+// investigation) against real headless Firefox: the event is real,
+// subscribable, fires exactly once per top-level navigation (~150ms
+// after browsingContext.navigate for a trivial page in that run), and
+// carries a `context` field matching the session's browsing context.
+// It is the same underlying signal `wait: "complete"` blocks on in
+// strict mode — see Navigate/NavigateOptions.
+//
+// The channel has a buffer of 1: a single load event is all any
+// caller needs, and the caller is expected to stop reading after its
+// own dispatch loop terminates. The channel is closed when
+// RemoveLoadSignal is called or the session's connection dies.
+//
+// At most one load signal may be registered per Session at a time —
+// callers needing more must layer their own fan-out.
+func (s *Session) AddLoadSignal(ctx context.Context) (<-chan struct{}, error) {
+	sub := s.conn.SubscribeWithFilter(
+		[]string{"browsingContext.load"},
+		func(ev bidi.EventFrame) bool {
+			var peek loadEvent
+			if err := json.Unmarshal(ev.Params, &peek); err != nil {
+				return false
+			}
+			return peek.Context == s.contextID
+		},
+	)
+
+	if _, err := s.conn.Send("session.subscribe", map[string]any{
+		"events":   []string{"browsingContext.load"},
+		"contexts": []string{s.contextID},
+	}); err != nil {
+		sub.Close()
+		return nil, errors.Wrap(err)
+	}
+
+	s.loadSignalMu.Lock()
+	s.loadSignal = sub
+	s.loadSignalMu.Unlock()
+
+	out := make(chan struct{}, 1)
+	go func() {
+		defer close(out)
+		for range sub.Events {
+			select {
+			case out <- struct{}{}:
+			default:
+				// Caller hasn't drained the previous signal yet. One
+				// pending signal is all a caller ever needs, so drop
+				// rather than block.
+			}
+		}
+	}()
+
+	return out, nil
+}
+
+// RemoveLoadSignal closes the subscription previously returned by
+// AddLoadSignal, if any. BiDi has no per-event session.unsubscribe
+// scoped to a single context-filtered subscription, so this only tears
+// down the local channel/subscription bookkeeping — harmless to leave
+// the remote session.subscribe in place until the session itself
+// closes.
+func (s *Session) RemoveLoadSignal() {
+	s.loadSignalMu.Lock()
+	defer s.loadSignalMu.Unlock()
+	if s.loadSignal != nil {
+		s.loadSignal.Close()
+		s.loadSignal = nil
+	}
+}
+
 // ContinueResponse releases a paused request, allowing the response
 // to be delivered and Navigate to complete.
 func (s *Session) ContinueResponse(ctx context.Context, requestID string) error {
