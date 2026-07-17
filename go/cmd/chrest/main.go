@@ -49,6 +49,16 @@ func init() {
 	log.SetPrefix("chrest ")
 }
 
+// waitStrategyGraceful/waitStrategyStrict are this codebase's own
+// values for the capture tool's wait-strategy parameter (not to be
+// confused with the WebDriver BiDi wire values "none"/"complete" used
+// by firefox.NavigateOptions.Wait, which are the underlying protocol's
+// own vocabulary).
+const (
+	waitStrategyGraceful = "graceful"
+	waitStrategyStrict   = "strict"
+)
+
 func main() {
 	ctx := errors.MakeContextDefault()
 	ctx.SetCancelOnSignals(syscall.SIGTERM)
@@ -287,9 +297,9 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				p0.Format = "markdown"
 			}
 			if p0.WaitStrategy == "" {
-				p0.WaitStrategy = "graceful"
+				p0.WaitStrategy = waitStrategyGraceful
 			}
-			if p0.WaitStrategy != "graceful" && p0.WaitStrategy != "strict" {
+			if p0.WaitStrategy != waitStrategyGraceful && p0.WaitStrategy != waitStrategyStrict {
 				return protocol.ErrorResultV1("wait-strategy must be graceful or strict; got wait-strategy=" + p0.WaitStrategy), nil
 			}
 			idleTimeout := 15 * time.Second
@@ -668,7 +678,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 	// this would be redundant: Navigate itself already blocks on
 	// `wait: "complete"`, which is the same underlying signal.
 	var loadSignal <-chan struct{}
-	if waitStrategy == "graceful" {
+	if waitStrategy == waitStrategyGraceful {
 		loadSignal, err = session.AddLoadSignal(ctx)
 		if err != nil {
 			// Non-fatal: fall back to idle-timer-only behavior (today's
@@ -724,7 +734,7 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 		// goroutine's idle timer fires. Degraded must stay atomic.Bool
 		// for that reason — see fetchCacheEntry.
 		var sentEntry *fetchCacheEntry
-		graceful := waitStrategy == "graceful"
+		graceful := waitStrategy == waitStrategyGraceful
 		var idleTimer *time.Timer
 		var idleC <-chan time.Time
 		if graceful {
@@ -927,12 +937,12 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 	}()
 
 	navOpts := firefox.NavigateOptions{}
-	if waitStrategy == "graceful" {
+	if waitStrategy == waitStrategyGraceful {
 		navOpts.Wait = "none"
 	}
 	navErr := session.Navigate(ctx, urlStr, navOpts)
 	out := <-outcome
-	if waitStrategy == "graceful" {
+	if waitStrategy == waitStrategyGraceful {
 		// Wait for the dispatcher goroutine to actually decide the page
 		// is settled (idle timer fired, or another terminal condition)
 		// rather than extracting the instant the first outcome arrives.
