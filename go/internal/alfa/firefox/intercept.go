@@ -226,7 +226,6 @@ func (s *Session) AddLoadSignal(ctx context.Context) (<-chan struct{}, error) {
 		return nil, errors.Wrap(err)
 	}
 
-	s.loadSignalMu.Lock()
 	// Close any previously-registered signal before overwriting it —
 	// otherwise its producer goroutine and underlying BiDi subscription
 	// would leak, kept alive forever by nothing but the closure over
@@ -234,11 +233,12 @@ func (s *Session) AddLoadSignal(ctx context.Context) (<-chan struct{}, error) {
 	// s.loadSignal is torn down). Per the doc comment above, callers
 	// are expected to register at most one at a time, but this keeps a
 	// second call non-leaking rather than relying on that discipline.
+	// No mutex needed: same single-writer, non-concurrent lifetime as
+	// lastHTTP (see the loadSignal field doc on Session).
 	if s.loadSignal != nil {
 		s.loadSignal.Close()
 	}
 	s.loadSignal = sub
-	s.loadSignalMu.Unlock()
 
 	out := make(chan struct{}, 1)
 	go func() {
@@ -264,8 +264,6 @@ func (s *Session) AddLoadSignal(ctx context.Context) (<-chan struct{}, error) {
 // the remote session.subscribe in place until the session itself
 // closes.
 func (s *Session) RemoveLoadSignal() {
-	s.loadSignalMu.Lock()
-	defer s.loadSignalMu.Unlock()
 	if s.loadSignal != nil {
 		s.loadSignal.Close()
 		s.loadSignal = nil

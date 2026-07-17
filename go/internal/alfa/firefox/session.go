@@ -31,12 +31,13 @@ type Session struct {
 	intercepts sync.Map // intercept-id → *bidi.Subscription
 
 	// loadSignal is the subscription backing AddLoadSignal, if any
-	// caller has registered one. There is at most one in practice
-	// (fetchViaDispatch registers it once per Session, itself
-	// per-fetch), but it's guarded the same way intercepts are in case
-	// that ever changes. Closed in Close().
-	loadSignal   *bidi.Subscription
-	loadSignalMu sync.Mutex
+	// caller has registered one. Per the doc comment on AddLoadSignal,
+	// at most one load signal may be registered per Session at a time,
+	// and the only call site (fetchViaDispatch) registers and removes
+	// it within a single, non-concurrent invocation — same single-writer
+	// lifetime as lastHTTP above, so no mutex here either. Closed in
+	// Close().
+	loadSignal *bidi.Subscription
 }
 
 // responseCompletedEvent is the subset of the WebDriver BiDi
@@ -463,12 +464,10 @@ func (s *Session) Close() error {
 		s.networkSub.Close()
 		s.networkSub = nil
 	}
-	s.loadSignalMu.Lock()
 	if s.loadSignal != nil {
 		s.loadSignal.Close()
 		s.loadSignal = nil
 	}
-	s.loadSignalMu.Unlock()
 	// Send network.removeIntercept to the BiDi server for each
 	// registered intercept BEFORE closing the local subscription. The
 	// caller's defer-RemoveIntercept normally handles this, but if a
