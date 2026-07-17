@@ -290,7 +290,7 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				p0.WaitStrategy = "graceful"
 			}
 			if p0.WaitStrategy != "graceful" && p0.WaitStrategy != "strict" {
-				return protocol.ErrorResultV1("wait-strategy must be \"graceful\" or \"strict\" (got " + p0.WaitStrategy + ")"), nil
+				return protocol.ErrorResultV1("wait-strategy must be graceful or strict; got wait-strategy=" + p0.WaitStrategy), nil
 			}
 			idleTimeout := 15 * time.Second
 			if p0.IdleTimeoutMs > 0 {
