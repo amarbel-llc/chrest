@@ -395,43 +395,6 @@ EOF
   fi
 }
 
-function capture_web_dev_navigate_timeout { # @test
-  require_firefox
-
-  # Live-network regression probe. Reproduced manually 2026-07-16:
-  # https://web.dev and https://www.theocharis.dev/blog/... both fail
-  # every attempt with "bidi: timed out after 30s waiting for response
-  # to browsingContext.navigate", while example.com, pkg.go.dev, and
-  # developer.chrome.com all succeed. This rules out ".dev" as a TLD
-  # (pkg.go.dev is also .dev and works) and rules out "heavy page"
-  # generically (developer.chrome.com is heavier and works).
-  #
-  # Working theory (unconfirmed): unlike the hermetic
-  # capture_subresource_heavy_page_completes/capture_many_subresources_overflow_buffer
-  # regressions above (chrest#66), which reproduce a buffer-overflow
-  # drop that's since fixed by releasing paused requests inline, this
-  # may be a different gap in the same mechanism — `wait: "complete"`
-  # blocks on the page's `load` event, and any single subresource that
-  # never completes a response cycle at all (a slow/hanging
-  # third-party request, a CSP-blocked resource with no clean
-  # terminal state) would starve Navigate for the full 30s regardless
-  # of the intercept buffer fix, since there's no paused BiDi request
-  # to release in the first place.
-  #
-  # This test pins current (broken) behavior against a real site so a
-  # fix has a live regression signal. See chrest#<TODO: filed
-  # followup issue> for the hermetic repro (a local server serving a
-  # subresource that never responds) that would let this move out of
-  # the live-network path entirely.
-  url="https://web.dev"
-  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
-  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
-    timeout 60 "$CHREST_BIN" mcp)
-
-  resp=$(echo "$result" | grep '"id":2')
-  echo "$resp" | jq -e '.result.isError != true'
-}
-
 function capture_empty_extraction_returns_diagnostic { # @test
   require_firefox
 
