@@ -540,7 +540,21 @@ type fetchCacheEntry struct {
 	TOC            []markdown.Heading
 	FetchedAt      time.Time
 	Path           string
-	Degraded       atomic.Bool // true if returned via idle-timeout, not a real load event
+	// Degraded is true if the entry was returned via idle-timeout rather
+	// than a real load event. It must stay atomic.Bool: once fetchViaDispatch
+	// returns, the caller (the "capture" MCP tool handler) stores this
+	// *fetchCacheEntry in the package-level fetchCache (a sync.Map) before
+	// the dispatcher goroutine that produced it is guaranteed to have
+	// exited — that goroutine keeps running to drain subresources and can
+	// still be sitting on its idle timer. A second, concurrent MCP call for
+	// the same URL can Load that same pointer out of fetchCache and read
+	// Degraded while the first call's dispatcher goroutine is still calling
+	// Store(true) on it. There is no channel or mutex between those two
+	// goroutines, so a plain bool would be a real data race here — the
+	// happens-before from the original caller's `<-outcome` receive only
+	// covers that one caller, not later readers who reach the entry via
+	// the cache.
+	Degraded atomic.Bool
 }
 
 // fetchViaFirefox preserves the legacy all-Firefox path. Used when
@@ -648,11 +662,16 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 		// sentEntry points at the same *fetchCacheEntry already sent
 		// through `outcome` once the top-level nav classifies as
 		// HTML/Text. The idle-timer case below mutates
-		// sentEntry.Degraded (via atomic.Bool, not a plain bool —
-		// see fetchCacheEntry) rather than trying to send a second
-		// value through `outcome`, which is buffered size 1 and
-		// already drained by the caller by the time the idle timer
-		// could ever fire.
+		// sentEntry.Degraded rather than trying to send a second value
+		// through `outcome`, which is buffered size 1 and already
+		// drained by the caller by the time the idle timer could ever
+		// fire. That mutation races with reads of the same field: the
+		// original caller's `<-outcome` receive only happens-before
+		// that caller's own subsequent reads, not the reads of a
+		// second, concurrent MCP call that loads this same
+		// *fetchCacheEntry out of the shared fetchCache before this
+		// goroutine's idle timer fires. Degraded must stay atomic.Bool
+		// for that reason — see fetchCacheEntry.
 		var sentEntry *fetchCacheEntry
 		graceful := waitStrategy == "graceful"
 		var idleTimer *time.Timer
