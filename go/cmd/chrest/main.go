@@ -920,11 +920,21 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 
 			case <-idleC:
 				if !navHandled {
-					// Top-level response itself never arrived — not
-					// the case this feature targets. Let the existing
+					// Top-level response itself never arrived yet — not
+					// the case this feature targets, but time.Timer only
+					// ever fires once: without re-arming it here, a
+					// slow-to-classify page (e.g. a redirect chain
+					// slower than idle-timeout-ms) would permanently
+					// disable the idle-timeout fallback for the rest of
+					// this dispatch, since resetIdle() is only called
+					// from the events case. Keep it alive until nav
+					// actually classifies; from that point on the normal
+					// per-event reset takes over. Let the existing
 					// ctx.Done() 60s dispatch timeout (or the caller's
-					// own deadline) handle it; don't manufacture a
-					// separate error here.
+					// own deadline) handle a top-level response that
+					// never arrives at all; don't manufacture a separate
+					// error here.
+					resetIdle()
 					continue
 				}
 				if firefox.BiDiDebug() {
