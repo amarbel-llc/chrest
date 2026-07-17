@@ -3,14 +3,20 @@
 # lifecycle aggregates (`validate lint build verify test`); each is an
 # aggregate-only recipe that lists every leaf in its phase. `default`
 # is the sweatfile pre-merge hook, so anything that should gate a
-# merge belongs in one of these aggregates. See
+# merge belongs in one of these aggregates. Aggregates carry no doc
+# comment (conformist-justfile(7) AGGREGATES AND LEAVES — the blank
+# line before each is load-bearing); rationale for what is IN or OUT
+# of an aggregate lives on the leaf recipes. See
 # eng-design_patterns-justfile(7) for the verb / group taxonomy.
+
 default: validate lint build verify test
 
 # Pre-build static checks: hard failures on parse / schema / drift.
+
 validate: validate-devshell validate-dagnabit-export validate-dagnabit-reposition
 
 # Pre-build opinion checks: read-only style / convention.
+
 lint: lint-fmt lint-doppelgang
 
 # All build artifacts. `build-nix` runs the chrest derivation (which
@@ -19,6 +25,7 @@ lint: lint-fmt lint-doppelgang
 # and unit tests. The dev-loop binaries (build-go) and the extension
 # (build-extension) are intentionally NOT in the aggregate — they
 # rebuild artifacts the prod derivation already covers.
+
 build: build-nix
 
 # Post-build artifact acceptance. `verify-nix` forces the built chrest
@@ -26,6 +33,7 @@ build: build-nix
 # `build` (see the recipe comment). Distinct from `test` (integration
 # suites) per the verify-vs-test split in
 # eng-design_patterns-justfile(7).
+
 verify: verify-nix
 
 # Post-build smoke + integration. Unit tests already ran inside the
@@ -33,6 +41,7 @@ verify: verify-nix
 # adds the bats + MCP-inspector integration lanes. Matches madder,
 # where `nix build` covers unit tests and `just test` runs the
 # integration lanes.
+
 test: test-mcp test-mcp-bats
 
 # `nix build` runs the chrest derivation, which builds chrest +
@@ -49,6 +58,9 @@ build-nix:
 build-go:
   cd go && go build -o build/release/ ./cmd/...
 
+# Build both browser extensions (chrome + firefox) via the extension/
+# justfile. Devshell dev-loop only; the prod derivations are the
+# flake's extension-chrome / extension-firefox packages.
 [group("build")]
 build-extension:
   just extension/build
@@ -61,17 +73,18 @@ build-extension:
 validate-devshell:
   nix build --no-link .#devShells.{{ arch() }}-linux.default
 
-# Read-only formatting gate. Builds `checks.treefmt`, which runs
-# treefmt over a /nix/store snapshot of the source tree and fails
+# Read-only formatting gate. Builds `checks.formatting`, which runs
+# conformist (formatters in verify mode + the eng preset's file-based
+# linters) over a /nix/store snapshot of the source tree and fails
 # if anything would change. Does NOT modify files in the worktree
-# --- the modifying counterpart is `codemod-fmt-treefmt`. See
+# --- the modifying counterpart is `codemod-fmt-conformist`. See
 # eng-design_patterns-justfile(7) LINT-FMT.
 [group("pre-build")]
 lint-fmt:
   #!/usr/bin/env bash
   set -euo pipefail
   system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
-  nix build --print-build-logs --no-link ".#checks.${system}.treefmt"
+  nix build --print-build-logs --no-link ".#checks.${system}.formatting"
 
 # Flake-lock dedup gate (chrest#87). Fails if any input pins an
 # identical source more than once (collapsible via `inputs.X.follows`)
@@ -139,35 +152,41 @@ build-gomod2nix:
 # tree alongside any source changes; external consumers (e.g.
 # dodder) import via pkgs/<leaf>, so the facade is the API contract.
 #
-# DAGNABIT_CEILING_DIRECTORIES pins dagnabit's facade-format config
-# ascent at the repo root (chrest ships no conformist.toml, so an
-# unpinned ascent escapes into a stray ancestor ~/eng/conformist.toml
-# and formats the facades with eng's config — nondeterministically,
-# via conformist's change cache). Same guard madder threads; see
-# madder's justfile and the eng update-nix cascade debugging notes.
+# DAGNABIT_CONFORMIST_CONFIG points dagnabit's facade-format pass at
+# the store-pinned nix-module-generated config (`.#conformist-config`)
+# — chrest ships no conformist.toml on disk, so an unpinned config
+# ascent would escape into a stray ancestor ~/eng/conformist.toml and
+# format the facades with eng's config (nondeterministically, via
+# conformist's change cache). DAGNABIT_CEILING_DIRECTORIES bounds any
+# residual upward walk at the repo root, same guard madder threads.
 [group("build")]
 build-dagnabit-export:
-  cd go && DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" dagnabit export
+  #!/usr/bin/env bash
+  set -euo pipefail
+  config=$(nix build "{{ justfile_directory() }}#conformist-config" --no-link --print-out-paths)
+  cd go
+  DAGNABIT_CONFORMIST_CONFIG="$config" \
+    DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" \
+    dagnabit export
 
 # CI drift gate: pkgs/ must match what `dagnabit export` would emit
-# right now. Re-runs the exporter into a sibling dir (dagnabit's
-# -output-dir is always module-root-relative, so we can't use a
-# /tmp path) and diffs against the committed pkgs/. Joined into the
+# right now. Uses dagnabit's native `-check` (regenerates into a temp
+# dir, formats it with the same store-pinned config, byte-compares,
+# writes nothing — exits nonzero on drift). Joined into the
 # `validate` aggregator so merges catch facades that fell behind
 # their internal package's exported surface.
 [group("pre-build")]
 validate-dagnabit-export:
   #!/usr/bin/env bash
   set -euo pipefail
+  config=$(nix build "{{ justfile_directory() }}#conformist-config" --no-link --print-out-paths)
   cd go
-  tmp_rel="pkgs.validate-dagnabit-export.tmp"
-  trap 'rm -rf "$tmp_rel"' EXIT
-  # Same config-ascent ceiling as build-dagnabit-export: without it the
-  # check and the regen can format with DIFFERENT configs and this diff
-  # flip-flops.
-  DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" \
-    dagnabit export -output-dir "$tmp_rel"
-  diff -ru pkgs "$tmp_rel"
+  # Same config pin + ascent ceiling as build-dagnabit-export: without
+  # them the check and the regen can format with DIFFERENT configs and
+  # the gate flip-flops.
+  DAGNABIT_CONFORMIST_CONFIG="$config" \
+    DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" \
+    dagnabit export -check
 
 # CI drift gate: NATO-level tiering of go/internal/ must match what
 # `dagnabit reposition` would compute by current dependency height.
@@ -203,16 +222,21 @@ codemod-dagnabit-reposition apply="":
   fi
 
 # All `nix fmt`-driven rewrites.
-codemod-fmt: codemod-fmt-treefmt
 
-# Apply treefmt over the worktree. Modifying counterpart to
-# `lint-fmt`; both consume the same treefmt.nix config.
+codemod-fmt: codemod-fmt-conformist
+
+# Apply conformist (repair mode) over the worktree. Modifying
+# counterpart to `lint-fmt`; both consume the same nix-module-generated
+# config (./conformist.nix + the eng preset).
 [group("codemod")]
-codemod-fmt-treefmt:
+codemod-fmt-conformist:
   nix fmt
 
 mcp-inspect := "npx @modelcontextprotocol/inspector --cli"
 
+# Validate the MCP server surface (tools, resources, templates, and
+# readOnly/destructive annotations) against the nix-built chrest via
+# the MCP inspector CLI.
 [group("post-build")]
 test-mcp:
   #!/usr/bin/env bash
@@ -238,6 +262,9 @@ test-mcp:
   done
   echo "All MCP validations passed"
 
+# BATS integration suite against a real unix socket, in two lanes
+# (fence-sandboxed pure-MCP + unsandboxed firefox capture); validates
+# via the NDJSON summary record — details in the recipe body.
 [group("post-build")]
 test-mcp-bats:
   #!/usr/bin/env bash
@@ -414,11 +441,15 @@ deploy-release version:
   fi
   just deploy-tag "{{version}}" "$msg"
 
+# One-time local setup: build, then init chrest config for the given
+# browser under the name "primary".
 [group("explore")]
 explore-setup browser="firefox":
   just build
   go/build/release/chrest init --browser {{browser}} --name primary
 
+# Launch the dev-built extension in a live browser via web-ext for
+# hands-on poking.
 [group("explore")]
 explore-run browser="firefox":
   #!/usr/bin/env bash
@@ -429,6 +460,8 @@ explore-run browser="firefox":
     web-ext run --target chromium --source-dir extension/dist-chrome --start-url "chrome://extensions"
   fi
 
+# Single-page capture smoke via the nix-built chrest; optional output
+# file, 30s timeout.
 [group("explore")]
 explore-capture format="text" url="https://example.com" output="":
   #!/usr/bin/env bash
@@ -480,6 +513,9 @@ explore-markdown-samples:
   echo "=== outputs ===" >&2
   ls -la "$out_dir"/*.md 2>/dev/null >&2 || true
 
+# Historical one-shot: copy the dewey packages chrest consumed from
+# the module cache into go/libs/dewey (pre-dates the pkgs/ facade
+# consumption; kept for reference).
 [group("explore")]
 explore-vendor-dewey:
   #!/usr/bin/env bash
@@ -524,6 +560,8 @@ explore-vendor-dewey:
   # Exclude golf/command/huh/ subpackage (charmbracelet dep, not used by chrest)
   echo "done — $dst populated"
 
+# Drive the dev-built chrest's MCP loop with a raw init + tools/list
+# and pretty-print the capture tool's advertised schema.
 [group("explore")]
 explore-mcp-v1-debug:
   #!/usr/bin/env bash
@@ -537,6 +575,8 @@ explore-mcp-v1-debug:
   echo "=== tools/list response (capture) ==="
   echo "$result" | grep '"id":2' | jq '[.result.tools[] | select(.name == "capture")] | first'
 
+# Inspect the MCP capture tool's content-block shapes (types, sizes,
+# resource links, TOC) for a URL via the dev-built chrest.
 [group("explore")]
 explore-mcp-capture-blocks url="https://example.com" selector="":
   #!/usr/bin/env bash
@@ -603,6 +643,8 @@ explore-bidi-intercept-typed:
     -run TestSession_AddResponseIntercept \
     ./internal/alfa/firefox/...
 
+# Historical one-shot companion to explore-vendor-dewey: rewrite
+# vendored + chrest source imports onto the vendored dewey path.
 [group("explore")]
 explore-rewrite-dewey-imports:
   #!/usr/bin/env bash
@@ -628,6 +670,8 @@ explore-rewrite-dewey-imports:
   done < <(find go/src go/cmd -name '*.go' -type f)
   echo "rewrote $count2 chrest source files"
 
+# Forward an httpie-style request through the dev-built chrest client
+# to the running browser extension.
 [group("explore")]
 explore-client +httpie_args:
   go/build/release/chrest client {{httpie_args}}

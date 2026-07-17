@@ -3,7 +3,6 @@
     igloo = {
       url = "https://code.linenisgreat.com/igloo/archive/master.tar.gz";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
-      inputs.treefmt-nix.follows = "treefmt-nix";
       inputs.bun2nix.follows = "bun2nix";
       inputs.systems.follows = "bun2nix/systems";
     };
@@ -16,18 +15,13 @@
     bun2nix = {
       url = "github:nix-community/bun2nix";
       inputs.nixpkgs.follows = "igloo";
-      inputs.treefmt-nix.follows = "treefmt-nix";
+      # chrest no longer takes its own treefmt-nix input (conformist owns
+      # formatting, eng#246); collapse bun2nix's and tap's treefmt-nix onto
+      # igloo's node so the lock keeps ONE treefmt-nix revision (chrest#87).
+      inputs.treefmt-nix.follows = "igloo/treefmt-nix";
       # Force bun2nix's flake-parts onto nixpkgs's rev so the lock
       # carries only one flake-parts revision (chrest#87).
       inputs.flake-parts.follows = "igloo/flake-parts";
-    };
-
-    # `nix fmt` driver. Config lives in ./treefmt.nix. The sandboxed
-    # check derivation surfaces as `checks.<system>.treefmt` and is
-    # what `just lint-fmt` builds.
-    treefmt-nix = {
-      url = "github:numtide/treefmt-nix";
-      inputs.nixpkgs.follows = "igloo";
     };
 
     tommy = {
@@ -60,7 +54,7 @@
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.purse-first.follows = "purse-first";
-      inputs.treefmt-nix.follows = "treefmt-nix";
+      inputs.treefmt-nix.follows = "igloo/treefmt-nix";
       inputs.utils.follows = "utils";
     };
 
@@ -124,7 +118,6 @@
       nixpkgs-master,
       utils,
       bun2nix,
-      treefmt-nix,
       tommy,
       bats,
       tap,
@@ -314,17 +307,35 @@
           exec ${dagnabitForHook}/bin/dagnabit "$@"
         '';
 
-        # Per-commit facade-repair eval (chrest#105). Carries only the
-        # dewey-facade-export repair lane (no formatter programs — treefmt-nix
-        # owns chrest's formatting; the facade-format pass uses the on-disk
-        # ./conformist.toml via DAGNABIT_CONFORMIST_CONFIG). build.preCommit
+        # Pure lane (eng#246 item 2): the eng preset (sandboxed eng-convention
+        # linters) + this repo's formatters/excludes from ./conformist.nix.
+        # Drives `nix fmt` (build.wrapper), the sandboxed `checks.formatting`
+        # (build.check), and the generated config (build.configFile) that the
+        # facade lane and the justfile's dagnabit recipes bake in via
+        # DAGNABIT_CONFORMIST_CONFIG. Replaces the retired treefmt-nix
+        # (./treefmt.nix) and the hand-written ./conformist.toml shadow config.
+        # See conformist-nix(7) and the cutting-garden / piggy flakes.
+        conformistEval = conformist.lib.evalModule pkgs {
+          imports = [
+            conformist.lib.presets.eng
+            ./conformist.nix
+          ];
+          package = conformist.packages.${system}.default;
+        };
+
+        # Per-commit facade-repair (codegen) eval (chrest#105): the repo's
+        # formatters/excludes from ./conformist.nix + the dewey-facade-export
+        # repair lane — deliberately NOT presets.eng (its convention linters
+        # stay at the merge gate, not commit/repair time). build.preCommit
         # from this eval is named conformist-pre-commit in packages and on
         # the devShell PATH; the sweatfile [hooks].pre-commit command
         # references it by that name so a commit that touches flake.lock or
-        # any go/**/*.go automatically regenerates and stages the pkgs/
-        # facades (stage-mutation tiers 2–4).
+        # any go/**/*.go automatically formats staged files and regenerates
+        # and stages the pkgs/ facades (stage-mutation tiers 2–4).
+        # build.repair is its merge-repair sibling (conformist-repair).
         conformistCodegenEval = conformist.lib.evalModule pkgs {
           imports = [
+            ./conformist.nix
             purse-first.lib.conformistLinters.dewey-facade-export
           ];
           package = conformist.packages.${system}.default;
@@ -334,11 +345,11 @@
           # chrest#106: use the hook-time wrapper so purse-first bump commits
           # regenerate from the staged lock, not the pre-built binary.
           linters.dewey-facade-export.dagnabitPackage = conformistDagnabit;
-          # ./conformist.toml is the repo's on-disk formatter config; passing
-          # it as a Nix path copies it to the store so dagnabit's
-          # facade-format pass can run `conformist --config-file <store-path>`
-          # without an upward walk that might escape the repo root.
-          linters.dewey-facade-export.conformistConfig = ./conformist.toml;
+          # The PURE eval's generated config (a separate eval — no
+          # self-reference), so dagnabit's facade-format pass runs `conformist
+          # --config-file <store-path>` with chrest's REAL config and no
+          # upward walk that might escape the repo root.
+          linters.dewey-facade-export.conformistConfig = conformistEval.config.build.configFile;
           settings.linter.dewey-facade-export = {
             # flake.lock added to the module's default go/**/*.go trigger so a
             # purse-first bump commit (flake.lock only, no *.go staged) still
@@ -349,9 +360,6 @@
             "stage-deleted-outputs" = true; # tier 4: stage a removed/relocated facade
           };
         };
-
-        # `nix fmt` entry point. Config lives in ./treefmt.nix.
-        treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
       {
         packages.chrest = chrest;
@@ -370,18 +378,36 @@
         # The hook-time dagnabit wrapper itself, exposed for BATS testing
         # (CONFORMIST_DAGNABIT_BIN in test-mcp-bats — chrest#106).
         packages.conformist-dagnabit = conformistDagnabit;
+        # The generated PURE-lane config, pointed at by dagnabit's
+        # DAGNABIT_CONFORMIST_CONFIG (purse-first#159) in the justfile's
+        # build-dagnabit-export / validate-dagnabit-export recipes so
+        # `dagnabit export` formats the generated facades with chrest's REAL
+        # config — there is no conformist.toml on disk for dagnabit to find.
+        packages.conformist-config = conformistEval.config.build.configFile;
+        # The merge-repair hook (build.repair, `--commit --amend`) from the
+        # codegen eval, on the devShell PATH below as `conformist-repair` so
+        # the eng sweatfile's [hooks].repair resolves the hermetic,
+        # this-config hook instead of eng's cwd-aware fallback wrapper —
+        # which, with no root conformist.toml left on disk, would format
+        # chrest with ENG's catch-all config and re-group the dagnabit pkgs/
+        # facades (the exact failure the old shadow conformist.toml existed
+        # to prevent; see cutting-garden's conformist-repair comment).
+        packages.conformist-repair = conformistCodegenEval.config.build.repair;
 
         apps.default = {
           type = "app";
           program = "${chrest}/bin/chrest";
         };
 
-        formatter = treefmtEval.config.build.wrapper;
-        # Sandboxed treefmt check for `just lint-fmt` and `nix flake
-        # check`. Runs formatters over a /nix/store snapshot of the
-        # source tree and exits non-zero on drift — no working-tree
-        # side effects, unlike `nix fmt`.
-        checks.treefmt = treefmtEval.config.build.check self;
+        # `nix fmt` runs the generated conformist wrapper (config + every
+        # formatter baked as /nix/store paths). See conformistEval.
+        formatter = conformistEval.config.build.wrapper;
+        # Sandboxed conformist check for `just lint-fmt` and `nix flake
+        # check`. Runs formatters (verify mode) + the eng preset's
+        # file-based linters over a /nix/store snapshot of the source tree
+        # and exits non-zero on drift — no working-tree side effects,
+        # unlike `nix fmt`.
+        checks.formatting = conformistEval.config.build.check self;
 
         # `checks.all-systems-eval` previously forced evaluation of every
         # supported system's devShell + package .drvPath from the host's
@@ -459,11 +485,21 @@
             # which followed purse-first HEAD and surfaced upstream
             # emitter-format drift on unrelated PRs (chrest#90).
             dagnabitForHook
-            # Per-commit facade-repair hook (chrest#105). Placed on PATH as
-            # `conformist-pre-commit`; spinclass installs it as a git pre-commit
-            # hook at session start/resume so a session restart is needed after
-            # this lands.
+            # conformist: the RAW binary on PATH (not build.wrapper) —
+            # dagnabit's facade-format pass resolves `conformist` from PATH
+            # and passes `--tree-root`, which is mutually exclusive with the
+            # wrapper's hardcoded `--tree-root-file` (purse-first#159). The
+            # wrapper is the flake `formatter` output (`nix fmt` /
+            # `just codemod-fmt`) instead.
+            conformist.packages.${system}.default
+            # Per-commit facade-repair + format hook (chrest#105). Placed on
+            # PATH as `conformist-pre-commit`; spinclass installs it as a git
+            # pre-commit hook at session start/resume so a session restart is
+            # needed after this lands.
             conformistCodegenEval.config.build.preCommit
+            # Its merge-repair sibling, on PATH as `conformist-repair` for
+            # spinclass's [hooks].repair (see packages.conformist-repair).
+            conformistCodegenEval.config.build.repair
           ];
 
           # Passthru: use the outer-shell git (user's nix profile, NixOS

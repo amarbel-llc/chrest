@@ -35,6 +35,7 @@
         ],
         "systems": "systems",
         "treefmt-nix": [
+          "igloo",
           "treefmt-nix"
         ]
       },
@@ -294,9 +295,7 @@
           "bun2nix",
           "systems"
         ],
-        "treefmt-nix": [
-          "treefmt-nix"
-        ]
+        "treefmt-nix": "treefmt-nix"
       },
       "locked": {
         "lastModified": 1783896868,
@@ -519,7 +518,6 @@
         "purse-first": "purse-first",
         "tap": "tap",
         "tommy": "tommy",
-        "treefmt-nix": "treefmt-nix",
         "utils": "utils"
       }
     },
@@ -580,6 +578,7 @@
         ],
         "rust-overlay": "rust-overlay",
         "treefmt-nix": [
+          "igloo",
           "treefmt-nix"
         ],
         "utils": [
@@ -633,7 +632,8 @@
     "treefmt-nix": {
       "inputs": {
         "nixpkgs": [
-          "igloo"
+          "igloo",
+          "nixpkgs-master"
         ]
       },
       "locked": {

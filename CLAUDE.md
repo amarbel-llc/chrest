@@ -30,10 +30,10 @@ just validate-devshell                   # builds .#devShells.<arch>-linux.defau
 just validate-dagnabit-export            # drift gate: go/pkgs/ matches what `dagnabit export` would generate
 just validate-dagnabit-reposition        # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
 just lint                                # aggregate: lint-fmt + lint-doppelgang
-just lint-fmt                            # builds checks.treefmt (read-only treefmt gate; codemod-fmt-treefmt is the modifier)
+just lint-fmt                            # builds checks.formatting (read-only conformist gate; codemod-fmt-conformist is the modifier)
 just lint-doppelgang                     # `doppelgang lint --flake . --no-closure` (flake.lock dedup gate; see chrest#87)
-just codemod-fmt                         # aggregate: codemod-fmt-treefmt
-just codemod-fmt-treefmt                 # `nix fmt` (treefmt-nix wrapper; rewrites the worktree)
+just codemod-fmt                         # aggregate: codemod-fmt-conformist
+just codemod-fmt-conformist              # `nix fmt` (conformist repair-mode wrapper; rewrites the worktree)
 just load-extension                      # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
 just verify                              # aggregate: verify-nix
 just verify-nix                          # `nix flake check` after build; forces the flake-input-go_mod IFD (post-build, not validate)
@@ -60,11 +60,22 @@ parsing TAP output — bats has been observed to hang on shutdown in bwrap
 `sweatfile` wires `pre-merge = "just"` — spinclass merge runs the full suite
 before merging a worktree branch back to master. It also wires
 `pre-commit = "conformist-pre-commit"` (chrest#105, chrest#106): the
-conformist hook regenerates and stages go/pkgs/ dagnabit facades on every
-commit that touches flake.lock or go/\*_/_.go. On flake.lock commits it
-builds dagnabit from the staged lock via `nix build .#dagnabit` (chrest#106)
-so purse-first bumps self-heal instead of failing the
-validate-dagnabit-export gate.
+conformist hook formats staged files and regenerates and stages go/pkgs/
+dagnabit facades on every commit that touches flake.lock or go/\*_/_.go. On
+flake.lock commits it builds dagnabit from the staged lock via
+`nix build .#dagnabit` (chrest#106) so purse-first bumps self-heal instead
+of failing the validate-dagnabit-export gate. Its merge-repair sibling is
+on the devShell PATH as `conformist-repair` (the eng sweatfile's
+[hooks].repair), so spinclass's repair phase resolves the hermetic
+this-config hook rather than eng's cwd-aware fallback wrapper.
+
+Formatting is driven by conformist consumed as a nix module (eng#246): the
+config is defined in `conformist.nix` merged with `conformist.lib.presets.eng`
+and GENERATED (no hand-written `conformist.toml` / `treefmt.nix`). `nix fmt`
+runs the repair-mode wrapper; `just lint-fmt` builds the sandboxed read-only
+`checks.formatting` gate; dagnabit's facade-format pass reads the same
+generated config via `DAGNABIT_CONFORMIST_CONFIG` (`.#conformist-config`).
+See `conformist-nix`(7).
 
 The chrest derivation (`flake.nix`) builds three binaries — `chrest` (main
 CLI + native messaging host + MCP server), `chrest-server`, and `chrest-jcs`
