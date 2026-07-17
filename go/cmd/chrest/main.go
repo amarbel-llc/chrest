@@ -733,9 +733,6 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 			idleC = idleTimer.C
 		}
 		resetIdle := func() {
-			if !graceful {
-				return
-			}
 			if !idleTimer.Stop() {
 				select {
 				case <-idleTimer.C:
@@ -747,7 +744,9 @@ func fetchViaDispatch(ctx context.Context, urlStr string, waitStrategy string, i
 		for {
 			select {
 			case ev, ok := <-events:
-				resetIdle()
+				if graceful {
+					resetIdle()
+				}
 				if !ok {
 					// Intercept producer closed the channel — happens
 					// when sub.Events closes, i.e. the BiDi connection
