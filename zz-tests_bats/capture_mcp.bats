@@ -250,6 +250,151 @@ function capture_many_subresources_overflow_buffer { # @test
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("OVERFLOW_BODY_MARKER")'
 }
 
+# Regression test for the graceful-degradation design
+# (docs/plans/2026-07-16-graceful-navigate-timeout-design.md).
+# The fixture's page embeds an <img> whose request hangs forever (no
+# RST, no response, no clean failure) — an <img> is a render-blocking
+# subresource that the `load` event genuinely waits on, unlike a
+# fire-and-forget fetch() from a <script> (verified empirically: an
+# initial draft of this fixture using fetch() did NOT reproduce a hang
+# under wait-strategy=strict, since fetch() doesn't hold `load` open).
+# This mirrors the confirmed web.dev shape: a subresource-style request
+# that never completes a response cycle at all. wait-strategy=graceful
+# must still return real content once idle-timeout-ms of silence
+# elapses after the top-level document classifies; wait-strategy=strict
+# must still hard-timeout waiting for `load`.
+function capture_graceful_wait_strategy_survives_hanging_request { # @test
+  require_firefox
+
+  port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
+
+  cat >"$BATS_TEST_TMPDIR/index.html" <<'EOF'
+<!doctype html>
+<html>
+  <head><title>hanging-beacon</title></head>
+  <body>
+    <p>GRACEFUL_BODY_MARKER</p>
+    <!--
+      10.255.255.1 is a non-routable RFC 5737-adjacent address; a
+      request to it hangs (no RST, no response) rather than failing
+      cleanly. An <img> is render-blocking for the `load` event, so
+      this actually reproduces the "page never settles" condition
+      (a fire-and-forget fetch() does not).
+    -->
+    <img src="http://10.255.255.1/never-responds" alt="">
+  </body>
+</html>
+EOF
+
+  (cd "$BATS_TEST_TMPDIR" && timeout 60 python3 -m http.server "$port" </dev/null >/dev/null 2>&1) &
+  srv_pid=$!
+  for _ in $(seq 1 50); do
+    if curl -sf "http://127.0.0.1:$port/index.html" >/dev/null; then break; fi
+    sleep 0.1
+  done
+
+  url="http://127.0.0.1:$port/index.html"
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text","wait-strategy":"graceful","idle-timeout-ms":3000}}}')
+  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
+    timeout 30 "$CHREST_BIN" mcp)
+
+  kill "$srv_pid" 2>/dev/null || true
+  wait "$srv_pid" 2>/dev/null || true
+
+  resp=$(echo "$result" | grep '"id":2')
+  echo "$resp" | jq -e '.result.isError != true'
+  echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("GRACEFUL_BODY_MARKER")'
+}
+
+# Strict counterpart to capture_graceful_wait_strategy_survives_hanging_request:
+# proves wait-strategy=strict retains today's exact hard-timeout contract
+# against the SAME hanging-<img> shape, so "graceful" becoming the default
+# didn't silently change strict's behavior too. Wall-clock note: this test
+# takes ~30s+ (the real BiDi navigate timeout under strict mode).
+function capture_strict_wait_strategy_times_out_on_hanging_request { # @test
+  require_firefox
+
+  port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
+
+  cat >"$BATS_TEST_TMPDIR/index.html" <<'EOF'
+<!doctype html>
+<html>
+  <head><title>hanging-beacon-strict</title></head>
+  <body>
+    <p>STRICT_BODY_MARKER</p>
+    <img src="http://10.255.255.1/never-responds" alt="">
+  </body>
+</html>
+EOF
+
+  (cd "$BATS_TEST_TMPDIR" && timeout 60 python3 -m http.server "$port" </dev/null >/dev/null 2>&1) &
+  srv_pid=$!
+  for _ in $(seq 1 50); do
+    if curl -sf "http://127.0.0.1:$port/index.html" >/dev/null; then break; fi
+    sleep 0.1
+  done
+
+  url="http://127.0.0.1:$port/index.html"
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text","wait-strategy":"strict"}}}')
+  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
+    timeout 45 "$CHREST_BIN" mcp)
+
+  kill "$srv_pid" 2>/dev/null || true
+  wait "$srv_pid" 2>/dev/null || true
+
+  resp=$(echo "$result" | grep '"id":2')
+  # Strict mode must still hard-fail — this is the regression guard
+  # that "graceful" becoming the default didn't silently change
+  # strict's contract too.
+  echo "$resp" | jq -e '.result.isError == true'
+}
+
+# Regression guard against false-triggering the idle-timeout diagnostic
+# on an ordinary page that settles normally. Uses wait-strategy at its
+# default (omitted -> "graceful" per Task 3). capture_mcp.bats has no
+# shared $FIXTURE from setup() (unlike capture_firefox.bats /
+# capture_batch.bats), so this inlines a minimal static fixture the
+# same way the other local-server tests in this file do.
+function capture_graceful_wait_strategy_no_diagnostic_on_normal_page { # @test
+  require_firefox
+
+  port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
+
+  cat >"$BATS_TEST_TMPDIR/index.html" <<'EOF'
+<!doctype html>
+<html>
+  <head><title>normal-page</title></head>
+  <body>
+    <p>NORMAL_BODY_MARKER</p>
+  </body>
+</html>
+EOF
+
+  (cd "$BATS_TEST_TMPDIR" && timeout 60 python3 -m http.server "$port" </dev/null >/dev/null 2>&1) &
+  srv_pid=$!
+  for _ in $(seq 1 50); do
+    if curl -sf "http://127.0.0.1:$port/index.html" >/dev/null; then break; fi
+    sleep 0.1
+  done
+
+  url="http://127.0.0.1:$port/index.html"
+  call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
+  result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
+    timeout 30 "$CHREST_BIN" mcp)
+
+  kill "$srv_pid" 2>/dev/null || true
+  wait "$srv_pid" 2>/dev/null || true
+
+  resp=$(echo "$result" | grep '"id":2')
+  echo "$resp" | jq -e '.result.isError != true'
+  echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("NORMAL_BODY_MARKER")'
+  if echo "$resp" | jq -e '.result.content[] | select(.type == "text") | .text | contains("did not settle")' >/dev/null 2>&1; then
+    echo "false-triggered idle-timeout diagnostic on a normal page:" >&2
+    echo "$resp" >&2
+    return 1
+  fi
+}
+
 function capture_web_dev_navigate_timeout { # @test
   require_firefox
 
