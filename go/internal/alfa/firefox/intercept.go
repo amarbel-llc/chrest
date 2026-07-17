@@ -227,6 +227,16 @@ func (s *Session) AddLoadSignal(ctx context.Context) (<-chan struct{}, error) {
 	}
 
 	s.loadSignalMu.Lock()
+	// Close any previously-registered signal before overwriting it —
+	// otherwise its producer goroutine and underlying BiDi subscription
+	// would leak, kept alive forever by nothing but the closure over
+	// sub.Events (see RemoveLoadSignal/Close, the only other places
+	// s.loadSignal is torn down). Per the doc comment above, callers
+	// are expected to register at most one at a time, but this keeps a
+	// second call non-leaking rather than relying on that discipline.
+	if s.loadSignal != nil {
+		s.loadSignal.Close()
+	}
 	s.loadSignal = sub
 	s.loadSignalMu.Unlock()
 
