@@ -57,6 +57,13 @@ Single-page capture. Streams bytes straight to stdout (or to `--output <path>` a
 
 The CLI exits non-zero on any error.
 
+Note: the MCP `capture` tool (a separate entry point, not this CLI
+command) additionally exposes `wait-strategy`/`idle-timeout-ms` params
+for graceful degradation when a page's `load` event never fires — see
+`CLAUDE.md`'s MCP Server section, since that path has no equivalent on
+this CLI command or on `capture-batch`/`capture-serve` below
+(tracked for convergence in amarbel-llc/eng#253).
+
 ### `chrest capture-batch`
 
 JSON-stdin / JSON-stdout batch capture. This subcommand fills the **capture plugin** role of [cutting-garden RFC 0002 §Capture Plugin Protocol](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0002-capture-plugin-protocol.md#capture-plugin-protocol) under the **web-archive binding** ([RFC 0003](https://github.com/amarbel-llc/cutting-garden/blob/master/docs/rfcs/0003-web-archive-binding.md)) over the subprocess (v1) transport — stdin/stdout batch, one `writer.cmd` subprocess per blob. See `chrest capture-serve` below for the RFC 0008 JSON-RPC transport (v2, SEQPACKET + fd-passing).

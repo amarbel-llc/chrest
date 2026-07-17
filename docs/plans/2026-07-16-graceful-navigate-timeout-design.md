@@ -60,7 +60,7 @@ Stop blocking `Navigate` on Firefox's own `wait: "complete"`. Instead:
    stop waiting and proceed to extraction. `ExtractText`/`GetDocumentHTML`
    read DOM state at call time regardless of how "done" was decided, so no
    extraction-side change is needed.
-4. If the idle timer elapses *before* `navHandled` (the top-level response
+4. If the idle timer elapses _before_ `navHandled` (the top-level response
    itself never arrives), that's still a real failure — surface today's
    error, unchanged.
 
