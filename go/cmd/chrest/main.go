@@ -267,13 +267,15 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				"`no-headers`, `background`, `paper-width`, `paper-height`, and the four " +
 				"`margin-*` flags (inches) are pdf-only page-setup options; unset values use the " +
 				"browser default (typically US Letter, ~0.4\" margins, headers on, no background).",
-			InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch or capture"},"format":{"type":"string","description":"'markdown' (default) / 'text' / 'html' return inline; other formats are resource_link URIs. 'pdf' / 'screenshot-png' render and return bytes inline as base64.","enum":["markdown","text","html","pdf","screenshot-png"]},"selector":{"type":"string","description":"Optional CSS selector to trim the returned markdown to a specific section (e.g. '#chap-stdenv', 'article#main'). Requires format=markdown. On a miss, the tool returns a diagnostic plus a resource_link to the full page - it never silently returns empty. The TOC of #id selectors is included inline when no selector is supplied or a selector misses; when a selector matches, the TOC is returned as a resource_link (capture://<url>#toc) to avoid dwarfing the matched section."},"refresh":{"type":"boolean","description":"markdown/text/html only: force a re-fetch even if this URL was fetched earlier in the session. Default false: reuse cached HTML. Selector-only re-runs against the same URL never relaunch Firefox."},"landscape":{"type":"boolean","description":"pdf only: use landscape orientation"},"no-headers":{"type":"boolean","description":"pdf only: disable header and footer"},"background":{"type":"boolean","description":"pdf only: print background graphics"},"paper-width":{"type":"number","description":"pdf only: page width in inches (default: browser default, typically 8.5)"},"paper-height":{"type":"number","description":"pdf only: page height in inches (default: browser default, typically 11)"},"margin-top":{"type":"number","description":"pdf only: top margin in inches (0 for borderless)"},"margin-bottom":{"type":"number","description":"pdf only: bottom margin in inches (0 for borderless)"},"margin-left":{"type":"number","description":"pdf only: left margin in inches (0 for borderless)"},"margin-right":{"type":"number","description":"pdf only: right margin in inches (0 for borderless)"},"full-page":{"type":"boolean","description":"screenshot-png only: capture the full scrollable page instead of just the viewport"}},"required":["url"]}`),
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch or capture"},"format":{"type":"string","description":"'markdown' (default) / 'text' / 'html' return inline; other formats are resource_link URIs. 'pdf' / 'screenshot-png' render and return bytes inline as base64.","enum":["markdown","text","html","pdf","screenshot-png"]},"selector":{"type":"string","description":"Optional CSS selector to trim the returned markdown to a specific section (e.g. '#chap-stdenv', 'article#main'). Requires format=markdown. On a miss, the tool returns a diagnostic plus a resource_link to the full page - it never silently returns empty. The TOC of #id selectors is included inline when no selector is supplied or a selector misses; when a selector matches, the TOC is returned as a resource_link (capture://<url>#toc) to avoid dwarfing the matched section."},"refresh":{"type":"boolean","description":"markdown/text/html only: force a re-fetch even if this URL was fetched earlier in the session. Default false: reuse cached HTML. Selector-only re-runs against the same URL never relaunch Firefox."},"wait-strategy":{"type":"string","description":"'graceful' (default): treat the page as settled after idle-timeout-ms of no network activity once the top-level response is classified, instead of hard-blocking on the browser's native load event. 'strict': today's exact behavior — block on load, hard-error after ~30s if it never fires.","enum":["graceful","strict"]},"idle-timeout-ms":{"type":"integer","description":"wait-strategy=graceful only: milliseconds of network silence (after the top-level response classifies) before treating the page as settled. Default 15000."},"landscape":{"type":"boolean","description":"pdf only: use landscape orientation"},"no-headers":{"type":"boolean","description":"pdf only: disable header and footer"},"background":{"type":"boolean","description":"pdf only: print background graphics"},"paper-width":{"type":"number","description":"pdf only: page width in inches (default: browser default, typically 8.5)"},"paper-height":{"type":"number","description":"pdf only: page height in inches (default: browser default, typically 11)"},"margin-top":{"type":"number","description":"pdf only: top margin in inches (0 for borderless)"},"margin-bottom":{"type":"number","description":"pdf only: bottom margin in inches (0 for borderless)"},"margin-left":{"type":"number","description":"pdf only: left margin in inches (0 for borderless)"},"margin-right":{"type":"number","description":"pdf only: right margin in inches (0 for borderless)"},"full-page":{"type":"boolean","description":"screenshot-png only: capture the full scrollable page instead of just the viewport"}},"required":["url"]}`),
 			Annotations: &protocol.ToolAnnotations{ReadOnlyHint: protocol.BoolPtr(true)},
 		},
 		func(ctx context.Context, args json.RawMessage) (*protocol.ToolCallResultV1, error) {
 			var p0 struct {
 				tools.CaptureParams
-				Refresh bool `json:"refresh"`
+				Refresh       bool   `json:"refresh"`
+				WaitStrategy  string `json:"wait-strategy"`
+				IdleTimeoutMs int    `json:"idle-timeout-ms"`
 			}
 			if err := json.Unmarshal(args, &p0); err != nil {
 				return protocol.ErrorResultV1(err.Error()), nil
@@ -283,6 +285,16 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 			}
 			if p0.Format == "" {
 				p0.Format = "markdown"
+			}
+			if p0.WaitStrategy == "" {
+				p0.WaitStrategy = "graceful"
+			}
+			if p0.WaitStrategy != "graceful" && p0.WaitStrategy != "strict" {
+				return protocol.ErrorResultV1("wait-strategy must be \"graceful\" or \"strict\" (got " + p0.WaitStrategy + ")"), nil
+			}
+			idleTimeout := 15 * time.Second
+			if p0.IdleTimeoutMs > 0 {
+				idleTimeout = time.Duration(p0.IdleTimeoutMs) * time.Millisecond
 			}
 			if p0.Selector != "" && p0.Format != "markdown" {
 				return protocol.ErrorResultV1("selector is only supported with format=markdown; got format=" + p0.Format), nil
@@ -309,12 +321,7 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 				case "firefox-only":
 					entry, err = fetchViaFirefox(ctx, p0.URL)
 				case "bidi-intercept":
-					// Placeholder args: wiring real wait-strategy/idle-timeout
-					// MCP params through is a later task (Task 3). "strict"
-					// keeps this call's behavior inert (Navigate still blocks
-					// on wait:"complete" as today) until that task flips the
-					// default to "graceful".
-					entry, err = fetchViaDispatch(ctx, p0.URL, "strict", 30*time.Second)
+					entry, err = fetchViaDispatch(ctx, p0.URL, p0.WaitStrategy, idleTimeout)
 				default:
 					return protocol.ErrorResultV1(
 						"unknown CHREST_WEB_FETCH_DISPATCH=" + dispatchMode +
@@ -385,6 +392,12 @@ func runMCP(ctx context.Context, app *command.Utility, p *proxy.BrowserProxy) er
 					)
 				default:
 					return protocol.ErrorResultV1("unknown format: " + p0.Format), nil
+				}
+				if entry.Degraded.Load() {
+					blocks = append(blocks, protocol.TextContentV1(fmt.Sprintf(
+						"page did not settle within %s of network silence; content reflects the last observed network activity and may be incomplete",
+						idleTimeout,
+					)))
 				}
 				return &protocol.ToolCallResultV1{Content: blocks}, nil
 			}
