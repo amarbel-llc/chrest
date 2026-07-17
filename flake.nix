@@ -48,7 +48,6 @@
       inputs.igloo.follows = "igloo";
       inputs.nixpkgs-master.follows = "nixpkgs-master";
       inputs.utils.follows = "utils";
-      inputs.treefmt-nix.follows = "treefmt-nix";
     };
 
     # Consumed via goFlakeInputs (./go/gomod.nix). A tap bump only
@@ -115,6 +114,7 @@
     # without a new lock node — follows the same doppelgang/conformist node
     # that purse-first and tommy already pin.
     conformist.follows = "doppelgang/conformist";
+    doppelgang.inputs.conformist.follows = "bats/conformist";
   };
 
   outputs =

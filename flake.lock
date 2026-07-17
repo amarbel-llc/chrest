@@ -2,24 +2,22 @@
   "nodes": {
     "bats": {
       "inputs": {
+        "conformist": "conformist",
         "igloo": [
           "igloo"
         ],
         "nixpkgs-master": [
           "nixpkgs-master"
         ],
-        "treefmt-nix": [
-          "treefmt-nix"
-        ],
         "utils": [
           "utils"
         ]
       },
       "locked": {
-        "lastModified": 1784252875,
-        "narHash": "sha256-d+wWmM5DYZxWKlEwMsQjgFI6VyxtLpFgBaQWifsI/48=",
+        "lastModified": 1784284789,
+        "narHash": "sha256-+Idrh71mfOtQFiChCpu59GCEo4gIw1gg64LWOaRiu4Y=",
         "type": "tarball",
-        "url": "https://code.linenisgreat.com/bats/archive/584562508c7c4e0b0e61ae92a9101f7f548dd0bb.tar.gz"
+        "url": "https://code.linenisgreat.com/bats/archive/524faca8837e626c0d588aa350cc31146bf37e22.tar.gz"
       },
       "original": {
         "type": "tarball",
@@ -57,15 +55,15 @@
     "conformist": {
       "inputs": {
         "igloo": [
-          "doppelgang",
+          "bats",
           "igloo"
         ],
         "nixpkgs-master": [
-          "doppelgang",
+          "bats",
           "nixpkgs-master"
         ],
         "utils": [
-          "doppelgang",
+          "bats",
           "utils"
         ]
       },
@@ -174,7 +172,10 @@
     },
     "doppelgang": {
       "inputs": {
-        "conformist": "conformist",
+        "conformist": [
+          "bats",
+          "conformist"
+        ],
         "igloo": [
           "igloo"
         ],
