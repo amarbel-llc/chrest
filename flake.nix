@@ -127,7 +127,10 @@
       conformist,
     }:
     let
-      # Single source of truth for the release version. Burnt into:
+      # version.env at repo root is the single source of truth for the
+      # release version (eng-versioning(7)). Match expression captures
+      # everything after `CHREST_VERSION=` up to the line break; the
+      # `export` prefix is tolerated. Burnt into:
       #   * Go binary  — via -X main.version (auto-injected by the
       #     amarbel-llc/nixpkgs fork's buildGoApplication when `version`
       #     is passed).
@@ -135,11 +138,21 @@
       #     as the MCP server version.
       #   * Extension manifest.version — templated into manifest.json
       #     at extension/default.nix build-time.
-      # `just bump-version` sed-rewrites this line; `just deploy-tag`
+      # `just bump-version` sed-rewrites version.env; `just deploy-tag`
       # pushes both `vX.Y.Z` (project-level canonical) and
       # `go/vX.Y.Z` (path-prefix tag preserved for downstream Go
       # module consumers, e.g. dodder).
-      chrestVersion = "0.3.1";
+      #
+      # NOTE: buildGoApplication's version.env auto-read is keyed off
+      # `pwd` (the go.mod directory, i.e. `./go` below) — it can't see
+      # a repo-root version.env in this polyglot layout, so `version`
+      # is still passed explicitly to buildGoApplication (chrestVersionFull
+      # below), fed from this parse rather than a hardcoded literal. See
+      # gomod2nix(7) § version.env auto-read and madder's flake.nix (same
+      # go/ subdirectory shape) for the reference pattern.
+      chrestVersion = builtins.head (
+        builtins.match ".*CHREST_VERSION=([^\n]+).*" (builtins.readFile ./version.env)
+      );
       # shortRev for clean builds, dirtyShortRev for dirty working
       # trees, "unknown" as a last-resort fallback.
       chrestCommit = self.shortRev or self.dirtyShortRev or "unknown";

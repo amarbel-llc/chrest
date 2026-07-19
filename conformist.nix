@@ -12,26 +12,29 @@
 # cutting-garden / piggy flakes for the reference consumer shape.
 { lib, ... }:
 {
-  # Two presets.eng linters are force-disabled pending their own migrations
-  # (out of scope for the formatter flip, eng#246 item 2):
+  # justfile-task-hierarchy is force-disabled pending its own migration
+  # (out of scope for the formatter flip, eng#246 item 2): it requires
+  # every pipeline-verb leaf to sit in exactly one aggregate; chrest's
+  # devshell dev-loop leaves (build-go, build-extension, test-go,
+  # build-gomod2nix, build-dagnabit-export, build-demo,
+  # codemod-dagnabit-reposition) are deliberately outside the merge-gate
+  # aggregates and would need renames (cutting-garden's debug-build-go
+  # shape) that ripple through documented workflows.
   #
-  #   - eng-versioning-deprecated-file flags the `chrestVersion = "X.Y.Z"`
-  #     let-binding in flake.nix, but that binding is chrest's deliberate
-  #     single version source of truth (chrest#61: it propagates to the Go
-  #     binary, MCP serverInfo, and extension manifest, and `just
-  #     bump-version` sed-rewrites it). Moving to version.env is a release-
-  #     machinery migration, not a formatter change.
-  #   - justfile-task-hierarchy requires every pipeline-verb leaf to sit in
-  #     exactly one aggregate; chrest's devshell dev-loop leaves (build-go,
-  #     build-extension, test-go, build-gomod2nix, build-dagnabit-export,
-  #     build-demo, codemod-dagnabit-reposition) are deliberately outside
-  #     the merge-gate aggregates and would need renames (cutting-garden's
-  #     debug-build-go shape) that ripple through documented workflows.
+  # eng-versioning-deprecated-file is enforced (no override): the
+  # `chrestVersion = "X.Y.Z"` let-binding it used to flag was migrated to
+  # version.env (eng-versioning(7)) — see flake.nix.
   #
   # The rest of the preset (flake hygiene + the other justfile conventions)
   # is enforced. mkForce because the preset sets enable = true directly.
-  linters.eng-versioning-deprecated-file.enable = lib.mkForce false;
   linters.justfile-task-hierarchy.enable = lib.mkForce false;
+
+  # eng-versioning's own conformance check (whole-tree, checks version.env
+  # itself) can't auto-derive the version key: it only looks for go.mod /
+  # Cargo.toml AT THE TREE ROOT, but chrest's Go module lives under go/
+  # (a polyglot layout — see flake.nix's chrestVersion comment). Pin the
+  # key explicitly rather than rely on derivation.
+  linters.eng-versioning.key = "CHREST_VERSION";
 
   # Go: goimports (priority 1) runs before gofumpt (priority 2) so the
   # import-grouped output is re-canonicalized by gofumpt. Both registry

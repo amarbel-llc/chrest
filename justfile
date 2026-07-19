@@ -380,30 +380,31 @@ deploy-tag version message:
   git tag -v "$project_tag"
   git tag -v "$go_tag"
 
-# Sed-rewrite chrestVersion to the given semver across the two
-# source-controlled callers: flake.nix's `chrestVersion = "..."`
-# (the single source of truth — flake outputs derive from this and
-# pass it down to the Go binary, MCP serverInfo, and extension
-# manifest via callPackage) and extension/manifest-common.json's
-# static `"version"` (which the extension build always overwrites
-# with the flake value, but the source-controlled value is kept in
-# sync so editor / direct manifest reads see the right number).
+# Sed-rewrite the release version to the given semver across the two
+# source-controlled callers: version.env's `CHREST_VERSION=...`
+# (the single source of truth per eng-versioning(7) — flake.nix parses
+# it and flake outputs derive from that, passing it down to the Go
+# binary, MCP serverInfo, and extension manifest via callPackage) and
+# extension/manifest-common.json's static `"version"` (which the
+# extension build always overwrites with the flake value, but the
+# source-controlled value is kept in sync so editor / direct manifest
+# reads see the right number).
 # No-op if already at the target version. Usage: just bump-version 0.0.2
 [group("maintenance")]
 bump-version new_version:
   #!/usr/bin/env bash
   set -euo pipefail
-  current=$(grep 'chrestVersion = ' flake.nix | sed 's/.*"\(.*\)".*/\1/')
+  current=$(grep 'CHREST_VERSION=' version.env | sed 's/.*CHREST_VERSION=//')
   if [[ "$current" == "{{new_version}}" ]]; then
     echo "==> already at {{new_version}}"
     exit 0
   fi
-  sed -i.bak 's/chrestVersion = "'"$current"'"/chrestVersion = "{{new_version}}"/' flake.nix && rm flake.nix.bak
+  sed -i.bak "s/CHREST_VERSION=$current/CHREST_VERSION={{new_version}}/" version.env && rm version.env.bak
   sed -i.bak 's/"version": "'"$current"'"/"version": "{{new_version}}"/' extension/manifest-common.json && rm extension/manifest-common.json.bak
-  echo "==> bumped chrestVersion: $current -> {{new_version}}"
+  echo "==> bumped CHREST_VERSION: $current -> {{new_version}}"
 
-# Cut a release: must be run on master. Bumps chrestVersion across
-# flake.nix + extension/manifest-common.json, commits the bump with
+# Cut a release: must be run on master. Bumps the version across
+# version.env + extension/manifest-common.json, commits the bump with
 # a changelog-style message built from commits since the last
 # go/v* tag, pushes master, then signs and pushes BOTH
 # `vX.Y.Z` (project-level) and `go/vX.Y.Z` (Go module path-prefix)
@@ -433,8 +434,8 @@ deploy-release version:
     msg="$header"
   fi
   just bump-version "{{version}}"
-  if ! git diff --quiet flake.nix extension/manifest-common.json; then
-    git add flake.nix extension/manifest-common.json
+  if ! git diff --quiet version.env extension/manifest-common.json; then
+    git add version.env extension/manifest-common.json
     git commit -m "chore: release v{{version}}"
     git push origin master
     echo "==> pushed version bump to master"

@@ -49,7 +49,7 @@ just install-mcp-dev                     # build + install MCP server to ~/.clau
 just build-demo                          # generate VHS demo GIF
 just deploy-tag <version> <message>      # sign + push a go/v<version> tag
 just deploy-release <version>            # bump-version, commit, push master, then deploy-tag
-just bump-version <version>              # sed-rewrite chrestVersion in flake.nix
+just bump-version <version>              # sed-rewrite CHREST_VERSION in version.env
 ```
 
 `test-mcp-bats` is wall-clock bounded (360s timeout, per-lane; bumped from
@@ -84,9 +84,13 @@ fixtures) — and runs the Go unit suite in `checkPhase` (with `HOME=$TMPDIR`
 so pdfcpu's config-dir creation succeeds in the sandbox). A clean
 `nix build` therefore proves both compile and unit tests in one step.
 
-### Versioning (chrest#61)
+### Versioning (chrest#61, eng-versioning(7))
 
-`chrestVersion` in `flake.nix` is the single source of truth. It propagates to:
+`version.env` (`CHREST_VERSION`) at repo root is the single source of truth.
+`flake.nix` parses it into `chrestVersion` via `builtins.match` — the
+Go module lives under `go/` (a polyglot layout), so `buildGoApplication`'s
+own `version.env` auto-read can't see a repo-root file (its `pwd` is the
+`go.mod` directory), and `version` is passed explicitly. It propagates to:
 
 - Go binary `chrest version` — injected via `-X main.version`.
 - MCP `serverInfo.version` — surfaces `app.Version` from the binary.
