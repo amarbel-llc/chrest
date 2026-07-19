@@ -45,6 +45,17 @@
   programs.gofumpt.enable = true;
   programs.gofumpt.priority = 2;
 
+  # go.mod lives at go/, not the tree root. Without this, goimports/gofumpt
+  # run with cwd at the tree root, where Go tooling can't resolve the
+  # module — confirmed in langlang (see langlang/conformist.nix) to SILENTLY
+  # DELETE correctly-used imports as apparently-unused when the imported
+  # package's declared name differs from its path's last segment, because
+  # the resolver can't discover which identifier the import provides. That's
+  # a silent build break, not a style nit. workingDir (conformist#38) scopes
+  # the formatter's cwd to go/, matching chrest's single Go module.
+  programs.goimports.workingDir = "go";
+  programs.gofumpt.workingDir = "go";
+
   programs.nixfmt.enable = true;
 
   # JavaScript/TypeScript, JSON, CSS, HTML, YAML, markdown — the prettier
