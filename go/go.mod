@@ -17,7 +17,7 @@ require (
 require (
 	code.linenisgreat.com/cutting-garden v0.1.25-0.20260720171344-422ee4ea600e
 	code.linenisgreat.com/purse-first/libs/dewey v0.5.0
-	github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb
+	code.linenisgreat.com/tap/go v0.2.0
 	golang.org/x/sys v0.44.0
 )
 
@@ -31,6 +31,7 @@ require (
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
 	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2 // indirect
+	github.com/amarbel-llc/tap/go v0.1.11 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.7 // indirect

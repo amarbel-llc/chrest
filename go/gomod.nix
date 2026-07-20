@@ -21,7 +21,7 @@
   system,
 }:
 {
-  "github.com/amarbel-llc/tap/go" = {
+  "code.linenisgreat.com/tap/go" = {
     src = tap.packages.${system}.go-pkgs;
     subPath = "go";
   };

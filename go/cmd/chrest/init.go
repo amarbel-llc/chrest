@@ -11,7 +11,7 @@ import (
 	"code.linenisgreat.com/chrest/go/internal/charlie/install"
 	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/command"
 	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
-	tap "github.com/amarbel-llc/tap/go/pkgs/writer"
+	tap "code.linenisgreat.com/tap/go/pkgs/writer"
 )
 
 const defaultBrowserName = "default"

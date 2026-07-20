@@ -12,6 +12,8 @@ code.linenisgreat.com/purse-first/libs/dewey v0.5.0 h1:+sd1CsNmJqPOv0K8D/qHdN62v
 code.linenisgreat.com/purse-first/libs/dewey v0.5.0/go.mod h1:IGnHB011B9XE3LU4EvZHHyL8fA3qAeQBi1QMmDXKnYQ=
 code.linenisgreat.com/purse-first/libs/go-mcp v0.5.0 h1:Z0tyzhQznB+DKpiEYx2FqNEomqm4xDgjqkqPBs+EQIo=
 code.linenisgreat.com/purse-first/libs/go-mcp v0.5.0/go.mod h1:qA0uH7HA2SdBF/W9kV9avEurJghTW2WVsOyX2hf6oAo=
+code.linenisgreat.com/tap/go v0.2.0 h1:xtQ8Ny8Kbx5wA3+TwrJz7rrERq54HRBNQoos4bX1XEY=
+code.linenisgreat.com/tap/go v0.2.0/go.mod h1:ldOXHYcw5RPm1llq11gUBiGiQymEsh0ppy24jhTM2ak=
 code.linenisgreat.com/tommy v0.5.0 h1:tgFeUayWv/C9+xHYXT+TFltHhVt6PE2LOF2PuX5SmKY=
 code.linenisgreat.com/tommy v0.5.0/go.mod h1:Ri1R1ybYJ7ZQ4247LxmwnUTnHh8QUYDbo3MgVWvp8Fs=
 codeberg.org/readeck/go-readability/v2 v2.1.1 h1:1tEwxFuUqDRP5JABzDHXGWRx5p9S7TElS3U8qQwXC5Y=
@@ -30,8 +32,8 @@ github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
 github.com/amarbel-llc/purse-first/libs/dewey v0.3.2 h1:DfqmtVDsyt0Is0IWoNS6o4xoYCD/RLavV+jyKSl19Hs=
 github.com/amarbel-llc/purse-first/libs/dewey v0.3.2/go.mod h1:js1n+xvK+A/cNwc/RXiqg7ic/XyjbtYdL7YofO6IJRI=
-github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb h1:LJiEwSIRK+oFa+c64X30qu+dyBZ8wd3v6vq4jpF37z4=
-github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb/go.mod h1:VY3Dtchk+BgU7jE4tieCCViVCMqr/LFK1wVY736WbLw=
+github.com/amarbel-llc/tap/go v0.1.11 h1:4IZ8bkuwnlnxIEJjMSDNmT8M+nvlG9sdYKdgivBCOWE=
+github.com/amarbel-llc/tap/go v0.1.11/go.mod h1:VY3Dtchk+BgU7jE4tieCCViVCMqr/LFK1wVY736WbLw=
 github.com/andybalholm/cascadia v1.3.3 h1:AG2YHrzJIm4BZ19iwJ/DAua6Btl3IwJX+VI4kktS1LM=
 github.com/andybalholm/cascadia v1.3.3/go.mod h1:xNd9bqTn98Ln4DwST8/nG+H0yuB8Hmgu1YHNnWw0GeA=
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de h1:FxWPpzIjnTlhPwqqXc4/vE0f7GvRjuAsbW+HOIe8KnA=
