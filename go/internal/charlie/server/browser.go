@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ohio"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/ohio"
 )
 
 func WriteToBrowser(m interface{}) (n int64, err error) {

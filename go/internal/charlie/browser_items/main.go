@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"code.linenisgreat.com/chrest/go/internal/bravo/config"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 type BrowserProxy struct {

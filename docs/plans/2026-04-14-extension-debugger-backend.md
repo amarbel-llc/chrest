@@ -230,7 +230,7 @@ import (
 
 	"code.linenisgreat.com/chrest/go/src/bravo/cdp"
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
 )
 
 // Session implements cdp.Session using the browser extension's

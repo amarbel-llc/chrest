@@ -3,7 +3,7 @@ package tools
 import (
 	"code.linenisgreat.com/chrest/go/internal/charlie/browser_items"
 	"code.linenisgreat.com/chrest/go/internal/charlie/proxy"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/command"
 )
 
 func RegisterAll(app *command.Utility, p *proxy.BrowserProxy) {

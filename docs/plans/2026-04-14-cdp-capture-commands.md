@@ -236,7 +236,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
 )
 
 var wsURLPattern = regexp.MustCompile(`DevTools listening on (ws://\S+)`)
@@ -374,7 +374,7 @@ import (
 	"strings"
 
 	"code.linenisgreat.com/chrest/go/src/bravo/cdp"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
 )
 
 // Session implements cdp.Session using a headless Chrome process.
@@ -559,9 +559,9 @@ import (
 
 	"code.linenisgreat.com/chrest/go/src/bravo/cdp"
 	"code.linenisgreat.com/chrest/go/src/charlie/headless"
-	"github.com/amarbel-llc/purse-first/libs/dewey/bravo/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/golf/command"
-	"github.com/amarbel-llc/purse-first/libs/dewey/golf/protocol"
+	"code.linenisgreat.com/purse-first/libs/dewey/bravo/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/golf/command"
+	"code.linenisgreat.com/purse-first/libs/dewey/golf/protocol"
 )
 
 func registerCaptureCommands(app *command.Utility) {

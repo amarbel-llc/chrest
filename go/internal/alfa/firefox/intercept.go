@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"code.linenisgreat.com/chrest/go/internal/0/bidi"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 // BiDiDebug reports whether CHREST_BIDI_DEBUG is set, gating the

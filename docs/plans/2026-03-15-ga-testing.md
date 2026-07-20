@@ -28,7 +28,7 @@ Run:
 ```bash
 cd /home/sasha/eng/repos/chrest/.worktrees/fond-linden/go
 go get github.com/amarbel-llc/bob/packages/tap-dancer/go@latest
-go get github.com/amarbel-llc/purse-first/libs/go-mcp/command/huh@latest
+go get code.linenisgreat.com/purse-first/libs/go-mcp/command/huh@latest
 go mod tidy
 ```
 
@@ -59,7 +59,7 @@ feat: add tap-dancer and huh prompter dependencies
 Add import:
 
 ```go
-huhprompter "github.com/amarbel-llc/purse-first/libs/go-mcp/command/huh"
+huhprompter "code.linenisgreat.com/purse-first/libs/go-mcp/command/huh"
 ```
 
 **Step 2: Replace StubPrompter with huh.Prompter**
@@ -118,7 +118,7 @@ import (
 	"code.linenisgreat.com/chrest/go/src/charlie/install"
 	"code.linenisgreat.com/dodder/go/lib/bravo/errors"
 	tap "github.com/amarbel-llc/bob/packages/tap-dancer/go"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
 )
 
 func registerInitCommand(app *command.App) {

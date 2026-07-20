@@ -10,7 +10,7 @@ purse-first plugin support.
 them as V1 tools. CLI mode dispatches via `app.RunCLI`. Browser proxy is a
 shared object captured by command closures.
 
-**Tech Stack:** `github.com/amarbel-llc/purse-first/libs/go-mcp` (command,
+**Tech Stack:** `code.linenisgreat.com/purse-first/libs/go-mcp` (command,
 server, transport, protocol packages)
 
 **Rollback:** Work is on `free-yew` worktree. Don't merge, or `git revert`.
@@ -36,7 +36,7 @@ go get -u github.com/modelcontextprotocol/go-sdk@none
 **Step 2: Add go-mcp dependency**
 
 ```bash
-go get github.com/amarbel-llc/purse-first/libs/go-mcp@latest
+go get code.linenisgreat.com/purse-first/libs/go-mcp@latest
 ```
 
 **Step 3: Tidy**
@@ -242,7 +242,7 @@ migration — every MCP tool and shared CLI command becomes a `command.Command`.
 package tools
 
 import (
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
 
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
 )
@@ -265,8 +265,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/protocol"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/protocol"
 
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
 )
@@ -317,8 +317,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/protocol"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/protocol"
 
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
 )
@@ -474,8 +474,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/protocol"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/protocol"
 
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
 )
@@ -613,8 +613,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/protocol"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/protocol"
 
 	"code.linenisgreat.com/chrest/go/src/charlie/browser_items"
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
@@ -717,8 +717,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/protocol"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/protocol"
 
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
 	"code.linenisgreat.com/dodder/go/lib/bravo/errors"
@@ -799,9 +799,9 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/server"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/transport"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/server"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/transport"
 
 	"code.linenisgreat.com/chrest/go/src/bravo/config"
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
@@ -947,7 +947,7 @@ package main
 import (
 	"code.linenisgreat.com/chrest/go/src/bravo/config"
 	"code.linenisgreat.com/chrest/go/src/delta/proxy"
-	"github.com/amarbel-llc/purse-first/libs/go-mcp/command"
+	"code.linenisgreat.com/purse-first/libs/go-mcp/command"
 )
 
 func registerCLICommands(app *command.App, c config.Config, p *proxy.Proxy) {

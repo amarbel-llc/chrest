@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 // Heading is a single h1-h6 element with an `id` attribute, captured by

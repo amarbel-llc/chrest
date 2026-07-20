@@ -3,7 +3,7 @@ package symlink
 import (
 	"os"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 func Symlink(oldPath, newPath string) (err error) {

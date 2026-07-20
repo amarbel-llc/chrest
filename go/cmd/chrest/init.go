@@ -9,8 +9,8 @@ import (
 
 	"code.linenisgreat.com/chrest/go/internal/bravo/config"
 	"code.linenisgreat.com/chrest/go/internal/charlie/install"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/command"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 	tap "github.com/amarbel-llc/tap/go/pkgs/writer"
 )
 

@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"code.linenisgreat.com/chrest/go/internal/alfa/prompter"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/command"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/protocol"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/server"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/transport"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/command"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/protocol"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/server"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/transport"
 
 	"code.linenisgreat.com/chrest/go/internal/0/markdown"
 	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
@@ -32,9 +32,9 @@ import (
 	"code.linenisgreat.com/chrest/go/internal/charlie/proxy"
 	"code.linenisgreat.com/chrest/go/internal/delta/resources"
 	"code.linenisgreat.com/chrest/go/internal/delta/tools"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/stack_frame"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ui"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/stack_frame"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/ui"
 )
 
 // Populated at link time via `-X main.version` / `-X main.commit`

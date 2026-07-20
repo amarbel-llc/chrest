@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 // ConvertSelectorSection parses the DOM, finds the first element matching

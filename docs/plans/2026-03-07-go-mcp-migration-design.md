@@ -6,7 +6,7 @@
 ## Summary
 
 Replace `github.com/modelcontextprotocol/go-sdk` with
-`github.com/amarbel-llc/purse-first/libs/go-mcp`. Unify all CLI commands and
+`code.linenisgreat.com/purse-first/libs/go-mcp`. Unify all CLI commands and
 MCP tools under `command.App`. Drop the custom scope system in favor of V1 tool
 annotations. Replace the `install-mcp` flake app with `generate-plugin`.
 

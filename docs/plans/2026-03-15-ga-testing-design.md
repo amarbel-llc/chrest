@@ -60,7 +60,7 @@ Error: --browser is required when not interactive
 - Unhide `init` command
 - Add dependency: `github.com/amarbel-llc/bob/packages/tap-dancer/go` for
   TAP-14 step output
-- Add dependency: `github.com/amarbel-llc/purse-first/libs/go-mcp/command/huh`
+- Add dependency: `code.linenisgreat.com/purse-first/libs/go-mcp/command/huh`
   for interactive prompts
 - Switch `main.go` CLI path from `StubPrompter{}` to `huh.Prompter{}`
 - `--browser` required; if omitted, fall back to `prompter.Select()`;

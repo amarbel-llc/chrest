@@ -9,7 +9,7 @@ import (
 	"code.linenisgreat.com/chrest/go/internal/0/markdown"
 	"code.linenisgreat.com/chrest/go/internal/0/monolith"
 	"code.linenisgreat.com/chrest/go/internal/alfa/firefox"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 type MultiExtractParams struct {

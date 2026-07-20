@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 // ErrMissing is returned when the monolith binary cannot be found on

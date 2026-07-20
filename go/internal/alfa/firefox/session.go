@@ -11,7 +11,7 @@ import (
 
 	"code.linenisgreat.com/chrest/go/internal/0/bidi"
 	"code.linenisgreat.com/chrest/go/internal/0/launcher"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 // Session drives a headless Firefox process via WebDriver BiDi.

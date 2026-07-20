@@ -109,7 +109,7 @@ preserved so downstream Go module consumers — e.g. dodder — can
 handles both.
 
 `dewey` is consumed as the upstream module
-`github.com/amarbel-llc/purse-first/libs/dewey` — chrest imports its
+`code.linenisgreat.com/purse-first/libs/dewey` — chrest imports its
 `pkgs/<leaf>` facades (e.g. `pkgs/errors`, `pkgs/ohio`, `pkgs/command`).
 No vendored copy lives in this repo; bumping the pinned version is a
 normal `go get` + `just build-gomod2nix` cycle.

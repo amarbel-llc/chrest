@@ -101,6 +101,11 @@
     # same flakes.
     cutting-garden.inputs.conformist.follows = "purse-first/conformist";
     cutting-garden.inputs.hyphence.inputs.doppelgang.follows = "doppelgang";
+    # Duplicate-langlang lock node (go-module-rename playbook wave-2
+    # gotcha): hyphence's rename bump (2026-07-20 leg) introduced its own
+    # langlang subtree alongside cutting-garden's pre-existing direct
+    # langlang input. doppelgang lint's recommended collapse.
+    cutting-garden.inputs.hyphence.inputs.langlang.follows = "cutting-garden/langlang";
     cutting-garden.inputs.madder.inputs.tommy.follows = "tommy";
     purse-first.inputs.conformist.follows = "doppelgang/conformist";
     tommy.inputs.conformist.follows = "doppelgang/conformist";

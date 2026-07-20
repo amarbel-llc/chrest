@@ -13,7 +13,7 @@ import (
 
 	"code.linenisgreat.com/chrest/go/internal/bravo/config"
 	"code.linenisgreat.com/chrest/go/internal/charlie/server"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 type BrowserProxy struct {

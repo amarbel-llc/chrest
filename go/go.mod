@@ -2,12 +2,12 @@ module code.linenisgreat.com/chrest/go
 
 go 1.26
 
-tool github.com/amarbel-llc/tommy/cmd/tommy
+tool code.linenisgreat.com/tommy/cmd/tommy
 
 require (
+	code.linenisgreat.com/tommy v0.5.0
 	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0
-	github.com/amarbel-llc/tommy v0.4.5-0.20260612103107-054f61d3520d
 	github.com/andybalholm/cascadia v1.3.3
 	github.com/charmbracelet/huh v1.0.0
 	github.com/pdfcpu/pdfcpu v0.11.1
@@ -15,21 +15,22 @@ require (
 )
 
 require (
-	code.linenisgreat.com/cutting-garden v0.1.25-0.20260712163250-ddf24c249f36
-	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2
+	code.linenisgreat.com/cutting-garden v0.1.25-0.20260720171344-422ee4ea600e
+	code.linenisgreat.com/purse-first/libs/dewey v0.5.0
 	github.com/amarbel-llc/tap/go v0.1.16-0.20260612102841-8e10425163eb
 	golang.org/x/sys v0.44.0
 )
 
 require (
+	code.linenisgreat.com/hyphence/go v0.3.1-0.20260720154720-ea7f1e0933f9 // indirect
+	code.linenisgreat.com/madder/go v0.4.5-0.20260720162024-c2d4d389e726 // indirect
+	code.linenisgreat.com/piggy/go v0.0.0-20260720155209-77cfdea0031e // indirect
+	code.linenisgreat.com/purse-first/libs/go-mcp v0.5.0 // indirect
 	filippo.io/age v1.3.1 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
 	github.com/JohannesKaufmann/dom v0.2.0 // indirect
-	github.com/amarbel-llc/hyphence/go v0.2.0 // indirect
-	github.com/amarbel-llc/madder/go v0.4.1-0.20260706024145-0063d397ab40 // indirect
-	github.com/amarbel-llc/piggy/go v0.0.0-20260706021717-a08ad5ae28b3 // indirect
-	github.com/amarbel-llc/purse-first/libs/go-mcp v0.3.1 // indirect
+	github.com/amarbel-llc/purse-first/libs/dewey v0.3.2 // indirect
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.7 // indirect
@@ -100,5 +101,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	mvdan.cc/gofumpt v0.10.0 // indirect
 	mvdan.cc/sh/v3 v3.13.1 // indirect
 )

@@ -3,7 +3,7 @@ package browser_items
 import (
 	"net/url"
 
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
 )
 
 type Url struct {

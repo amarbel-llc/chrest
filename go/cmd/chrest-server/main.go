@@ -7,9 +7,9 @@ import (
 
 	"code.linenisgreat.com/chrest/go/internal/bravo/config"
 	"code.linenisgreat.com/chrest/go/internal/charlie/server"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/errors"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/stack_frame"
-	"github.com/amarbel-llc/purse-first/libs/dewey/pkgs/ui"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/errors"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/stack_frame"
+	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/ui"
 )
 
 func init() {
