@@ -1,11 +1,11 @@
 c2sp.org/CCTV/age v0.0.0-20251208015420-e9274a7bdbfd h1:ZLsPO6WdZ5zatV4UfVpr7oAwLGRZ+sebTUruuM4Ra3M=
 c2sp.org/CCTV/age v0.0.0-20251208015420-e9274a7bdbfd/go.mod h1:SrHC2C7r5GkDk8R+NFVzYy/sdj0Ypg9htaPXQq5Cqeo=
-code.linenisgreat.com/cutting-garden v0.1.25-0.20260720171344-422ee4ea600e h1:+wh1nrx2xTk7LIzEP6H3x+P7Jx7GE7rGtYlWmqcAg9Y=
-code.linenisgreat.com/cutting-garden v0.1.25-0.20260720171344-422ee4ea600e/go.mod h1:bzx8Bb9qOKnoNo6+ZWOFU6i/dfQbY1pSXUP++hhaCcs=
+code.linenisgreat.com/cutting-garden v0.1.25-0.20260720192135-bb4b2dd0481e h1:s1zn2JHViONXA41DRXM8spQwygVOmMvZ3+OWuiCqYw4=
+code.linenisgreat.com/cutting-garden v0.1.25-0.20260720192135-bb4b2dd0481e/go.mod h1:cShKG2WnozAyJSS4GblQN22MF5/bx/naVNfKrp9/qJE=
 code.linenisgreat.com/hyphence/go v0.3.1-0.20260720154720-ea7f1e0933f9 h1:iVfOsxFwmib/hwvWMjoHGKbmbTHOfM8yWlUv7vminDA=
 code.linenisgreat.com/hyphence/go v0.3.1-0.20260720154720-ea7f1e0933f9/go.mod h1:/c5ScMJSIbliSfj3R9IfVYql9PSMtFwNSgN8wvJQQc4=
-code.linenisgreat.com/madder/go v0.4.5-0.20260720162024-c2d4d389e726 h1:GYCEx8xImVc9qxDjVnj3aE/9edqav0qYX6SfDdRA8Q4=
-code.linenisgreat.com/madder/go v0.4.5-0.20260720162024-c2d4d389e726/go.mod h1:X0YrGc5j6kazB3Rx9EhHG9yR1FB02YWkXeyP7Msilb0=
+code.linenisgreat.com/madder/go v0.4.5-0.20260720184544-d463a948790d h1:WOJTXONer6NS986ERf+11T0h5vkVym1CQij3rGN6bJw=
+code.linenisgreat.com/madder/go v0.4.5-0.20260720184544-d463a948790d/go.mod h1:b8+fk6081wZXkFvEyjI+KHHDgk2RFapAW7d4cp+Cn5A=
 code.linenisgreat.com/piggy/go v0.0.0-20260720155209-77cfdea0031e h1:afcPD4YiDv2EjF2V8o5IqOk9+MToUdF3RNU8tzoZGdw=
 code.linenisgreat.com/piggy/go v0.0.0-20260720155209-77cfdea0031e/go.mod h1:SvQcD+AKbeY0YJUYUrTRUyDYtV3JGFZLzcZXJSsyAUk=
 code.linenisgreat.com/purse-first/libs/dewey v0.5.0 h1:+sd1CsNmJqPOv0K8D/qHdN62vLngYMUohHE0h52uJZU=
@@ -30,10 +30,6 @@ github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0 h1:mklaPbT4f/EiDr1Q+zPrEt
 github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.0/go.mod h1:D56Cl9r8M5i3UwAchE+LlLc5hPN3kJtdZNVJn06lSHU=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
-github.com/amarbel-llc/purse-first/libs/dewey v0.3.2 h1:DfqmtVDsyt0Is0IWoNS6o4xoYCD/RLavV+jyKSl19Hs=
-github.com/amarbel-llc/purse-first/libs/dewey v0.3.2/go.mod h1:js1n+xvK+A/cNwc/RXiqg7ic/XyjbtYdL7YofO6IJRI=
-github.com/amarbel-llc/tap/go v0.1.11 h1:4IZ8bkuwnlnxIEJjMSDNmT8M+nvlG9sdYKdgivBCOWE=
-github.com/amarbel-llc/tap/go v0.1.11/go.mod h1:VY3Dtchk+BgU7jE4tieCCViVCMqr/LFK1wVY736WbLw=
 github.com/andybalholm/cascadia v1.3.3 h1:AG2YHrzJIm4BZ19iwJ/DAua6Btl3IwJX+VI4kktS1LM=
 github.com/andybalholm/cascadia v1.3.3/go.mod h1:xNd9bqTn98Ln4DwST8/nG+H0yuB8Hmgu1YHNnWw0GeA=
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de h1:FxWPpzIjnTlhPwqqXc4/vE0f7GvRjuAsbW+HOIe8KnA=

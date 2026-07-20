@@ -118,10 +118,10 @@
         ]
       },
       "locked": {
-        "lastModified": 1784290388,
-        "narHash": "sha256-7iSG3co2jA0nHF6Jc6CB0Jj8O7y1uNVapFePbTt0DQA=",
+        "lastModified": 1784571282,
+        "narHash": "sha256-5D+IYJGbDB+E5qMTdTo3mo+N/ZcumtrtoqicPUkzXhk=",
         "type": "tarball",
-        "url": "https://code.linenisgreat.com/crap/archive/2aca4b376d35042aa55b45719780545ce9a6b43b.tar.gz"
+        "url": "https://code.linenisgreat.com/crap/archive/cf7e556275f3102ed0fb9757641539dbc485ed78.tar.gz"
       },
       "original": {
         "type": "tarball",
@@ -162,10 +162,10 @@
         ]
       },
       "locked": {
-        "lastModified": 1784567624,
-        "narHash": "sha256-WivaxoYi5cZJl40wJtqLg4eCmDhfZojdKIlI3tsP7PQ=",
+        "lastModified": 1784575295,
+        "narHash": "sha256-kRWE7lB/TT3fLwMSZhz6+eQu9MZjBxhYUWKWPAkhvR4=",
         "type": "tarball",
-        "url": "https://code.linenisgreat.com/cutting-garden/archive/422ee4ea600e208d81f89e91717646b8c68930cb.tar.gz"
+        "url": "https://code.linenisgreat.com/cutting-garden/archive/bb4b2dd0481e28296bbd3d10345fa1de3341cd75.tar.gz"
       },
       "original": {
         "type": "tarball",
