@@ -46,6 +46,8 @@ test: test-mcp test-mcp-bats
 
 # `nix build` runs the chrest derivation, which builds chrest +
 # chrest-server + chrest-jcs and runs the Go unit suite in checkPhase.
+#
+# build the chrest derivation (three binaries + Go unit suite)
 [group("build")]
 build-nix:
   nix build --no-link
@@ -54,6 +56,8 @@ build-nix:
 # go/build/release/ so the explore-* recipes (which reference
 # go/build/release/chrest by path) keep working. Skips checkPhase and
 # the firefox/monolith wrap. Mirrors madder's `build-go`.
+#
+# build all three binaries into go/build/release/ for the dev loop
 [group("build")]
 build-go:
   cd go && go build -o build/release/ ./cmd/...
@@ -61,6 +65,8 @@ build-go:
 # Build both browser extensions (chrome + firefox) via the extension/
 # justfile. Devshell dev-loop only; the prod derivations are the
 # flake's extension-chrome / extension-firefox packages.
+#
+# build both browser extensions (chrome + firefox)
 [group("build")]
 build-extension:
   just extension/build
@@ -69,6 +75,8 @@ build-extension:
 # vendor-env / goFlakeInputs / mkGoEnv breakage that the prod-binary
 # build can mask from cache. No store-output usage --- just a build-
 # check. See eng-design_patterns-justfile(7) VALIDATE-DEVSHELL.
+#
+# verify the devShell evaluates and builds without errors
 [group("pre-build")]
 validate-devshell:
   nix build --no-link .#devShells.{{ arch() }}-linux.default
@@ -79,6 +87,8 @@ validate-devshell:
 # if anything would change. Does NOT modify files in the worktree
 # --- the modifying counterpart is `codemod-fmt-conformist`. See
 # eng-design_patterns-justfile(7) LINT-FMT.
+#
+# check the tree's formatting without modifying files
 [group("pre-build")]
 lint-fmt:
   #!/usr/bin/env bash
@@ -91,6 +101,8 @@ lint-fmt:
 # or if a source repo is pinned at multiple revs. `--no-closure`
 # skips the build-graph version-drift pass so the recipe runs
 # offline; the `build` aggregate exercises the build graph.
+#
+# check flake.lock for duplicate input pins
 [group("pre-build")]
 lint-doppelgang:
   doppelgang lint --flake .
@@ -99,6 +111,8 @@ lint-doppelgang:
 # nix-built (firefox-wrapped) chrest, then reloads the running
 # extension. Uses the nix output rather than go/build/release/ so the
 # manifest points at a binary with firefox + monolith on PATH.
+#
+# reinstall the native-messaging manifest and reload the extension
 [group("operational")]
 load-extension:
   #!/usr/bin/env bash
@@ -124,6 +138,8 @@ load-extension:
 # Also guards malformed fixed-output hashes on non-host platforms
 # before flakehub-push's inspect wrapper (chrest#50); a removed
 # cross-system gcroots loop is tracked in eng#98.
+#
+# run nix flake check against the built chrest derivation
 [group("post-build")]
 verify-nix: build-nix
   nix flake check --no-build --no-eval-cache
@@ -138,6 +154,8 @@ test-go *flags:
 # updated gomod2nix.toml alongside go.mod and go.sum. `nix build`
 # will fail loudly if the manifest is out of sync — that's the
 # drift signal now, not a justfile drift-guard.
+#
+# regenerate gomod2nix.toml from go.mod / go.sum
 [group("maintenance")]
 build-gomod2nix:
   cd go && gomod2nix
@@ -159,6 +177,8 @@ build-gomod2nix:
 # format the facades with eng's config (nondeterministically, via
 # conformist's change cache). DAGNABIT_CEILING_DIRECTORIES bounds any
 # residual upward walk at the repo root, same guard madder threads.
+#
+# regenerate the pkgs/<leaf> facades from dagnabit export directives
 [group("build")]
 build-dagnabit-export:
   #!/usr/bin/env bash
@@ -175,6 +195,8 @@ build-dagnabit-export:
 # writes nothing — exits nonzero on drift). Joined into the
 # `validate` aggregator so merges catch facades that fell behind
 # their internal package's exported surface.
+#
+# drift gate: pkgs/ must match what dagnabit export would emit
 [group("pre-build")]
 validate-dagnabit-export:
   #!/usr/bin/env bash
@@ -193,6 +215,8 @@ validate-dagnabit-export:
 # Runs the dry-run; any would-move event is a drift failure. Run
 # `just codemod-dagnabit-reposition apply` to fix (the move
 # subcommand does type-aware import rewrites in callers automatically).
+#
+# drift gate: go/internal/ tiering must match dagnabit reposition
 [group("pre-build")]
 validate-dagnabit-reposition:
   #!/usr/bin/env bash
@@ -210,6 +234,8 @@ validate-dagnabit-reposition:
 # dependency height. Dry-runs by default; pass `apply` to commit
 # moves. Re-run when a dependency change bumps a leaf into a
 # different NATO tier (rare).
+#
+# re-tier packages under go/internal/ by current dependency height
 [group("codemod")]
 codemod-dagnabit-reposition apply="":
   #!/usr/bin/env bash
@@ -228,6 +254,8 @@ codemod-fmt: codemod-fmt-conformist
 # Apply conformist (repair mode) over the worktree. Modifying
 # counterpart to `lint-fmt`; both consume the same nix-module-generated
 # config (./conformist.nix + the eng preset).
+#
+# apply conformist over the worktree in repair mode
 [group("codemod")]
 codemod-fmt-conformist:
   nix fmt
@@ -237,6 +265,8 @@ mcp-inspect := "npx @modelcontextprotocol/inspector --cli"
 # Validate the MCP server surface (tools, resources, templates, and
 # readOnly/destructive annotations) against the nix-built chrest via
 # the MCP inspector CLI.
+#
+# validate the MCP server surface via the MCP inspector CLI
 [group("post-build")]
 test-mcp:
   #!/usr/bin/env bash
@@ -265,6 +295,8 @@ test-mcp:
 # BATS integration suite against a real unix socket, in two lanes
 # (fence-sandboxed pure-MCP + unsandboxed firefox capture); validates
 # via the NDJSON summary record — details in the recipe body.
+#
+# run the BATS integration suite in the fence and firefox lanes
 [group("post-build")]
 test-mcp-bats:
   #!/usr/bin/env bash
@@ -343,6 +375,8 @@ test-mcp-bats:
 # binary without overwriting the global ~/.claude.json. The
 # .mcp.json must be generated by the same binary it points at because
 # `chrest dev-mcp` resolves its own executable path.
+#
+# write a project-local .mcp.json pointing at the nix-built chrest
 [group("operational")]
 install-mcp-dev:
   #!/usr/bin/env bash
@@ -361,6 +395,8 @@ build-demo:
 # consumers like dodder can `require code.linenisgreat.com/chrest/go
 # vX.Y.Z`). Both point at the same commit. The "v" prefix is added
 # for you. Usage: just deploy-tag 0.0.2 "feat: release tooling"
+#
+# sign and push the vX.Y.Z and go/vX.Y.Z tags at HEAD
 [group("operational")]
 deploy-tag version message:
   #!/usr/bin/env bash
@@ -390,6 +426,8 @@ deploy-tag version message:
 # source-controlled value is kept in sync so editor / direct manifest
 # reads see the right number).
 # No-op if already at the target version. Usage: just bump-version 0.0.2
+#
+# rewrite the release version across version.env and the extension manifest
 [group("maintenance")]
 bump-version new_version:
   #!/usr/bin/env bash
@@ -412,6 +450,8 @@ bump-version new_version:
 #
 # Use `just deploy-tag <version> <message>` directly if you want to
 # control the commit message yourself without bumping.
+#
+# cut a release from master: bump the version, then sign and push both tags
 [group("operational")]
 deploy-release version:
   #!/usr/bin/env bash
@@ -444,6 +484,8 @@ deploy-release version:
 
 # One-time local setup: build, then init chrest config for the given
 # browser under the name "primary".
+#
+# build, then init chrest config for the given browser as "primary"
 [group("explore")]
 explore-setup browser="firefox":
   just build
@@ -451,6 +493,8 @@ explore-setup browser="firefox":
 
 # Launch the dev-built extension in a live browser via web-ext for
 # hands-on poking.
+#
+# launch the dev-built extension in a live browser via web-ext
 [group("explore")]
 explore-run browser="firefox":
   #!/usr/bin/env bash
@@ -463,6 +507,8 @@ explore-run browser="firefox":
 
 # Single-page capture smoke via the nix-built chrest; optional output
 # file, 30s timeout.
+#
+# single-page capture smoke test via the nix-built chrest
 [group("explore")]
 explore-capture format="text" url="https://example.com" output="":
   #!/usr/bin/env bash
@@ -480,6 +526,8 @@ explore-capture format="text" url="https://example.com" output="":
 # and echoes the list at the end. Uses the debug-tagged binary
 # (go/build/release/chrest) because it's already built in the dev loop
 # and firefox is on the dev shell PATH.
+#
+# capture a diverse page set across the markdown variants into /tmp/md-samples
 [group("explore")]
 explore-markdown-samples:
   #!/usr/bin/env bash
@@ -517,6 +565,8 @@ explore-markdown-samples:
 # Historical one-shot: copy the dewey packages chrest consumed from
 # the module cache into go/libs/dewey (pre-dates the pkgs/ facade
 # consumption; kept for reference).
+#
+# copy the dewey packages from the module cache into go/libs/dewey
 [group("explore")]
 explore-vendor-dewey:
   #!/usr/bin/env bash
@@ -563,6 +613,8 @@ explore-vendor-dewey:
 
 # Drive the dev-built chrest's MCP loop with a raw init + tools/list
 # and pretty-print the capture tool's advertised schema.
+#
+# drive the dev-built chrest's MCP loop and print the capture tool schema
 [group("explore")]
 explore-mcp-v1-debug:
   #!/usr/bin/env bash
@@ -578,6 +630,8 @@ explore-mcp-v1-debug:
 
 # Inspect the MCP capture tool's content-block shapes (types, sizes,
 # resource links, TOC) for a URL via the dev-built chrest.
+#
+# inspect the MCP capture tool's content-block shapes for a URL
 [group("explore")]
 explore-mcp-capture-blocks url="https://example.com" selector="":
   #!/usr/bin/env bash
@@ -602,6 +656,8 @@ explore-mcp-capture-blocks url="https://example.com" selector="":
 # without a devshell reload. Confirms the patched binary executes (--version)
 # and that capture reaches the BiDi WebSocket (no "WebSocket URL" error).
 # Serves the firefox.nix maintenance loop (portability / version bumps).
+#
+# smoke-test that the nix-built Firefox launches and reaches BiDi
 [group("explore")]
 explore-firefox-smoke url="https://example.com":
   #!/usr/bin/env bash
@@ -623,6 +679,8 @@ explore-firefox-smoke url="https://example.com":
 # spike for the web-fetch content-type-dispatch design
 # (docs/plans/2026-04-29-web-fetch-content-type-dispatch-design.md).
 # Launches a real headless Firefox via the standard NewSession.
+#
+# spike Firefox/BiDi response interception via the raw conn.Send calls
 [group("explore")]
 explore-bidi-intercept:
   #!/usr/bin/env bash
@@ -635,6 +693,8 @@ explore-bidi-intercept:
 # Same as explore-bidi-intercept but exercises the typed BiDi intercept
 # wrappers (Session.AddResponseIntercept / ContinueResponse /
 # RemoveIntercept) instead of the raw conn.Send calls.
+#
+# spike Firefox/BiDi response interception via the typed Session wrappers
 [group("explore")]
 explore-bidi-intercept-typed:
   #!/usr/bin/env bash
@@ -646,6 +706,8 @@ explore-bidi-intercept-typed:
 
 # Historical one-shot companion to explore-vendor-dewey: rewrite
 # vendored + chrest source imports onto the vendored dewey path.
+#
+# rewrite vendored and chrest source imports onto the vendored dewey path
 [group("explore")]
 explore-rewrite-dewey-imports:
   #!/usr/bin/env bash
@@ -673,6 +735,8 @@ explore-rewrite-dewey-imports:
 
 # Forward an httpie-style request through the dev-built chrest client
 # to the running browser extension.
+#
+# forward an httpie-style request through the dev-built chrest client
 [group("explore")]
 explore-client +httpie_args:
   go/build/release/chrest client {{httpie_args}}
@@ -683,6 +747,8 @@ explore-client +httpie_args:
 # output JSON, and echoes any stderr chrest emitted. Intended to be
 # re-run after chrest changes to verify the cross-session contract
 # still matches.
+#
+# end-to-end sanity check for chrest capture-batch against the RFC 0001 fixture
 [group("explore")]
 explore-capture-batch input="/home/sasha/eng/aim/fixtures/batch-input.example.json":
   #!/usr/bin/env bash
@@ -702,6 +768,8 @@ explore-capture-batch input="/home/sasha/eng/aim/fixtures/batch-input.example.js
 #
 # Output goes under /tmp/chrest-envelope-review.<timestamp>/. Prints
 # the batch output JSON + a categorized dump of every artifact.
+#
+# run capture-batch against an HTTP fixture and save every writer artifact
 [group("explore")]
 explore-envelope-review format="text" browser="firefox" split="true":
   #!/usr/bin/env bash
@@ -791,6 +859,8 @@ explore-envelope-review format="text" browser="firefox" split="true":
 # Used while investigating chrest#27 — lets us see whether pdfcpu put
 # the re-stamped /Info entries in plain text or inside a compressed
 # object stream (answer: compressed). Keep as a debug tool.
+#
+# decompress a PDF's FlateDecode streams looking for the /Info dict fields
 [group("explore")]
 explore-pdf-inspect-info pdf:
   #!/usr/bin/env python3
@@ -812,6 +882,8 @@ explore-pdf-inspect-info pdf:
 
 # Print chrest's help text (both top-level and per-command) so we can
 # verify command discoverability after any registration changes.
+#
+# print chrest's top-level or per-command help text
 [group("explore")]
 explore-help subcommand="":
   #!/usr/bin/env bash
@@ -826,6 +898,8 @@ explore-help subcommand="":
 # sha256 against the remote implementation's hash. Output file lives
 # next to the input in the aim/ directory so other sessions can diff
 # it. Hash printed to stdout and written beside the output file.
+#
+# canonicalize a JCS fixture with chrest-jcs and compare its sha256
 [group("explore")]
 explore-jcs-fixture vector="jcs-spec-vector-1" expected="":
   #!/usr/bin/env bash
@@ -857,6 +931,8 @@ explore-jcs-fixture vector="jcs-spec-vector-1" expected="":
 # against a worktree build. Filed for amarbel-llc/moxy#275 (proxy
 # reports "child process X exited unexpectedly" with no further
 # detail) — delete when that issue resolves.
+#
+# drive a chrest binary's MCP loop with one tools/call, stdout and stderr split
 [group("debug")]
 debug-mcp-call bin="chrest" tool="browser-info" args="{}":
   #!/usr/bin/env bash
@@ -879,6 +955,8 @@ debug-mcp-call bin="chrest" tool="browser-info" args="{}":
 # Curl a URL and report every element whose `id` attribute matches the
 # given value, in document order. Used to confirm whether a page has
 # duplicate ids that confuse cascadia.Query first-match semantics.
+#
+# report every element on a page whose id attribute matches the given value
 [group("explore")]
 explore-inspect-page-ids url id:
   #!/usr/bin/env bash
