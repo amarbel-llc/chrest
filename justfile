@@ -145,6 +145,8 @@ verify-nix: build-nix
   nix flake check --no-build --no-eval-cache
 
 # Devshell rapid-iteration. Mirrors madder's `test-go *flags`.
+#
+# run the Go test suite in the devshell, forwarding flags
 [group("post-build")]
 test-go *flags:
   cd go && go test {{flags}} ./...
@@ -384,7 +386,7 @@ install-mcp-dev:
   out=$(nix build --no-link --print-out-paths)
   "$out/bin/chrest" dev-mcp
 
-# Generate the VHS demo GIF.
+# generate the VHS demo GIF
 [group("build")]
 build-demo:
   vhs demo/demo.tape
