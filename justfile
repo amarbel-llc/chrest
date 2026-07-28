@@ -262,7 +262,7 @@ codemod-fmt: codemod-fmt-conformist
 codemod-fmt-conformist:
   nix fmt
 
-mcp-inspect := "npx @modelcontextprotocol/inspector --cli"
+mcp-inspect := "npx @modelcontextprotocol/inspector@2.0.0 --cli"
 
 # Validate the MCP server surface (tools, resources, templates, and
 # readOnly/destructive annotations) against the nix-built chrest via
@@ -275,9 +275,14 @@ test-mcp:
   set -euo pipefail
   out=$(nix build --no-link --print-out-paths)
   mcp_bin="$out/bin/chrest mcp"
-  tools=$({{mcp-inspect}} --method tools/list $mcp_bin)
-  resources=$({{mcp-inspect}} --method resources/list $mcp_bin)
-  templates=$({{mcp-inspect}} --method resources/templates/list $mcp_bin)
+  # inspector-cli v2's argv split treats a literal `--` as "everything
+  # before is the target, everything after is options" (inverted from
+  # the usual POSIX meaning), and drops target tokens entirely if none
+  # precede a `--`/option at all. `$mcp_bin -- --method` pins the split
+  # explicitly instead of relying on argument order.
+  tools=$({{mcp-inspect}} $mcp_bin -- --method tools/list)
+  resources=$({{mcp-inspect}} $mcp_bin -- --method resources/list)
+  templates=$({{mcp-inspect}} $mcp_bin -- --method resources/templates/list)
   # Verify listings return valid JSON
   echo "$tools" | jq -e '.tools | length > 0'
   echo "$resources" | jq -e '.resources | length > 0'
