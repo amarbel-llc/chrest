@@ -299,6 +299,35 @@ test-mcp:
   done
   echo "All MCP validations passed"
 
+# TMPDIR override for the fence-sandboxed lane, sidestepping fence's
+# bridge-socket sun_path overflow under a long session $TMPDIR.
+#
+# fence enforces its Linux network policy with socat bridges over
+# AF_UNIX sockets at `$TMPDIR/nix-shell.XXXXXX/fence-{http,socks}-<16
+# hex>.sock`. The kernel's `sockaddr_un.sun_path` is 108 bytes
+# *including* the NUL, so ~107 is the usable max. Under a spinclass
+# session worktree — `<repo>/.worktrees/<name>/.tmp`, which agent
+# sessions set $TMPDIR to — that path crosses the limit: the socket
+# lands truncated (or not at all) while fence polls for the full,
+# untruncated name, hanging until
+#   "failed to initialize Linux bridge: timeout waiting for bridge
+#    sockets to be created"
+# Forcing a short TMPDIR sidesteps it; the real fix belongs upstream
+# in fence, whose bridge sockets should live under a fixed short base
+# dir rather than the caller's $TMPDIR (no CLI flag covers this as of
+# fence 0.1.60). Root-caused and tracked at linenisgreat/bats#37;
+# mirrors the same discipline amarbel-llc/piggy's justfile applies to
+# its own fence-sandboxed bats lanes.
+#
+# Also strictly more correct independent of the bug: the bats wrapper's
+# fence config sets `allowWrite: ["/tmp", "/private/tmp"]`, so the
+# lane's own BATS_RUN_TMPDIR belongs under /tmp anyway.
+#
+# Linux-only: Darwin's fence sandbox uses sandbox-exec/Seatbelt and
+# never brings up this socat bridge. Interpolates to an empty string
+# (no-op) on Darwin.
+fence-tmpdir-linux := if os() == "linux" { "TMPDIR=/tmp" } else { "" }
+
 # BATS integration suite against a real unix socket, in two lanes
 # (fence-sandboxed pure-MCP + unsandboxed firefox capture); validates
 # via the NDJSON summary record — details in the recipe body.
@@ -372,9 +401,34 @@ test-mcp-bats:
   }
 
   rc=0
-  run_lane fence bats --filter-tags '!firefox' zz-tests_bats/ || rc=1
+  # Only the fence lane needs the short-TMPDIR override — the firefox
+  # lane runs --no-sandbox, so no fence bridge is ever brought up.
+  run_lane fence {{ fence-tmpdir-linux }} bats --filter-tags '!firefox' zz-tests_bats/ || rc=1
   run_lane firefox bats --no-sandbox --filter-tags 'firefox' zz-tests_bats/ || rc=1
   exit $rc
+
+# Run one `test-mcp-bats` lane in isolation, streaming raw bats
+# output instead of the NDJSON summary check. Lets us reproduce a
+# single lane's failure (e.g. chrest#115's fence-lane sandbox
+# bring-up error) without paying for the other lane.
+#
+# run a single test-mcp-bats lane (fence|firefox) with raw output
+[group("explore")]
+explore-bats-lane lane="fence":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  out_path=$(nix build --no-link --print-out-paths)
+  dagnabit_wrapper=$(nix build --no-link --print-out-paths .#conformist-dagnabit)
+  case "{{lane}}" in
+    # Mirrors test-mcp-bats, fence-tmpdir-linux included — otherwise
+    # this recipe reproduces chrest#115 rather than the real lane.
+    fence)   set -- {{ fence-tmpdir-linux }} bats --filter-tags '!firefox' zz-tests_bats/ ;;
+    firefox) set -- bats --no-sandbox --filter-tags 'firefox' zz-tests_bats/ ;;
+    *) echo "unknown lane: {{lane}} (want fence|firefox)" >&2; exit 2 ;;
+  esac
+  env CHREST_BIN="$out_path/bin/chrest" \
+      CONFORMIST_DAGNABIT_BIN="$dagnabit_wrapper/bin/dagnabit" \
+      "$@"
 
 # Write a project-local .mcp.json with a `chrest-dev` server key
 # pointing at the nix store path. Gives us a separate MCP entry

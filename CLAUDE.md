@@ -57,6 +57,19 @@ just bump-version <version>              # sed-rewrite CHREST_VERSION in version
 parsing TAP output — bats has been observed to hang on shutdown in bwrap
 `--unshare-pid` sandboxes even when every test passes. Root cause still open.
 
+On Linux the fence lane is pinned to `TMPDIR=/tmp` (justfile variable
+`fence-tmpdir-linux`). fence builds its socat bridge sockets as
+`$TMPDIR/nix-shell.XXXXXX/fence-{http,socks}-<16 hex>.sock`; under a
+spinclass worktree's `.tmp` that path crosses the kernel's 108-byte
+`sockaddr_un.sun_path` limit, so the socket lands truncated while fence
+polls for the full name — `failed to initialize Linux bridge: timeout
+waiting for bridge sockets to be created` (chrest#115, root-caused
+upstream at linenisgreat/bats#37). The fix belongs in fence; until then
+every fence-sandboxed lane needs the short-TMPDIR pin. The firefox lane
+runs `--no-sandbox` and never brings up a bridge, so it is unaffected.
+`just explore-bats-lane <fence|firefox>` runs one lane in isolation with
+raw bats output.
+
 `sweatfile` wires `pre-merge = "just"` — spinclass merge runs the full suite
 before merging a worktree branch back to master. It also wires
 `pre-commit = "conformist-pre-commit"` (chrest#105, chrest#106): the
