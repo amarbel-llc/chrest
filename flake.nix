@@ -6,7 +6,7 @@
       inputs.bun2nix.follows = "bun2nix";
       inputs.systems.follows = "bun2nix/systems";
     };
-    nixpkgs-master.url = "github:NixOS/nixpkgs/567a49d1913ce81ac6e9582e3553dd90a955875f";
+    nixpkgs-master.url = "github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238";
     utils = {
       url = "https://flakehub.com/f/numtide/flake-utils/0.1.102";
       inputs.systems.follows = "bun2nix/systems";
@@ -74,6 +74,30 @@
       inputs.utils.follows = "utils";
     };
 
+    # Declared directly rather than aliased into a dependency's node. chrest
+    # consumes conformist as a nix module (conformist.lib.evalModule, see
+    # conformist.nix), so the option set this flake evaluates against is part
+    # of chrest's own contract and must not be decided by a dependency.
+    #
+    # This wiring used to terminate at `bats/conformist`. A `follows` alias
+    # into a dependency's input resolves to that dependency's LOCKED rev, not
+    # to the URL it declares -- so even though bats declares conformist as
+    # master.tar.gz, chrest actually inherited whatever rev bats' flake.lock
+    # last pinned. bats' lock sat ~38 days behind chrest's, so a plain
+    # `nix flake update` walked chrest's conformist BACKWARDS onto a rev
+    # predating `linters.git-merge-drivers` and broke eval with "The option
+    # 'linters.git-merge-drivers' does not exist".
+    #
+    # Owning the node means chrest resolves master itself at lock time, so the
+    # rev only moves forward. Every consumer below collapses onto this single
+    # node, keeping the chrest#87 dedup gate (`just lint-doppelgang`) green.
+    conformist = {
+      url = "https://code.linenisgreat.com/conformist/archive/master.tar.gz";
+      inputs.igloo.follows = "igloo";
+      inputs.nixpkgs-master.follows = "nixpkgs-master";
+      inputs.utils.follows = "utils";
+    };
+
     # Consumed via goFlakeInputs (./go/gomod.nix) for pkgs/capture_plugin
     # and pkgs/capture_serve (chrest#83, chrest#98). Sourced from the
     # forge, not GitHub — cutting-garden's canonical remote moved off
@@ -99,7 +123,7 @@
     # chain pins conformist/doppelgang/tommy separately from chrest's
     # existing (purse-first-, and chrest's own top-level) pins of the
     # same flakes.
-    cutting-garden.inputs.conformist.follows = "purse-first/conformist";
+    cutting-garden.inputs.conformist.follows = "conformist";
     cutting-garden.inputs.hyphence.inputs.doppelgang.follows = "doppelgang";
     # Duplicate-langlang lock node (go-module-rename playbook wave-2
     # gotcha): hyphence's rename bump (2026-07-20 leg) introduced its own
@@ -107,13 +131,15 @@
     # langlang input. doppelgang lint's recommended collapse.
     cutting-garden.inputs.hyphence.inputs.langlang.follows = "cutting-garden/langlang";
     cutting-garden.inputs.madder.inputs.tommy.follows = "tommy";
-    purse-first.inputs.conformist.follows = "doppelgang/conformist";
-    tommy.inputs.conformist.follows = "doppelgang/conformist";
-    # Top-level alias so conformist.lib.evalModule is accessible in outputs
-    # without a new lock node — follows the same doppelgang/conformist node
-    # that purse-first and tommy already pin.
-    conformist.follows = "doppelgang/conformist";
-    doppelgang.inputs.conformist.follows = "bats/conformist";
+    # Collapse every dependency's conformist onto chrest's own node (above),
+    # rather than chaining them through each other. The old chain ran
+    # conformist -> doppelgang/conformist -> bats/conformist, which handed
+    # the revision to bats; these all now terminate at the node this flake
+    # declares and controls.
+    purse-first.inputs.conformist.follows = "conformist";
+    tommy.inputs.conformist.follows = "conformist";
+    doppelgang.inputs.conformist.follows = "conformist";
+    bats.inputs.conformist.follows = "conformist";
   };
 
   outputs =

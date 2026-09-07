@@ -2,7 +2,9 @@
   "nodes": {
     "bats": {
       "inputs": {
-        "conformist": "conformist",
+        "conformist": [
+          "conformist"
+        ],
         "igloo": [
           "igloo"
         ],
@@ -57,24 +59,21 @@
     "conformist": {
       "inputs": {
         "igloo": [
-          "bats",
           "igloo"
         ],
         "nixpkgs-master": [
-          "bats",
           "nixpkgs-master"
         ],
         "utils": [
-          "bats",
           "utils"
         ]
       },
       "locked": {
-        "lastModified": 1788740884,
-        "narHash": "sha256-/pMzs6kt5Wb+XuCmG6vEGa7WB0hGt2miazBH4g8jIUs=",
-        "rev": "f2660cbe8b1f0825c6775d3514f20c467b0e0a33",
+        "lastModified": 1788748258,
+        "narHash": "sha256-BdA4C8aTcTjWzC5F8bgrHEmnqOfy0cjRqNi2jINXBYo=",
+        "rev": "7ed393cf6c3d4673ed7c4a982b653552a6a52db6",
         "type": "tarball",
-        "url": "https://code.linenisgreat.com/conformist/archive/f2660cbe8b1f0825c6775d3514f20c467b0e0a33.tar.gz"
+        "url": "https://code.linenisgreat.com/conformist/archive/7ed393cf6c3d4673ed7c4a982b653552a6a52db6.tar.gz"
       },
       "original": {
         "type": "tarball",
@@ -137,7 +136,6 @@
           "bats"
         ],
         "conformist": [
-          "purse-first",
           "conformist"
         ],
         "crap": "crap",
@@ -179,7 +177,6 @@
     "doppelgang": {
       "inputs": {
         "conformist": [
-          "bats",
           "conformist"
         ],
         "igloo": [
@@ -449,17 +446,17 @@
     },
     "nixpkgs-master": {
       "locked": {
-        "lastModified": 1781577229,
-        "narHash": "sha256-lrp67w8AulE9Ks53n27I45ADSzbOCn4H+CNW1Ck8B+8=",
+        "lastModified": 1786106723,
+        "narHash": "sha256-zDSUbpoeo/9ZmD2+wXnzxoo1+uhL8vxc0b8yuYMKYq0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+        "rev": "f13ff45afd1bb73e640eaa08a7066dbed07e3238",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "567a49d1913ce81ac6e9582e3553dd90a955875f",
+        "rev": "f13ff45afd1bb73e640eaa08a7066dbed07e3238",
         "type": "github"
       }
     },
@@ -545,7 +542,6 @@
     "purse-first": {
       "inputs": {
         "conformist": [
-          "doppelgang",
           "conformist"
         ],
         "gomod2nix": "gomod2nix",
@@ -575,10 +571,7 @@
       "inputs": {
         "bats": "bats",
         "bun2nix": "bun2nix",
-        "conformist": [
-          "doppelgang",
-          "conformist"
-        ],
+        "conformist": "conformist",
         "cutting-garden": "cutting-garden",
         "doppelgang": "doppelgang",
         "igloo": "igloo",
@@ -671,7 +664,6 @@
           "bats"
         ],
         "conformist": [
-          "doppelgang",
           "conformist"
         ],
         "igloo": [
