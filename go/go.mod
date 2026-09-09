@@ -16,7 +16,7 @@ require (
 
 require (
 	code.linenisgreat.com/cutting-garden v0.1.25-0.20260720192135-bb4b2dd0481e
-	code.linenisgreat.com/purse-first/libs/dewey v0.5.0
+	code.linenisgreat.com/purse-first/libs/dewey v0.6.2
 	code.linenisgreat.com/tap/go v0.2.0
 	golang.org/x/sys v0.44.0
 )
@@ -25,7 +25,7 @@ require (
 	code.linenisgreat.com/hyphence/go v0.3.1-0.20260720154720-ea7f1e0933f9 // indirect
 	code.linenisgreat.com/madder/go v0.4.5-0.20260720184544-d463a948790d // indirect
 	code.linenisgreat.com/piggy/go v0.0.0-20260720155209-77cfdea0031e // indirect
-	code.linenisgreat.com/purse-first/libs/go-mcp v0.5.0 // indirect
+	code.linenisgreat.com/purse-first/libs/go-mcp v0.6.2 // indirect
 	filippo.io/age v1.3.1 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/DataDog/zstd v1.5.7 // indirect
