@@ -26,8 +26,18 @@ func registerCaptureBatchCommand(app *command.Utility) {
 	app.AddCommand(&command.Command{
 		Name: "capture-batch",
 		Description: command.Description{
-			Short: "Run a batch of web captures; reads JSON from stdin, writes JSON to stdout (cutting-garden capture-plugin/v1).",
+			Short: "Run a batch of web captures from JSON on stdin",
+			Long: "capture-batch is the capture-plugin role of the cutting-garden Capture " +
+				"Plugin Protocol (RFC 0002) under the web-archive binding (RFC 0003), " +
+				"using the capture-plugin/v1 subprocess transport. It reads a single " +
+				"capture-plugin/v1 JSON document from stdin, runs every capture " +
+				"sequentially, streams each receipt blob through the orchestrator-supplied " +
+				"writer subprocess, and writes a single JSON result object to stdout.\n\n" +
+				"The contract is JSON-on-stdin / JSON-on-stdout, not flags. Per-capture " +
+				"errors are reported inline; batch-level errors exit non-zero with a " +
+				"diagnostic on stderr.",
 		},
+		SeeAlso: []string{"capture", "capture-serve"},
 		RunCLI: func(ctx context.Context, args json.RawMessage) error {
 			return fmt.Errorf(
 				"capture-batch should be invoked directly (chrest capture-batch < input.json); " +

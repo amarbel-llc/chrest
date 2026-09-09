@@ -955,6 +955,32 @@ explore-help subcommand="":
     go/build/release/chrest --help
   fi
 
+# Print every built man page's NAME line as lexgrog/whatis extracts it,
+# with the description's character count, and fail if any description
+# exceeds the fleet's 72-char system-prompt-index cap (spinclass renders
+# NAME lines into an index; the cap keeps that index one line per page).
+# Serves the man-page-hygiene loop after any Description.Short change.
+#
+# lexgrog-check every man page under a built chrest store path (default: nix build result)
+[group("explore")]
+explore-man-name-lengths store_path="":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  root="{{store_path}}"
+  if [ -z "$root" ]; then
+    root="$(nix build --no-link --print-out-paths .#default)"
+  fi
+  status=0
+  for page in "$root"/share/man/man*/*; do
+    line="$(lexgrog "$page" | sed -e 's/^[^:]*: //' -e 's/^"//' -e 's/"$//')"
+    desc="${line#* - }"
+    len="${#desc}"
+    marker=""
+    if [ "$len" -gt 72 ]; then marker="  <-- OVER 72"; status=1; fi
+    printf '%3d  %s%s\n' "$len" "$line" "$marker"
+  done
+  exit "$status"
+
 # Run chrest-jcs on a shared byte-stability fixture and compare the
 # sha256 against the remote implementation's hash. Output file lives
 # next to the input in the aim/ directory so other sessions can diff

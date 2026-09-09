@@ -26,8 +26,18 @@ func registerCaptureServeCommand(app *command.Utility) {
 	app.AddCommand(&command.Command{
 		Name: "capture-serve",
 		Description: command.Description{
-			Short: "Serve one RFC 0008 capture-serve session (cutting-garden capture-plugin/v2). Launched by an orchestrator, not invoked directly.",
+			Short: "Serve one capture-plugin/v2 capture session",
+			Long: "capture-serve is the cutting-garden RFC 0008 (capture-plugin/v2) " +
+				"JSON-RPC transport for the same capture-plugin role capture-batch fills " +
+				"under RFC 0002's subprocess (v1) transport. It binds a fresh rendezvous " +
+				"socket, announces it on stdout, then serves one persistent capture " +
+				"session over that socket until the orchestrator shuts it down, stdin " +
+				"reaches EOF, or SIGTERM arrives.\n\n" +
+				"It is launched by an orchestrator, not invoked directly: the orchestrator " +
+				"must set CAPTURE_PLUGIN_COOKIE in the environment, and without it the " +
+				"command exits non-zero without printing to stdout.",
 		},
+		SeeAlso: []string{"capture-batch"},
 		RunCLI: func(ctx context.Context, args json.RawMessage) error {
 			return fmt.Errorf(
 				"capture-serve should be invoked directly (chrest capture-serve); " +
