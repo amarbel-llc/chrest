@@ -494,13 +494,12 @@
             bats.packages.${system}.bats
           ]
           ++ [
-            # Use the fork-pinned go_1_26 (currently 1.26.3 per
-            # amarbel-llc/nixpkgs#27, addressing GO-2026-4971 +
-            # GO-2026-4918). pkgs-master ships bare 1.26.2; the
-            # pin lives in the fork's overlay, which `pkgs` here
-            # applies. Mismatch between devshell-go and prod-build-go
-            # is the kind of vendor-env drift that validate-devshell
-            # also guards.
+            # Same go_1_26 the chrest derivation builds with. This is
+            # nixpkgs' own go_1_26: igloo's overlay does not override
+            # it (igloo FDR 0012 keeps its registry toolchain under
+            # pkgs.goToolchain instead). Mismatch between devshell-go
+            # and prod-build-go is the kind of vendor-env drift that
+            # validate-devshell also guards.
             pkgs.go_1_26
           ]
           ++ (with pkgs-master; [
