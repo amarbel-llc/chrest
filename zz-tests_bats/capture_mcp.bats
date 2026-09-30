@@ -40,14 +40,36 @@ require_firefox() {
 function capture_html_url_regression { # @test
   require_firefox
 
-  # example.com is too minimal for readability to extract a non-empty
-  # article, so we ask for format=text (document.body.innerText). The
-  # response still travels the HTML-class branch of fetchViaDispatch
-  # since the response is text/html.
-  url="https://example.com"
+  # A minimal page served over local http (not file://), so the capture
+  # still travels the HTML-class branch of fetchViaDispatch via a real
+  # text/html response. It used to hit live https://example.com and
+  # assert its "Example Domain" heading, which broke the moment that
+  # page's copy changed (chrest#117). format=text (document.body.innerText)
+  # because a page this minimal gives readability no article to extract.
+  # The server self-terminates via `timeout 60` (no EXIT trap; see
+  # capture_html_url_with_subresources).
+  port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()')
+  cat >"$BATS_TEST_TMPDIR/index.html" <<'EOF'
+<!doctype html>
+<html>
+  <head><title>minimal</title></head>
+  <body><h1>Minimal Domain</h1><p>UNIQUE_BODY_MARKER</p></body>
+</html>
+EOF
+  (cd "$BATS_TEST_TMPDIR" && timeout 60 python3 -m http.server "$port" </dev/null >/dev/null 2>&1) &
+  srv_pid=$!
+  for _ in $(seq 1 50); do
+    if curl -sf "http://127.0.0.1:$port/index.html" >/dev/null; then break; fi
+    sleep 0.1
+  done
+
+  url="http://127.0.0.1:$port/index.html"
   call=$(jq -nc --arg url "$url" '{jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"capture",arguments:{url:$url,format:"text"}}}')
   result=$(printf '%s\n' "$INIT_MSG" "$INITIALIZED_MSG" "$call" |
     timeout 60 "$CHREST_BIN" mcp)
+
+  kill "$srv_pid" 2>/dev/null || true
+  wait "$srv_pid" 2>/dev/null || true
 
   resp=$(echo "$result" | grep '"id":2')
   echo "$resp" | jq -e '.result.isError != true'
@@ -55,7 +77,7 @@ function capture_html_url_regression { # @test
   echo "$resp" | jq -e '.result.content | length == 4'
   echo "$resp" | jq -e '.result.content[0].type == "text"'
   echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.uri | test("#text$")'
-  echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("Example Domain")'
+  echo "$resp" | jq -e '.result.content[] | select(.type == "resource") | .resource.text | contains("Minimal Domain") and contains("UNIQUE_BODY_MARKER")'
 }
 
 function capture_raw_md_url_returns_body_and_toc { # @test
