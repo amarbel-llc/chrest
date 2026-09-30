@@ -322,10 +322,14 @@ forge. Its module path is `code.linenisgreat.com/cutting-garden` (the
 v0.1.24). Transitive bridges (madder, hyphence, piggy, tap, crap, tommy)
 inherit automatically at depth-1 through cutting-garden's own
 `passthru.goFlakeInputs` — chrest does not re-declare them.
-`GOPRIVATE=code.linenisgreat.com` in the devshell `shellHook` lets plain
-`go build`/`go test`/`dagnabit` resolve the same dependency outside of
-`nix build` too (there's no public go-get path via GOPROXY for a
-self-hosted forge otherwise).
+The devshell deliberately does NOT set `GOPRIVATE`: plain
+`go build`/`go test`/`dagnabit` resolve first-party modules through
+the default GOPROXY. `GOPRIVATE=code.linenisgreat.com` sent go to
+fetch them with `git` directly, and from inside a git hook (which
+exports `GIT_DIR`) cmd/go's `git init --bare` re-initialized chrest's
+own repo as bare — `core.bare = true` in the shared `.git/config`
+(spinclass#311). `just explore-repro-hook-core-bare [ref]` reproduces
+that against the real pre-commit hook in a throwaway clone.
 
 Files of note (`go/internal/echo/capturebatch/`):
 

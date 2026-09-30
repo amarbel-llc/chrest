@@ -1039,6 +1039,52 @@ debug-mcp-call bin="chrest" tool="browser-info" args="{}":
   echo "=== stderr ==="
   cat "$err_log"
 
+# Reproduce spinclass#311 against chrest's REAL pre-commit hook, never the
+# real repo: clone `ref` of this repo into a throwaway dir, enable
+# extensions.worktreeConfig (as spinclass does), add a linked worktree whose
+# per-worktree core.hooksPath runs `conformist-pre-commit`, stage a
+# whitespace-only flake.lock change, and `git commit` from inside the clone's
+# OWN devshell (`nix develop <worktree>`) with a cold, empty GOMODCACHE. Prints
+# the clone's shared core.bare before and after. core.bare=true means the
+# hook's go fetch re-initialized the hooked repo as bare (git exports GIT_DIR
+# into hooks; cmd/go's `git init --bare` inherits it).
+#
+# repro: does chrest's pre-commit hook flip core.bare on a cold module cache?
+[group("explore")]
+explore-repro-hook-core-bare ref="HEAD":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  src="{{ justfile_directory() }}"
+  root="$(mktemp -d /tmp/chrest-bare-repro.XXXXXX)"
+  trap 'chmod -R u+w "$root" 2>/dev/null; rm -rf "$root"' EXIT
+  main="$root/main"; wt="$root/wt"; hooks="$root/hooks"; cold="$root/gomodcache"
+  sha=$(git -C "$src" rev-parse "{{ ref }}")
+  git clone -q --no-hardlinks "$src" "$main"
+  git -C "$main" checkout -q -B master "$sha"
+  git -C "$main" config extensions.worktreeConfig true
+  git -C "$main" worktree add -q "$wt" -b repro
+  mkdir -p "$hooks" "$cold"
+  printf '#!/usr/bin/env bash\nset -eu\necho "[hook] GIT_DIR=${GIT_DIR:-unset} GOPRIVATE=${GOPRIVATE:-unset} GOPROXY=${GOPROXY:-unset} GOFLAGS=${GOFLAGS:-unset}" >&2\nexec conformist-pre-commit\n' > "$hooks/pre-commit"
+  chmod +x "$hooks/pre-commit"
+  git -C "$wt" config --worktree core.hooksPath "$hooks"
+  show() { echo "[$1] core.bare=$(git -C "$main" config --get core.bare || echo unset); worktree status: $(git -C "$wt" status --short >/dev/null 2>&1 && echo ok || echo FAIL)"; }
+  show "baseline @ ${sha:0:9}"
+  # Whitespace-only lock change: still valid JSON, but staged flake.lock
+  # fires both the facade lane and the chrest#106 dagnabit wrapper.
+  printf ' \n' >> "$wt/flake.lock"
+  git -C "$wt" add flake.lock
+  set +e
+  # env -u: drop go env leaked from the caller's (possibly stale) devshell so
+  # only the clone's own shellHook decides GOPRIVATE/GOPROXY/GOFLAGS.
+  (cd "$wt" && env -u GOPRIVATE -u GOPROXY -u GOFLAGS -u GONOSUMDB -u GONOPROXY \
+      nix develop "$wt" --command env GOMODCACHE="$cold" \
+      git -c commit.gpgsign=false -c user.name=repro -c user.email=repro@example.invalid \
+      commit -q -m "repro: touch flake.lock") 2>&1 | tail -n 40
+  set -e
+  show "after hooked commit"
+  echo "cold GOMODCACHE entries: $(find "$cold" -mindepth 1 -maxdepth 3 2>/dev/null | wc -l)"
+  echo "cache/vcs dirs: $(ls "$cold/cache/vcs" 2>/dev/null | wc -l)"
+
 # Curl a URL and report every element whose `id` attribute matches the
 # given value, in document order. Used to confirm whether a page has
 # duplicate ids that confuse cascadia.Query first-match semantics.

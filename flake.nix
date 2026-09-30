@@ -574,20 +574,6 @@
             export BATS_LIB_PATH="${
               bats.packages.${system}.bats-libs.batsLibPath
             }''${BATS_LIB_PATH:+:}''${BATS_LIB_PATH:-}"
-            # code.linenisgreat.com now serves go-import meta
-            # (linenisgreat#64) for repos migrated off GitHub to the
-            # self-hosted Forgejo forge — currently just cutting-garden's
-            # fork-replace (go/go.mod: `replace
-            # github.com/amarbel-llc/cutting-garden =>
-            # code.linenisgreat.com/cutting-garden <pseudo-version>`).
-            # GOPRIVATE skips GOPROXY + GOSUMDB for that host so plain `go`
-            # tooling (go build, go test, go vet, dagnabit) resolves it —
-            # the nix build resolves it independently via the
-            # flake-input-go_mod bridge (go/gomod.nix), which needs no env
-            # var. Drop this once cutting-garden's own module path
-            # migrates to code.linenisgreat.com/cutting-garden and the
-            # fork-replace becomes a plain require bump.
-            export GOPRIVATE="code.linenisgreat.com''${GOPRIVATE:+,$GOPRIVATE}"
           '';
         };
       }
