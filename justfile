@@ -1025,7 +1025,7 @@ debug-mcp-call bin="chrest" tool="browser-info" args="{}":
 # real repo: clone `ref` of this repo into a throwaway dir, enable
 # extensions.worktreeConfig (as spinclass does), add a linked worktree whose
 # per-worktree core.hooksPath runs `conformist-pre-commit`, stage a
-# whitespace-only flake.lock change, and `git commit` from inside the clone's
+# whitespace-only flake.lock change and a Go comment, and `git commit` from inside the clone's
 # OWN devshell (`nix develop <worktree>`) with a cold, empty GOMODCACHE. Prints
 # the clone's shared core.bare before and after. core.bare=true means the
 # hook's go fetch re-initialized the hooked repo as bare (git exports GIT_DIR
@@ -1038,7 +1038,9 @@ explore-repro-hook-core-bare ref="HEAD":
   set -euo pipefail
   src="{{ justfile_directory() }}"
   root="$(mktemp -d /tmp/chrest-bare-repro.XXXXXX)"
-  trap 'chmod -R u+w "$root" 2>/dev/null; rm -rf "$root"' EXIT
+  # Retry: a background git write (auto maintenance after the commit) can
+  # race the first rm ("Directory not empty").
+  trap 'chmod -R u+w "$root" 2>/dev/null; rm -rf "$root" 2>/dev/null || { sleep 2; rm -rf "$root"; }' EXIT
   main="$root/main"; wt="$root/wt"; hooks="$root/hooks"; cold="$root/gomodcache"
   sha=$(git -C "$src" rev-parse "{{ ref }}")
   git clone -q --no-hardlinks "$src" "$main"
@@ -1051,10 +1053,12 @@ explore-repro-hook-core-bare ref="HEAD":
   git -C "$wt" config --worktree core.hooksPath "$hooks"
   show() { echo "[$1] core.bare=$(git -C "$main" config --get core.bare || echo unset); worktree status: $(git -C "$wt" status --short >/dev/null 2>&1 && echo ok || echo FAIL)"; }
   show "baseline @ ${sha:0:9}"
-  # Whitespace-only lock change: still valid JSON, but staged flake.lock
-  # fires both the facade lane and the chrest#106 dagnabit wrapper.
+  # Whitespace-only lock change (still valid JSON) plus a comment in a Go
+  # file: together they hit every trigger the facade lane ever had
+  # (flake.lock, chrest#106; go/**/*.go, chrest#105).
   printf ' \n' >> "$wt/flake.lock"
-  git -C "$wt" add flake.lock
+  printf '\n// repro\n' >> "$wt/go/cmd/chrest-jcs/main.go"
+  git -C "$wt" add flake.lock go/cmd/chrest-jcs/main.go
   set +e
   # env -u: drop go env leaked from the caller's (possibly stale) devshell so
   # only the clone's own shellHook decides GOPRIVATE/GOPROXY/GOFLAGS.
