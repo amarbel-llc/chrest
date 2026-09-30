@@ -129,7 +129,10 @@ load-extension:
 # `verify` (runs against the built artifact), not a pre-build
 # `validate` — see eng-design_patterns-justfile(7) verify-vs-validate.
 # The `build-nix` dep warms the IFD; without it, `nix flake check
-# --no-build` aborts with `merged-go.mod.drv is not valid`.
+# --no-build` aborts with `merged-go.mod.drv is not valid`. `test-go`
+# likewise warms godyn's separate eval-time TEST graph, which
+# checks.chrest-tests evaluates through (`...-godyn-test-graph.drv is
+# not valid` otherwise); the `test` aggregate then reuses it as a cache hit.
 #
 # `--no-eval-cache`: a prior cold `--no-build` run caches the IFD
 # failure under the flake fingerprint, so a later warm run aborts with
@@ -143,7 +146,7 @@ load-extension:
 #
 # run nix flake check against the built chrest derivation
 [group("post-build")]
-verify-nix: build-nix
+verify-nix: build-nix test-go
   nix flake check --no-build --no-eval-cache
 
 # godyn's per-package Go test lane (checks.chrest-tests): each tested
