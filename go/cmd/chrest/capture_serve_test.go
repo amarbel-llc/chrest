@@ -18,19 +18,35 @@ import (
 	capture_serve "code.linenisgreat.com/cutting-garden/pkgs/capture_serve"
 )
 
-// buildChrestBinary compiles the chrest binary this test package produces
-// into a temp dir and returns its path. Built fresh rather than relying on
+// runAsChrestEnv, when set to "1", makes this package's test binary run
+// chrest's main() instead of the tests (see TestMain).
+const runAsChrestEnv = "CHREST_TEST_RUN_AS_CHREST"
+
+// TestMain lets the test binary stand in for the chrest binary: the test
+// binary IS package main compiled with its tests, so re-executing it with
+// runAsChrestEnv set runs the exact CLI this working tree produces,
+// capture-serve wiring included, without a Go toolchain (godyn's
+// per-package test sandbox has none — `go build` here used to fail it).
+func TestMain(m *testing.M) {
+	if os.Getenv(runAsChrestEnv) == "1" {
+		main()
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+// buildChrestBinary returns a path that runs this working tree's chrest:
+// the test binary itself, with runAsChrestEnv set for the rest of the test
+// so every subprocess spawned with os.Environ() inherits it. Preferred over
 // a $CHREST_BIN / PATH lookup (the bats suites' convention) because this
-// test needs the exact binary this working tree produces, capture-serve
-// wiring included.
+// test needs the exact binary this tree produces.
 func buildChrestBinary(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "chrest")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	out, err := cmd.CombinedOutput()
+	bin, err := os.Executable()
 	if err != nil {
-		t.Fatalf("go build chrest: %v\n%s", err, out)
+		t.Fatalf("locate test binary: %v", err)
 	}
+	t.Setenv(runAsChrestEnv, "1")
 	return bin
 }
 

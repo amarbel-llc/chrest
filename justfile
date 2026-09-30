@@ -19,10 +19,9 @@ validate: validate-devshell validate-dagnabit-export validate-dagnabit-repositio
 
 lint: lint-fmt lint-doppelgang
 
-# All build artifacts. `build-nix` runs the chrest derivation (which
-# builds chrest + chrest-server + chrest-jcs and runs the Go unit
-# suite in checkPhase), so a clean `just build` proves both compile
-# and unit tests. The dev-loop binaries (build-go) and the extension
+# All build artifacts. `build-nix` builds the chrest derivation
+# (chrest + chrest-server + chrest-jcs); the Go unit suite is the
+# separate `test-go` lane. The dev-loop binaries (build-go) and the extension
 # (build-extension) are intentionally NOT in the aggregate — they
 # rebuild artifacts the prod derivation already covers.
 
@@ -36,31 +35,34 @@ build: build-nix
 
 verify: verify-nix
 
-# Post-build smoke + integration. Unit tests already ran inside the
-# nix sandbox during `build-nix`'s checkPhase, so this layer only
-# adds the bats + MCP-inspector integration lanes. Matches madder,
-# where `nix build` covers unit tests and `just test` runs the
-# integration lanes.
+# Post-build unit + integration: godyn's per-package Go test lane
+# (checks.chrest-tests; since go.nix the godyn build no longer runs
+# tests itself) plus the bats + MCP-inspector integration lanes.
 
-test: test-mcp test-mcp-bats
+test: test-go test-mcp test-mcp-bats
 
-# `nix build` runs the chrest derivation, which builds chrest +
-# chrest-server + chrest-jcs and runs the Go unit suite in checkPhase.
+# `nix build` runs the chrest derivation (chrest + chrest-server +
+# chrest-jcs; godyn per-package on x86_64-linux, so only the edited
+# package cone rebuilds).
 #
-# build the chrest derivation (three binaries + Go unit suite)
+# build the chrest derivation (three binaries)
 [group("build")]
 build-nix:
   nix build --no-link
 
-# Devshell rapid-iteration: builds all three binaries into
-# go/build/release/ so the explore-* recipes (which reference
-# go/build/release/chrest by path) keep working. Skips checkPhase and
-# the firefox/monolith wrap. Mirrors madder's `build-go`.
+# Dev loop: link the nix-built binaries at go/build/release/ so the
+# explore-* recipes (which reference go/build/release/chrest by path)
+# keep working. There is no ambient `go build` since go.nix (igloo FDR
+# 0008); godyn rebuilds only the edited package cone.
 #
-# build all three binaries into go/build/release/ for the dev loop
+# link the nix-built binaries at go/build/release/ for the dev loop
 [group("build")]
 build-go:
-  cd go && go build -o build/release/ ./cmd/...
+  #!/usr/bin/env bash
+  set -euo pipefail
+  mkdir -p .tmp go/build
+  nix build --out-link .tmp/chrest-result
+  ln -sfn "$(readlink -f .tmp/chrest-result)/bin" go/build/release
 
 # Build both browser extensions (chrome + firefox) via the extension/
 # justfile. Devshell dev-loop only; the prod derivations are the
@@ -72,7 +74,7 @@ build-extension:
   just extension/build
 
 # Verify the devShell evaluates and builds without errors. Catches
-# vendor-env / goFlakeInputs / mkGoEnv breakage that the prod-binary
+# godyn-go / godyn-test / toolchain breakage that the prod-binary
 # build can mask from cache. No store-output usage --- just a build-
 # check. See eng-design_patterns-justfile(7) VALIDATE-DEVSHELL.
 #
@@ -144,109 +146,102 @@ load-extension:
 verify-nix: build-nix
   nix flake check --no-build --no-eval-cache
 
-# Devshell rapid-iteration. Mirrors madder's `test-go *flags`.
+# godyn's per-package Go test lane (checks.chrest-tests): each tested
+# package's `go test` is its own derivation, so an unchanged cone never
+# re-runs. The check exists only where the backend is godyn
+# (x86_64-linux); elsewhere the bga build's checkPhase runs the suite.
 #
-# run the Go test suite in the devshell, forwarding flags
+# run the Go unit suite via godyn's per-package test lane
 [group("post-build")]
-test-go *flags:
-  cd go && go test {{flags}} ./...
+test-go:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+  nix build --no-link --print-build-logs ".#checks.${system}.chrest-tests"
 
-# Regenerate gomod2nix.toml from go.mod / go.sum. Run after
-# `just go/add-dep <pkg>` (or any manual go.mod edit); stage the
-# updated gomod2nix.toml alongside go.mod and go.sum. `nix build`
-# will fail loudly if the manifest is out of sync — that's the
-# drift signal now, not a justfile drift-guard.
+# One package's tests from the dirty tree via godyn-test, test-binary
+# flags after `--` (e.g. `just debug-go-test internal/alfa/markdown --
+# -test.run=TestX`). A new file needs `git add -N` first.
 #
-# regenerate gomod2nix.toml from go.mod / go.sum
-[group("maintenance")]
-build-gomod2nix:
-  cd go && gomod2nix
+# run one Go package's tests from the working tree via godyn-test
+[group("debug")]
+debug-go-test dir *flags:
+  nix run --inputs-from . igloo#godyn-test -- -A "packages.$(nix eval --raw --impure --expr builtins.currentSystem).default" {{ dir }} {{ flags }}
 
-# `dagnabit` is pinned via `purse-first.packages.${system}.dagnabit`
-# in flake.nix's devshell (chrest#90). Bumping it now requires
-# `nix flake update --update-input purse-first` rather than picking up
-# whatever purse-first HEAD happens to emit today.
+# Run a go command against the rendered module through godyn's escape
+# hatch (igloo FDR 0008): an impure nix build with the pinned toolchain
+# and dagnabit/tommy on PATH, whose result is patched back into the
+# checkout and ingested into go/go.nix. Replaces ambient `go get` /
+# `go mod tidy` (e.g. `just codemod-go go get pkg@v1.2.3`).
+# Runs from go/: godyn-go applies its module-relative patch in the cwd.
+#
+# run a go command inside nix and write the result back into go/go.nix
+[group("codemod")]
+codemod-go +cmd:
+  cd go && nix run --inputs-from .. igloo#godyn-go -- -m go.nix -- {{ cmd }}
+
+# Tidy go/go.nix's requires (`go mod tidy` inside nix).
+#
+# tidy go/go.nix's requires via godyn-go
+[group("maintenance")]
+update-go:
+  just codemod-go go mod tidy
 
 # Regenerate pkgs/<leaf>/main.go facades from `//go:generate dagnabit
-# export` directives in go/internal/. Stage the regenerated pkgs/
-# tree alongside any source changes; external consumers (e.g.
-# dodder) import via pkgs/<leaf>, so the facade is the API contract.
-#
-# DAGNABIT_CONFORMIST_CONFIG points dagnabit's facade-format pass at
-# the store-pinned nix-module-generated config (`.#conformist-config`)
-# — chrest ships no conformist.toml on disk, so an unpinned config
-# ascent would escape into a stray ancestor ~/eng/conformist.toml and
-# format the facades with eng's config (nondeterministically, via
-# conformist's change cache). DAGNABIT_CEILING_DIRECTORIES bounds any
-# residual upward walk at the repo root, same guard madder threads.
+# export` directives in go/internal/, through godyn-go (dagnabit
+# type-loads through the rendered go.mod; there is none in the
+# checkout). The dagnabit on its PATH is the flake's dagnabitPinned,
+# whose facade-format pass is pinned to chrest's generated conformist
+# config. Run after changing an exported surface or bumping
+# purse-first (facades stamp dagnabit's version); external consumers
+# (dodder) import via pkgs/<leaf>, so the facade is the API contract.
 #
 # regenerate the pkgs/<leaf> facades from dagnabit export directives
 [group("build")]
 build-dagnabit-export:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  config=$(nix build "{{ justfile_directory() }}#conformist-config" --no-link --print-out-paths)
-  cd go
-  DAGNABIT_CONFORMIST_CONFIG="$config" \
-    DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" \
-    dagnabit export
+  just codemod-go go generate -run dagnabit ./...
 
-# CI drift gate: pkgs/ must match what `dagnabit export` would emit
-# right now. Uses dagnabit's native `-check` (regenerates into a temp
-# dir, formats it with the same store-pinned config, byte-compares,
-# writes nothing — exits nonzero on drift). Joined into the
-# `validate` aggregator so merges catch facades that fell behind
-# their internal package's exported surface.
+# Drift gate: checks.<system>.dagnabit-codegen regenerates the facades
+# in the vendored module tree and fails on any diff from the committed
+# pkgs/, then runs `dagnabit export -check`. Replaces the pre-commit
+# facade lane and its chrest#106 wrapper: a purse-first bump that
+# moves the version stamp fails here until `just build-dagnabit-export`.
 #
 # drift gate: pkgs/ must match what dagnabit export would emit
 [group("pre-build")]
 validate-dagnabit-export:
   #!/usr/bin/env bash
   set -euo pipefail
-  config=$(nix build "{{ justfile_directory() }}#conformist-config" --no-link --print-out-paths)
-  cd go
-  # Same config pin + ascent ceiling as build-dagnabit-export: without
-  # them the check and the regen can format with DIFFERENT configs and
-  # the gate flip-flops.
-  DAGNABIT_CONFORMIST_CONFIG="$config" \
-    DAGNABIT_CEILING_DIRECTORIES="$(git rev-parse --show-toplevel)" \
-    dagnabit export -check
+  system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+  nix build --no-link --print-build-logs ".#checks.${system}.dagnabit-codegen"
 
-# CI drift gate: NATO-level tiering of go/internal/ must match what
-# `dagnabit reposition` would compute by current dependency height.
-# Runs the dry-run; any would-move event is a drift failure. Run
-# `just codemod-dagnabit-reposition apply` to fix (the move
-# subcommand does type-aware import rewrites in callers automatically).
+# Drift gate: checks.<system>.dagnabit-reposition runs `dagnabit
+# internal` in the vendored module tree; any NATO-tier move it would
+# make is a diff and fails. Fix with `just codemod-dagnabit-reposition
+# apply`.
 #
 # drift gate: go/internal/ tiering must match dagnabit reposition
 [group("pre-build")]
 validate-dagnabit-reposition:
   #!/usr/bin/env bash
   set -euo pipefail
-  cd go
-  out=$(dagnabit -n internal)
-  if [ -n "$out" ]; then
-    echo "$out"
-    echo "FAIL: dagnabit-reposition would-move events present (above)." >&2
-    echo "      Run 'just codemod-dagnabit-reposition apply' to fix the layout drift." >&2
-    exit 1
-  fi
+  system=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+  nix build --no-link --print-build-logs ".#checks.${system}.dagnabit-reposition"
 
 # Re-tier packages under go/internal/<level>/<leaf> by current
-# dependency height. Dry-runs by default; pass `apply` to commit
-# moves. Re-run when a dependency change bumps a leaf into a
-# different NATO tier (rare).
+# dependency height, through godyn-go (the move rewrites callers'
+# imports). Without `apply`, a dry run whose log lists would-move
+# events and changes nothing.
 #
 # re-tier packages under go/internal/ by current dependency height
 [group("codemod")]
 codemod-dagnabit-reposition apply="":
   #!/usr/bin/env bash
   set -euo pipefail
-  cd go
   if [ "{{apply}}" = "apply" ]; then
-    dagnabit internal
+    just codemod-go dagnabit internal
   else
-    dagnabit -n -v internal
+    just codemod-go dagnabit -n -v internal
   fi
 
 # All `nix fmt`-driven rewrites.
@@ -366,7 +361,6 @@ test-mcp-bats:
   # zz-tests_bats/lib/common.bash).
   set -e
   out_path=$(nix build --no-link --print-out-paths)
-  dagnabit_wrapper=$(nix build --no-link --print-out-paths .#conformist-dagnabit)
   set +e
 
   run_lane() {
@@ -375,7 +369,6 @@ test-mcp-bats:
     logfile=$(mktemp)
     timeout --preserve-status 360 \
       env CHREST_BIN="$out_path/bin/chrest" \
-          CONFORMIST_DAGNABIT_BIN="$dagnabit_wrapper/bin/dagnabit" \
       "$@" > >(tee "$logfile") 2>&1
     local rc=$?
     local summary
@@ -418,7 +411,6 @@ explore-bats-lane lane="fence":
   #!/usr/bin/env bash
   set -euo pipefail
   out_path=$(nix build --no-link --print-out-paths)
-  dagnabit_wrapper=$(nix build --no-link --print-out-paths .#conformist-dagnabit)
   case "{{lane}}" in
     # Mirrors test-mcp-bats, fence-tmpdir-linux included — otherwise
     # this recipe reproduces chrest#115 rather than the real lane.
@@ -426,9 +418,7 @@ explore-bats-lane lane="fence":
     firefox) set -- bats --no-sandbox --filter-tags 'firefox' zz-tests_bats/ ;;
     *) echo "unknown lane: {{lane}} (want fence|firefox)" >&2; exit 2 ;;
   esac
-  env CHREST_BIN="$out_path/bin/chrest" \
-      CONFORMIST_DAGNABIT_BIN="$dagnabit_wrapper/bin/dagnabit" \
-      "$@"
+  env CHREST_BIN="$out_path/bin/chrest" "$@"
 
 # Write a project-local .mcp.json with a `chrest-dev` server key
 # pointing at the nix store path. Gives us a separate MCP entry
@@ -744,12 +734,8 @@ explore-firefox-smoke url="https://example.com":
 # spike Firefox/BiDi response interception via the raw conn.Send calls
 [group("explore")]
 explore-bidi-intercept:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  cd go
-  CHREST_SPIKE_BIDI_INTERCEPT=1 go test -tags spike -count=1 -v \
-    -run TestSpikeBiDiResponseIntercept \
-    ./internal/alfa/firefox/...
+  just codemod-go env CHREST_SPIKE_BIDI_INTERCEPT=1 go test -tags spike -count=1 -v \
+    -run TestSpikeBiDiResponseIntercept ./internal/alfa/firefox/...
 
 # Same as explore-bidi-intercept but exercises the typed BiDi intercept
 # wrappers (Session.AddResponseIntercept / ContinueResponse /
@@ -758,12 +744,8 @@ explore-bidi-intercept:
 # spike Firefox/BiDi response interception via the typed Session wrappers
 [group("explore")]
 explore-bidi-intercept-typed:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  cd go
-  CHREST_SPIKE_BIDI_INTERCEPT=1 go test -tags spike -count=1 -v \
-    -run TestSession_AddResponseIntercept \
-    ./internal/alfa/firefox/...
+  just codemod-go env CHREST_SPIKE_BIDI_INTERCEPT=1 go test -tags spike -count=1 -v \
+    -run TestSession_AddResponseIntercept ./internal/alfa/firefox/...
 
 # Historical one-shot companion to explore-vendor-dewey: rewrite
 # vendored + chrest source imports onto the vendored dewey path.

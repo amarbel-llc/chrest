@@ -161,7 +161,8 @@ yet (#55), `resolved_ip` omitted from the outcome (#52).
 **Dependency note (updated 2026-07-12):** `cutting-garden` (module path
 `code.linenisgreat.com/cutting-garden`, following its own rename off
 `github.com/amarbel-llc/cutting-garden`) is bridged through the
-flake-input-go_mod bridge (`go/gomod.nix`), the same mechanism chrest
+flake-input-go_mod bridge (then `go/gomod.nix`; a `go/go.nix` `flakeInputs`
+entry since chrest#116), the same mechanism chrest
 uses for its other amarbel-llc dependencies — a real flake input fetched
 over SSH from the forge at nix-eval time, with no `subPath` (cutting-garden's
 module is at its repo root). Its transitive bridges (`madder/go`,
@@ -190,6 +191,13 @@ canonical); `flake.nix`'s devShell `shellHook` sets
 `GOPRIVATE=code.linenisgreat.com` so plain `go` tooling skips
 `GOPROXY`/`GOSUMDB` for that host and resolves it directly, same as the
 nix build already did via the flake bridge.
+
+**Superseded 2026-09-30 (chrest#116, spinclass#311):** `GOPRIVATE` is gone
+and chrest's Go dependencies moved to `go/go.nix` (igloo FDR 0008):
+cutting-garden is a `flakeInputs` bridge there, go.mod is rendered inside
+nix, and the devshell has no ambient `go` at all (go commands run through
+`godyn-go`). The `GOPRIVATE` direct-git path let a go fetch inside the
+pre-commit hook inherit `GIT_DIR` and re-init chrest as a bare repo.
 
 ### Phase 2 — `capture-serve` JSON-RPC transport (RFC 0008): merged
 

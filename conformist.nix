@@ -5,8 +5,8 @@
 # the GENERATED conformist.toml (build.configFile) drives `nix fmt`
 # (build.wrapper), the sandboxed `checks.formatting` (build.check), the
 # store-pinned `conformist-pre-commit` / `conformist-repair` hooks, and
-# dagnabit's facade-format pass (DAGNABIT_CONFORMIST_CONFIG →
-# `.#conformist-config`). `package` is injected by flake.nix.
+# dagnabit's facade-format pass (DAGNABIT_CONFORMIST_CONFIG, baked into
+# flake.nix's dagnabitPinned). `package` is injected by flake.nix.
 #
 # See eng-design_patterns-conformist(7), conformist-nix(7), and the
 # cutting-garden / piggy flakes for the reference consumer shape.
@@ -21,7 +21,7 @@
   # Note for whoever wires that up: justfile-task-hierarchy is the one that needs
   # a decision, not a straight enable. It requires every pipeline-verb leaf to
   # sit in exactly one aggregate, and chrest's devshell dev-loop leaves (build-go,
-  # build-extension, test-go, build-gomod2nix, build-dagnabit-export, build-demo,
+  # build-extension, codemod-go, build-dagnabit-export, build-demo,
   # codemod-dagnabit-reposition) are deliberate orphans outside the merge-gate
   # aggregates — satisfying it means renames (cutting-garden's debug-build-go
   # shape) that ripple through documented workflows.
@@ -31,8 +31,8 @@
   # version.env (eng-versioning(7)) — see flake.nix.
 
   # eng-versioning's own conformance check (whole-tree, checks version.env
-  # itself) can't auto-derive the version key: it only looks for go.mod /
-  # Cargo.toml AT THE TREE ROOT, but chrest's Go module lives under go/
+  # itself) can't auto-derive the version key: it only looks for a Go / Cargo
+  # manifest AT THE TREE ROOT, but chrest's Go module lives under go/
   # (a polyglot layout — see flake.nix's chrestVersion comment). Pin the
   # key explicitly rather than rely on derivation.
   linters.eng-versioning.key = "CHREST_VERSION";
@@ -88,7 +88,8 @@
   programs.gofumpt.enable = true;
   programs.gofumpt.priority = 2;
 
-  # go.mod lives at go/, not the tree root. Without this, goimports/gofumpt
+  # The Go module lives at go/ (go/go.nix; go.mod is rendered in nix, not
+  # committed), not the tree root. Without this, goimports/gofumpt
   # run with cwd at the tree root, where Go tooling can't resolve the
   # module — confirmed in langlang (see langlang/conformist.nix) to SILENTLY
   # DELETE correctly-used imports as apparently-unused when the imported
@@ -120,8 +121,6 @@
 
   settings.excludes = [
     "flake.lock"
-    "go/go.sum"
-    "go/gomod2nix.toml"
     # Generated dagnabit facades are committed RAW (validate-dagnabit-export
     # diffs against the exporter's byte-exact output); never reformat them.
     # THREE globs are required (cutting-garden's hard-won shape): dagnabit's

@@ -44,9 +44,8 @@
       inputs.utils.follows = "utils";
     };
 
-    # Consumed via goFlakeInputs (./go/gomod.nix). A tap bump only
-    # touches flake.lock — no go.mod / gomod2nix.toml lockstep edits.
-    # See amarbel-llc/chrest#84 and amarbel-llc/nixpkgs RFC 0001.
+    # A go/go.nix flakeInputs bridge (igloo FDR 0008, RFC 0001). A tap
+    # bump only touches flake.lock (chrest#84).
     tap = {
       url = "https://code.linenisgreat.com/tap/archive/master.tar.gz";
       inputs.bats.follows = "bats";
@@ -58,7 +57,8 @@
       inputs.utils.follows = "utils";
     };
 
-    # Consumed via goFlakeInputs for libs/dewey and libs/go-mcp.
+    # go/go.nix flakeInputs bridges for libs/dewey and libs/go-mcp; also
+    # provides dagnabit.
     purse-first = {
       url = "https://code.linenisgreat.com/purse-first/archive/master.tar.gz";
       inputs.igloo.follows = "igloo";
@@ -98,8 +98,8 @@
       inputs.utils.follows = "utils";
     };
 
-    # Consumed via goFlakeInputs (./go/gomod.nix) for pkgs/capture_plugin
-    # and pkgs/capture_serve (chrest#83, chrest#98). Sourced from the
+    # A go/go.nix flakeInputs bridge for pkgs/capture_plugin and
+    # pkgs/capture_serve (chrest#83, chrest#98). Sourced from the
     # forge, not GitHub — cutting-garden's canonical remote moved off
     # GitHub (the amarbel-llc/cutting-garden mirror is archived, frozen
     # at v0.1.24) to a self-hosted Forgejo instance; the bridge fetches
@@ -142,8 +142,10 @@
     bats.inputs.conformist.follows = "conformist";
   };
 
+  # `inputs@`: buildGoAuto / mkGoPkgs resolve go/go.nix's flakeInputs entries
+  # by name against the whole inputs set (igloo FDR 0008).
   outputs =
-    {
+    inputs@{
       self,
       igloo,
       nixpkgs-master,
@@ -162,9 +164,8 @@
       # release version (eng-versioning(7)). Match expression captures
       # everything after `CHREST_VERSION=` up to the line break; the
       # `export` prefix is tolerated. Burnt into:
-      #   * Go binary  — via -X main.version (auto-injected by the
-      #     amarbel-llc/nixpkgs fork's buildGoApplication when `version`
-      #     is passed).
+      #   * Go binary  — via -X main.version (injected by buildGoAuto,
+      #     on both the godyn and bga backends, from `version`).
       #   * MCP serverInfo.version — Go binary surfaces `app.Version`
       #     as the MCP server version.
       #   * Extension manifest.version — templated into manifest.json
@@ -174,13 +175,8 @@
       # `go/vX.Y.Z` (path-prefix tag preserved for downstream Go
       # module consumers, e.g. dodder).
       #
-      # NOTE: buildGoApplication's version.env auto-read is keyed off
-      # `pwd` (the go.mod directory, i.e. `./go` below) — it can't see
-      # a repo-root version.env in this polyglot layout, so `version`
-      # is still passed explicitly to buildGoApplication (chrestVersionFull
-      # below), fed from this parse rather than a hardcoded literal. See
-      # gomod2nix(7) § version.env auto-read and madder's flake.nix (same
-      # go/ subdirectory shape) for the reference pattern.
+      # `version` is passed explicitly to buildGoAuto (chrestVersionFull
+      # below; igloo#70), fed from this parse rather than a literal.
       chrestVersion = builtins.head (
         builtins.match ".*CHREST_VERSION=([^\n]+).*" (builtins.readFile ./version.env)
       );
@@ -235,54 +231,95 @@
             })
           ];
         };
-        # flake-input-go_mod consumer-half bridge. See go/gomod.nix and
-        # amarbel-llc/nixpkgs RFC 0001. Threaded into buildGoApplication
-        # below; any future buildGoApplication / mkGoEnv call site must
-        # also receive it or it silently falls back to organic
-        # gomod2nix.toml resolution and resurrects the lockstep
-        # regression (chrest#84).
-        goFlakeInputs = import ./go/gomod.nix {
-          inherit
-            tap
-            tommy
-            purse-first
-            cutting-garden
-            system
-            ;
+        # Go dependencies live in go/go.nix (igloo FDR 0008): go.mod, go.sum
+        # and gomod2nix.toml are rendered inside nix, never committed, and
+        # the fleet modules (cutting-garden, dewey, go-mcp, tap, tommy) are
+        # its flakeInputs bridges (RFC 0001). There is no ambient `go` in the
+        # devshell, so go never fetches modules outside nix — in particular
+        # never from a git hook, where an inherited GIT_DIR turned cmd/go's
+        # `git init --bare` into a re-init of chrest itself (spinclass#311).
+        #
+        # Producer half (RFC 0001): go-pkgs carry the rendered go.mod +
+        # gomod2nix.toml under go/, so a downstream Go consumer (dodder
+        # requires code.linenisgreat.com/chrest/go) bridges chrest with
+        # subPath "go" instead of a versioned require, which stops resolving
+        # once the published tree has no committed go.mod.
+        goPkgs = pkgs.mkGoPkgs {
+          src = self;
+          manifest = ./go/go.nix;
+          subPath = "go";
+          name = "chrest";
+          inherit inputs;
         };
 
-        chrest = pkgs.buildGoApplication {
+        # Generators on PATH in every godyn-go run and codegen check: dagnabit
+        # with its post-generation conformist pass pinned to this repo's
+        # generated PURE config (no conformist.toml on disk; the raw
+        # conformist binary because dagnabit passes --tree-root, which
+        # collides with the module wrapper's --tree-root-file,
+        # purse-first#159), and tommy for config_toml's `//go:generate`.
+        dagnabitPinned =
+          pkgs.runCommand "dagnabit-pinned"
+            {
+              nativeBuildInputs = [ pkgs.makeWrapper ];
+              meta.mainProgram = "dagnabit";
+            }
+            ''
+              makeWrapper ${pkgs.lib.getExe' purse-first.packages.${system}.dagnabit "dagnabit"} \
+                $out/bin/dagnabit \
+                --set DAGNABIT_CONFORMIST_CONFIG ${conformistEval.config.build.configFile} \
+                --prefix PATH : ${pkgs.lib.makeBinPath [ conformist.packages.${system}.default ]}
+            '';
+        codegenTools = [
+          dagnabitPinned
+          tommy.packages.${system}.default
+        ];
+
+        # godyn (per-package) on igloo's godynSystems, buildGoApplication
+        # elsewhere; both reachable as passthru.native / passthru.bga, and
+        # the checks below key off passthru.backend. Built from the published
+        # go-pkgs-test (self-consumption: what consumers bridge is what the
+        # binaries and tests are built from).
+        chrest = pkgs.buildGoAuto {
           pname = "chrest";
           version = chrestVersionFull;
-          commit = chrestCommit;
-          src = ./go;
+          src = goPkgs.go-pkgs-test + "/go";
+          manifest = ./go/go.nix;
+          inherit inputs;
           subPackages = [
             "cmd/chrest"
             "cmd/chrest-server"
             "cmd/chrest-jcs"
           ];
-          modules = ./go/gomod2nix.toml;
-          inherit goFlakeInputs;
-          go = pkgs.go_1_26;
-          GOTOOLCHAIN = "local";
-          nativeBuildInputs = [ pkgs.makeWrapper ];
-          checkPhase = ''
-            runHook preCheck
-            # pdfcpu writes config to $HOME on first call; the nix
-            # sandbox's default $HOME (/homeless-shelter) is read-only,
-            # so capturebatch's PDF normalization tests fail without
-            # this. $TMPDIR is the per-build writable scratch dir.
-            export HOME=$TMPDIR
-            # No -tags test: the only //go:build test file
-            # (charlie/browser_items/item_test.go) references a
-            # ui.T type that was never vendored across from dewey
-            # upstream, so it does not compile under -tags test. The
-            # file is marked "// TODO fix this test" and is silently
-            # skipped by `just test-go` today (no tag passed). Matches
-            # current behavior.
-            go test -p $NIX_BUILD_CORES ./...
-            runHook postCheck
+          # On PATH in every godyn-go run (`just build-dagnabit-export`, and
+          # firefox for the `-tags spike` BiDi tests the explore-bidi-*
+          # recipes run).
+          goRunInputs = codegenTools ++ [ firefox ];
+          # godyn's per-package test lane (passthru.checkAll). No -tags test:
+          # the only //go:build test file (charlie/browser_items/item_test.go)
+          # references a ui.T type that was never vendored across from dewey
+          # upstream and does not compile under it ("// TODO fix this test").
+          tests = true;
+          # pdfcpu writes config to $HOME on first call; the sandbox's $HOME
+          # (/homeless-shelter) is read-only, so capturebatch's PDF
+          # normalization tests fail without a writable one.
+          testPreRun = ''
+            export HOME="$TMPDIR"
           '';
+          nativeArgs = {
+            commit = chrestCommit;
+            # github.com/DataDog/zstd (madder, via cutting-garden) is cgo-only.
+            inherit (pkgs.stdenv) cc;
+          };
+          bgaArgs = {
+            commit = chrestCommit;
+            go = pkgs.go_1_26;
+            GOTOOLCHAIN = "local";
+            preCheck = ''
+              export HOME=$TMPDIR
+            '';
+          };
+          nativeBuildInputs = [ pkgs.makeWrapper ];
           postInstall = ''
             $out/bin/chrest generate-plugin $out
             cat > $out/share/purse-first/chrest/clown.json <<'JSON'
@@ -296,16 +333,13 @@
               }
             }
             JSON
+            # Wrapped after generate-plugin ran the bare binary. In
+            # postInstall (not postFixup): buildGoAuto declares the install
+            # step once for both backends and has no fixup hook.
+            wrapProgram $out/bin/chrest \
+              --prefix PATH : ${firefox}/bin:${pkgs.monolith}/bin
+            ln -s ${firefox}/bin/firefox $out/bin/firefox
           '';
-          postFixup =
-            let
-              monolithBinPath = "${pkgs.monolith}/bin";
-            in
-            ''
-              wrapProgram $out/bin/chrest \
-                --prefix PATH : ${firefox}/bin:${monolithBinPath}
-              ln -s ${firefox}/bin/firefox $out/bin/firefox
-            '';
         };
         extension =
           browserType:
@@ -313,43 +347,6 @@
             inherit browserType;
             version = chrestVersion;
           };
-
-        # The stable dagnabit from the current purse-first rev.  Used directly
-        # in the devShell (see packages list below) and as the fast-path
-        # fallback in conformistDagnabit for commits that don't touch
-        # flake.lock.
-        dagnabitForHook = purse-first.packages.${system}.dagnabit;
-
-        # Hook-time dagnabit wrapper (chrest#106).
-        #
-        # Root cause: the repair/check scripts bake in the dagnabit store
-        # path at derivation eval time (the old purse-first rev).  When
-        # flake.lock is staged for a purse-first bump, those scripts call
-        # OLD dagnabit → it produces byte-identical facades → the lane
-        # stages nothing → the merge gate's fresh nix build sees version-
-        # stamp drift and fails.
-        #
-        # Fix: intercept `dagnabit` calls at hook time.  When flake.lock is
-        # staged, call `nix build <project>#dagnabit` to realise the dagnabit
-        # derivation from the *on-disk* (staged) lock and exec that binary
-        # instead.  The nix store already has the new derivation after
-        # `nix flake update`, so the build is typically a store-path lookup
-        # (instant).  Falls back to the pre-built binary on any failure so
-        # ordinary commits stay fast and unaffected.
-        #
-        # Remove conformistDagnabit, packages.conformist-dagnabit, and
-        # CONFORMIST_DAGNABIT_BIN in the justfile once purse-first's conformist
-        # module exposes a dagnabitCommand string option (evaluated at hook
-        # time rather than baked in as a store path at evalModule time).
-        conformistDagnabit = pkgs.writeShellScriptBin "dagnabit" ''
-          set -eu
-          if git diff --cached --name-only 2>/dev/null | grep -qF 'flake.lock'; then
-            project_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
-            new_bin=''${project_root:+$(nix build "$project_root#dagnabit" --no-link --print-out-paths 2>/dev/null || true)}
-            [ -n "$new_bin" ] && exec "$new_bin/bin/dagnabit" "$@"
-          fi
-          exec ${dagnabitForHook}/bin/dagnabit "$@"
-        '';
 
         # Pure lane (eng#246 item 2): the eng preset (sandboxed eng-convention
         # linters) + this repo's formatters/excludes from ./conformist.nix.
@@ -367,67 +364,42 @@
           package = conformist.packages.${system}.default;
         };
 
-        # Per-commit facade-repair (codegen) eval (chrest#105): the repo's
-        # formatters/excludes from ./conformist.nix + the dewey-facade-export
-        # repair lane — deliberately NOT presets.eng (its convention linters
-        # stay at the merge gate, not commit/repair time). build.preCommit
-        # from this eval is named conformist-pre-commit in packages and on
-        # the devShell PATH; the sweatfile [hooks].pre-commit command
-        # references it by that name so a commit that touches flake.lock or
-        # any go/**/*.go automatically formats staged files and regenerates
-        # and stages the pkgs/ facades (stage-mutation tiers 2–4).
-        # build.repair is its merge-repair sibling (conformist-repair).
+        # Dedicated PRE-COMMIT/REPAIR eval: the repo's formatters/excludes
+        # from ./conformist.nix, deliberately NOT presets.eng (its convention
+        # linters stay at the merge gate, not commit/repair time).
+        # build.preCommit is conformist-pre-commit (the sweatfile
+        # [hooks].pre-commit), build.repair its merge-repair sibling.
+        #
+        # Formatting only since go.nix. The dewey-facade-export repair lane
+        # (chrest#105) and its hook-time dagnabit wrapper (chrest#106, which
+        # re-built dagnabit from a staged flake.lock) are gone: dagnabit
+        # type-loads packages through a checkout go.mod, which go.nix
+        # removed, and it was the one path by which a commit ran `go` inside
+        # the hook (spinclass#311). Facade drift — including the version
+        # stamp a purse-first bump moves — is the pure checks.dagnabit-codegen
+        # merge gate instead, regenerated with `just build-dagnabit-export`.
+        # Same shape as cutting-garden and nebulous.
         conformistCodegenEval = conformist.lib.evalModule pkgs {
-          imports = [
-            ./conformist.nix
-            purse-first.lib.conformistLinters.dewey-facade-export
-          ];
+          imports = [ ./conformist.nix ];
           package = conformist.packages.${system}.default;
-          linters.dewey-facade-export.enable = true;
-          linters.dewey-facade-export.deweyDir = "go";
-          linters.dewey-facade-export.library = false;
-          # chrest#106: use the hook-time wrapper so purse-first bump commits
-          # regenerate from the staged lock, not the pre-built binary.
-          linters.dewey-facade-export.dagnabitPackage = conformistDagnabit;
-          # The PURE eval's generated config (a separate eval — no
-          # self-reference), so dagnabit's facade-format pass runs `conformist
-          # --config-file <store-path>` with chrest's REAL config and no
-          # upward walk that might escape the repo root.
-          linters.dewey-facade-export.conformistConfig = conformistEval.config.build.configFile;
-          settings.linter.dewey-facade-export = {
-            # flake.lock added to the module's default go/**/*.go trigger so a
-            # purse-first bump commit (flake.lock only, no *.go staged) still
-            # fires the lane — facades embed dagnabit's version stamp.
-            includes = [ "flake.lock" ];
-            "restage-repair-outputs" = true; # tier 2: restage modified facades
-            "stage-new-outputs" = true; # tier 3: stage a brand-new pkgs/ facade
-            "stage-deleted-outputs" = true; # tier 4: stage a removed/relocated facade
-          };
         };
+
+        # godyn-backed checks exist only where buildGoAuto chose godyn.
+        onGodyn = chrest.passthru.backend == "native";
       in
       {
         packages.chrest = chrest;
         packages.default = chrest;
         packages.extension-chrome = extension "chrome";
         packages.extension-firefox = extension "firefox";
-        # Toolchain-hermetic per-commit facade-repair hook (chrest#105).
-        # Named by the sweatfile [hooks].pre-commit command and put on the
-        # devShell PATH as `conformist-pre-commit`. `nix build
-        # .#conformist-pre-commit` dogfoods the codegen eval + facade lane.
+        # RFC 0001 producer outputs (go/go.nix rendered at go-pkgs/go/) for
+        # downstream Go consumers that bridge chrest (dodder).
+        packages.go-pkgs = goPkgs.go-pkgs;
+        packages.go-pkgs-test = goPkgs.go-pkgs-test;
+        # Toolchain-hermetic per-commit format hook, named by the sweatfile
+        # [hooks].pre-commit command and on the devShell PATH as
+        # `conformist-pre-commit`.
         packages.conformist-pre-commit = conformistCodegenEval.config.build.preCommit;
-        # Re-export purse-first's dagnabit so `nix build .#dagnabit` resolves
-        # it from the project's lock — used by the conformistDagnabit wrapper
-        # at hook time to realise the post-bump dagnabit (chrest#106).
-        packages.dagnabit = dagnabitForHook;
-        # The hook-time dagnabit wrapper itself, exposed for BATS testing
-        # (CONFORMIST_DAGNABIT_BIN in test-mcp-bats — chrest#106).
-        packages.conformist-dagnabit = conformistDagnabit;
-        # The generated PURE-lane config, pointed at by dagnabit's
-        # DAGNABIT_CONFORMIST_CONFIG (purse-first#159) in the justfile's
-        # build-dagnabit-export / validate-dagnabit-export recipes so
-        # `dagnabit export` formats the generated facades with chrest's REAL
-        # config — there is no conformist.toml on disk for dagnabit to find.
-        packages.conformist-config = conformistEval.config.build.configFile;
         # The merge-repair hook (build.repair, `--commit --amend`) from the
         # codegen eval, on the devShell PATH below as `conformist-repair` so
         # the eng sweatfile's [hooks].repair resolves the hermetic,
@@ -451,7 +423,42 @@
         # file-based linters over a /nix/store snapshot of the source tree
         # and exits non-zero on drift — no working-tree side effects,
         # unlike `nix fmt`.
-        checks.formatting = conformistEval.config.build.check self;
+        checks = {
+          formatting = conformistEval.config.build.check self;
+        }
+        # godyn lanes from go/go.nix, only where buildGoAuto chose godyn
+        # (elsewhere the bga backend's checkPhase runs `go test`). Since
+        # go.nix there is no checkout go.mod for dagnabit to type-load
+        # through, so its two drift gates run as passthru.codegenCheck: the
+        # command runs in the vendored module tree (dagnabitPinned on PATH)
+        # and the check fails on any diff from the committed source.
+        // pkgs.lib.optionalAttrs onGodyn {
+          # Per-package `go test` (`just test-go`).
+          chrest-tests = chrest.passthru.checkAll;
+          # The pkgs/ facades must be what `dagnabit export` emits now —
+          # including the dagnabit version stamp a purse-first bump moves
+          # (`just validate-dagnabit-export`; regenerate with
+          # `just build-dagnabit-export`).
+          dagnabit-codegen = chrest.passthru.codegenCheck {
+            command = "go generate -run dagnabit ./... && dagnabit export -check";
+            nativeBuildInputs = codegenTools;
+          };
+          # go/internal/<level>/<leaf> must match dagnabit's computed
+          # dependency height (`just validate-dagnabit-reposition`). The
+          # dry run, failing on any would-move line: applying a move needs
+          # `git mv`, and the vendored tree is not a git checkout.
+          dagnabit-reposition = chrest.passthru.codegenCheck {
+            command = ''
+              out=$(dagnabit -n internal)
+              if [ -n "$out" ]; then
+                echo "$out"
+                echo "FAIL: dagnabit reposition would move packages (above); move them by hand to the tier shown." >&2
+                exit 1
+              fi
+            '';
+            nativeBuildInputs = codegenTools;
+          };
+        };
 
         # `checks.all-systems-eval` previously forced evaluation of every
         # supported system's devShell + package .drvPath from the host's
@@ -494,22 +501,15 @@
             bats.packages.${system}.bats
           ]
           ++ [
-            # Same go_1_26 the chrest derivation builds with. This is
-            # nixpkgs' own go_1_26: igloo's overlay does not override
-            # it (igloo FDR 0012 keeps its registry toolchain under
-            # pkgs.goToolchain instead). Mismatch between devshell-go
-            # and prod-build-go is the kind of vendor-env drift that
-            # validate-devshell also guards.
-            pkgs.go_1_26
+            # Go: no ambient `go` (igloo FDR 0007/0008). Dependencies live in
+            # go/go.nix; go commands (`go get`, `go mod tidy`, `go generate`)
+            # run inside nix through godyn-go, single-package tests through
+            # godyn-test. With no go on PATH, nothing in the devshell or a
+            # git hook can fetch modules (spinclass#311).
+            pkgs.godyn-go
+            pkgs.godyn-test
           ]
           ++ (with pkgs-master; [
-            delve
-            gofumpt
-            golangci-lint
-            golines
-            gopls
-            gotools
-            govulncheck
             httpie
             bash-language-server
             parallel
@@ -518,27 +518,13 @@
             web-ext
           ])
           ++ [
-            pkgs.gomod2nix
             # `doppelgang lint --flake .` runs in the `lint` aggregate
             # as a flake.lock dedup gate (chrest#87).
             doppelgang.packages.${system}.default
-            # Pinned `dagnabit` for build-dagnabit-export +
-            # validate-dagnabit-export + codemod-dagnabit-reposition.
-            # Previously the justfile did `nix run github:.../#dagnabit`
-            # which followed purse-first HEAD and surfaced upstream
-            # emitter-format drift on unrelated PRs (chrest#90).
-            dagnabitForHook
-            # conformist: the RAW binary on PATH (not build.wrapper) —
-            # dagnabit's facade-format pass resolves `conformist` from PATH
-            # and passes `--tree-root`, which is mutually exclusive with the
-            # wrapper's hardcoded `--tree-root-file` (purse-first#159). The
-            # wrapper is the flake `formatter` output (`nix fmt` /
-            # `just codemod-fmt`) instead.
-            conformist.packages.${system}.default
-            # Per-commit facade-repair + format hook (chrest#105). Placed on
-            # PATH as `conformist-pre-commit`; spinclass installs it as a git
-            # pre-commit hook at session start/resume so a session restart is
-            # needed after this lands.
+            # Per-commit format hook, on PATH as `conformist-pre-commit`;
+            # spinclass installs it as a git pre-commit hook at session
+            # start/resume. (dagnabit lives in godyn-go's goRunInputs, not
+            # here: it needs a go.mod, which only the rendered module has.)
             conformistCodegenEval.config.build.preCommit
             # Its merge-repair sibling, on PATH as `conformist-repair` for
             # spinclass's [hooks].repair (see packages.conformist-repair).

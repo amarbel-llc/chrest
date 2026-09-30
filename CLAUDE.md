@@ -24,11 +24,11 @@ aggregate-only entry recipes (`validate`, `lint`, `build`, `verify`, `test`).
 ```bash
 just                                     # default: validate lint build verify test (sweatfile pre-merge surface)
 just build                               # aggregate: build-nix
-just build-nix                           # `nix build --no-link` (chrest derivation: three binaries + Go unit suite in checkPhase)
+just build-nix                           # `nix build --no-link` (chrest derivation: three binaries; godyn per-package)
 just validate                            # validate-devshell + validate-dagnabit-export + validate-dagnabit-reposition
 just validate-devshell                   # builds .#devShells.<arch>-linux.default; catches devshell-only regressions
-just validate-dagnabit-export            # drift gate: go/pkgs/ matches what `dagnabit export` would generate
-just validate-dagnabit-reposition        # drift gate: go/internal/<level>/<leaf> matches `dagnabit reposition` depth
+just validate-dagnabit-export            # builds checks.dagnabit-codegen: go/pkgs/ matches what `dagnabit export` emits
+just validate-dagnabit-reposition        # builds checks.dagnabit-reposition: go/internal/<level>/<leaf> matches dagnabit's depth
 just lint                                # aggregate: lint-fmt + lint-doppelgang
 just lint-fmt                            # builds checks.formatting (read-only conformist gate; codemod-fmt-conformist is the modifier)
 just lint-doppelgang                     # `doppelgang lint --flake . --no-closure` (flake.lock dedup gate; see chrest#87)
@@ -37,14 +37,16 @@ just codemod-fmt-conformist              # `nix fmt` (conformist repair-mode wra
 just load-extension                      # nix-builds chrest, reinstalls native-messaging manifest, reloads extension
 just verify                              # aggregate: verify-nix
 just verify-nix                          # `nix flake check` after build; forces the flake-input-go_mod IFD (post-build, not validate)
-just test                                # test-mcp + test-mcp-bats (unit tests already ran in checkPhase)
+just test                                # test-go + test-mcp + test-mcp-bats
+just test-go                             # builds checks.chrest-tests (godyn per-package go test)
 just test-mcp                            # validates MCP tools, resources, and annotations
 just test-mcp-bats                       # BATS integration suite against a real unix socket
-just build-go                            # devshell-only rapid iteration: cd go && go build -o build/release/ ./cmd/...
-just test-go [flags]                     # devshell-only rapid iteration: cd go && go test {{flags}} ./...
-just build-gomod2nix                     # manual maint: regenerate gomod2nix.toml after a go.mod change
-just build-dagnabit-export               # regenerate go/pkgs/<leaf>/main.go facades from //go:generate dagnabit export directives
-just codemod-dagnabit-reposition apply   # apply dagnabit's computed NATO retiering (drop `apply` for dry-run)
+just debug-go-test <dir> [-- flags]      # one package's tests from the dirty tree via godyn-test
+just build-go                            # links the nix-built binaries at go/build/release/ for the explore-* recipes
+just codemod-go <go cmd...>              # godyn-go escape hatch: go get / go mod tidy / go generate inside nix, ingested into go/go.nix
+just update-go                           # codemod-go go mod tidy
+just build-dagnabit-export               # regenerate go/pkgs/<leaf>/main.go facades (go generate -run dagnabit via godyn-go)
+just codemod-dagnabit-reposition apply   # apply dagnabit's computed NATO retiering via godyn-go (drop `apply` for dry-run)
 just install-mcp-dev                     # build + install MCP server to ~/.claude.json
 just build-demo                          # generate VHS demo GIF
 just deploy-tag <version> <message>      # sign + push a go/v<version> tag
@@ -72,12 +74,14 @@ raw bats output.
 
 `sweatfile` wires `pre-merge = "just"` — spinclass merge runs the full suite
 before merging a worktree branch back to master. It also wires
-`pre-commit = "conformist-pre-commit"` (chrest#105, chrest#106): the
-conformist hook formats staged files and regenerates and stages go/pkgs/
-dagnabit facades on every commit that touches flake.lock or go/\*_/_.go. On
-flake.lock commits it builds dagnabit from the staged lock via
-`nix build .#dagnabit` (chrest#106) so purse-first bumps self-heal instead
-of failing the validate-dagnabit-export gate. Its merge-repair sibling is
+`pre-commit = "conformist-pre-commit"`: the conformist hook formats staged
+files and nothing else. It used to also regenerate the go/pkgs/ dagnabit
+facades (chrest#105) and rebuild dagnabit from a staged flake.lock
+(chrest#106); both went with go.nix (no checkout go.mod to type-load
+through), and that lane was the one path that ran `go` inside the hook
+(spinclass#311). After a purse-first bump or an exported-surface change,
+run `just build-dagnabit-export`; `validate-dagnabit-export` fails the
+merge until you do. Its merge-repair sibling is
 on the devShell PATH as `conformist-repair` (the eng sweatfile's
 [hooks].repair), so spinclass's repair phase resolves the hermetic
 this-config hook rather than eng's cwd-aware fallback wrapper.
@@ -87,23 +91,42 @@ config is defined in `conformist.nix` merged with `conformist.lib.presets.eng`
 and GENERATED (no hand-written `conformist.toml` / `treefmt.nix`). `nix fmt`
 runs the repair-mode wrapper; `just lint-fmt` builds the sandboxed read-only
 `checks.formatting` gate; dagnabit's facade-format pass reads the same
-generated config via `DAGNABIT_CONFORMIST_CONFIG` (`.#conformist-config`).
-See `conformist-nix`(7).
+generated config via `DAGNABIT_CONFORMIST_CONFIG`, baked into the flake's
+`dagnabitPinned` wrapper. See `conformist-nix`(7).
 
-The chrest derivation (`flake.nix`) builds three binaries — `chrest` (main
-CLI + native messaging host + MCP server), `chrest-server`, and `chrest-jcs`
-(standalone JCS canonicalizer for cross-implementation byte-stability
-fixtures) — and runs the Go unit suite in `checkPhase` (with `HOME=$TMPDIR`
-so pdfcpu's config-dir creation succeeds in the sandbox). A clean
-`nix build` therefore proves both compile and unit tests in one step.
+The chrest derivation (`flake.nix`, `pkgs.buildGoAuto`) builds three
+binaries — `chrest` (main CLI + native messaging host + MCP server),
+`chrest-server`, and `chrest-jcs` (standalone JCS canonicalizer for
+cross-implementation byte-stability fixtures). On x86_64-linux the backend
+is godyn (per-package derivations; only the edited cone rebuilds) and the
+Go unit suite is the separate `checks.chrest-tests` (`just test-go`, with
+`HOME=$TMPDIR` via `testPreRun` so pdfcpu's config-dir creation succeeds in
+the sandbox); elsewhere it falls back to buildGoApplication, whose
+checkPhase runs the suite.
+
+### Go dependencies: go/go.nix (igloo FDR 0008, chrest#116)
+
+`go/go.nix` is the module's only dependency record: go.mod, go.sum and
+gomod2nix.toml are rendered inside nix and never committed. Fleet modules
+(cutting-garden, dewey, go-mcp, tap, tommy) are `flakeInputs` bridges, so
+bumping one only touches flake.lock. The devshell has NO ambient `go`:
+change dependencies or run generators through godyn's escape hatch,
+`just codemod-go <go command>` (e.g. `just codemod-go go get
+github.com/foo/bar@v1.2.3`, `just update-go` for `go mod tidy`), which runs
+the command in an impure nix build and ingests the result back into
+go/go.nix. Stage go/go.nix (and any regenerated files) afterwards.
+
+chrest also publishes `packages.go-pkgs` (RFC 0001 producer, the rendered
+module under `go/`). Go consumers must bridge chrest with `subPath = "go"`
+rather than a versioned `require code.linenisgreat.com/chrest/go`: a
+published tree without a committed go.mod no longer resolves as a
+versioned module (dodder still has a versioned require).
 
 ### Versioning (chrest#61, eng-versioning(7))
 
 `version.env` (`CHREST_VERSION`) at repo root is the single source of truth.
-`flake.nix` parses it into `chrestVersion` via `builtins.match` — the
-Go module lives under `go/` (a polyglot layout), so `buildGoApplication`'s
-own `version.env` auto-read can't see a repo-root file (its `pwd` is the
-`go.mod` directory), and `version` is passed explicitly. It propagates to:
+`flake.nix` parses it into `chrestVersion` via `builtins.match` and passes
+it to `buildGoAuto` as `version` explicitly. It propagates to:
 
 - Go binary `chrest version` — injected via `-X main.version`.
 - MCP `serverInfo.version` — surfaces `app.Version` from the binary.
@@ -124,28 +147,10 @@ handles both.
 `dewey` is consumed as the upstream module
 `code.linenisgreat.com/purse-first/libs/dewey` — chrest imports its
 `pkgs/<leaf>` facades (e.g. `pkgs/errors`, `pkgs/ohio`, `pkgs/command`).
-No vendored copy lives in this repo; bumping the pinned version is a
-normal `go get` + `just build-gomod2nix` cycle.
-
-Adding a Go dependency: from inside the nix devshell, `just go/add-dep
-<pkg>` (or hand-edit `go/go.mod` + `go mod tidy`), then `just build-gomod2nix`
-to regenerate `go/gomod2nix.toml`. Stage `go.mod`, `go.sum`, and
-`gomod2nix.toml` together. `nix build` is the drift signal — it fails
-loudly if the manifest is out of sync — so there is no longer a justfile-
-level drift-guard recipe.
-
-### Go (from `go/` directory)
-
-```bash
-just test-go            # run tests: go test -v ./...
-just lint               # lint-go-vuln + lint-go-vet (govulncheck and go vet)
-just codemod-fmt-go     # format with goimports and gofumpt (verb-nesting per eng-design_patterns-justfile(7))
-just update-go          # update dependencies
-just add-dep <pkg>      # go get <pkg> + go mod tidy
-```
-
-Builds (`nix build`, `just build-go`) and `build-gomod2nix` maintenance live in
-the top-level justfile so they are discoverable without `cd go`.
+No vendored copy lives in this repo; it is a go/go.nix flakeInputs bridge
+onto the purse-first flake input, so bumping it is `nix flake update
+purse-first` (then `just build-dagnabit-export`, since the facades stamp
+dagnabit's version).
 
 ### Extension (from `extension/` directory)
 
@@ -314,20 +319,21 @@ transport-specific branching.
 - Receipt type `cutting_garden-capture-receipt-web-v1`; capturer
   identifier `chrest` (`CapturerName`).
 
-The `cutting-garden` dependency is bridged via `go/gomod.nix`'s
-`goFlakeInputs` (the same mechanism chrest uses for its other
-amarbel-llc dependencies) — a real flake input fetched over SSH from the
-forge. Its module path is `code.linenisgreat.com/cutting-garden` (the
-`amarbel-llc/cutting-garden` GitHub mirror is archived/frozen at
-v0.1.24). Transitive bridges (madder, hyphence, piggy, tap, crap, tommy)
-inherit automatically at depth-1 through cutting-garden's own
-`passthru.goFlakeInputs` — chrest does not re-declare them.
-The devshell deliberately does NOT set `GOPRIVATE`: plain
-`go build`/`go test`/`dagnabit` resolve first-party modules through
-the default GOPROXY. `GOPRIVATE=code.linenisgreat.com` sent go to
-fetch them with `git` directly, and from inside a git hook (which
-exports `GIT_DIR`) cmd/go's `git init --bare` re-initialized chrest's
-own repo as bare — `core.bare = true` in the shared `.git/config`
+The `cutting-garden` dependency is a `go/go.nix` `flakeInputs` bridge
+(the same mechanism chrest uses for its other fleet dependencies) — a
+real flake input fetched from the forge. Its module path is
+`code.linenisgreat.com/cutting-garden` (the `amarbel-llc/cutting-garden`
+GitHub mirror is archived/frozen at v0.1.24). Transitive bridges
+(madder, hyphence, piggy, tap, crap, tommy) inherit automatically at
+depth-1 through cutting-garden's own `passthru.goFlakeInputs` — chrest
+does not re-declare them.
+
+No Go toolchain runs outside nix (no ambient `go`, no `GOPRIVATE`).
+That is load-bearing: the devshell used to export
+`GOPRIVATE=code.linenisgreat.com`, which sent go to fetch first-party
+modules with `git` directly, and from inside a git hook (which exports
+`GIT_DIR`) cmd/go's `git init --bare` re-initialized chrest's own repo
+as bare — `core.bare = true` in the shared `.git/config`
 (spinclass#311). `just explore-repro-hook-core-bare [ref]` reproduces
 that against the real pre-commit hook in a throwaway clone.
 
