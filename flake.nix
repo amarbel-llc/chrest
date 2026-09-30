@@ -449,9 +449,10 @@
           # `git mv`, and the vendored tree is not a git checkout.
           dagnabit-reposition = chrest.passthru.codegenCheck {
             command = ''
-              out=$(dagnabit -n internal)
-              if [ -n "$out" ]; then
-                echo "$out"
+              # Not `out`: that is the derivation's output path.
+              moves=$(dagnabit -n internal)
+              if [ -n "$moves" ]; then
+                echo "$moves"
                 echo "FAIL: dagnabit reposition would move packages (above); move them by hand to the tier shown." >&2
                 exit 1
               fi
