@@ -6,7 +6,7 @@
       inputs.bun2nix.follows = "bun2nix";
       inputs.systems.follows = "bun2nix/systems";
     };
-    nixpkgs-master.url = "github:NixOS/nixpkgs/e94cb152ed51bd6e24eb4a41f1460252beb52cd2";
+    nixpkgs-master.url = "github:NixOS/nixpkgs/b4fd65b198c599cbe814fcb9f42d25d021595ec9";
     utils = {
       url = "https://flakehub.com/f/numtide/flake-utils/0.1.102";
       inputs.systems.follows = "bun2nix/systems";
