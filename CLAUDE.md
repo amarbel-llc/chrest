@@ -90,9 +90,11 @@ Formatting is driven by conformist consumed as a nix module (eng#246): the
 config is defined in `conformist.nix` merged with `conformist.lib.presets.eng`
 and GENERATED (no hand-written `conformist.toml` / `treefmt.nix`). `nix fmt`
 runs the repair-mode wrapper; `just lint-fmt` builds the sandboxed read-only
-`checks.formatting` gate; dagnabit's facade-format pass reads the same
-generated config via `DAGNABIT_CONFORMIST_CONFIG`, baked into the flake's
-`dagnabitPinned` wrapper. See `conformist-nix`(7).
+`checks.formatting` gate. Facades under `go/pkgs/` belong to the generator:
+the repo config excludes them, and dagnabit formats them with purse-first's
+formatters-only `lib.conformistModules.dagnabit-facade` config
+(`dagnabitFacadeEval`), baked into the flake's `dagnabitPinned` wrapper via
+`DAGNABIT_CONFORMIST_CONFIG`. See `conformist-nix`(7) and dagnabit(1).
 
 The chrest derivation (`flake.nix`, `pkgs.buildGoAuto`) builds three
 binaries — `chrest` (main CLI + native messaging host + MCP server),

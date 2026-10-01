@@ -121,19 +121,12 @@
 
   settings.excludes = [
     "flake.lock"
-    # Generated dagnabit facades are committed RAW (validate-dagnabit-export
-    # diffs against the exporter's byte-exact output); never reformat them.
-    # THREE globs are required (cutting-garden's hard-won shape): dagnabit's
-    # facade-format pass runs conformist with the module root (go/) as the
-    # tree root — a /nix/store config can't anchor an upward walk — so the
-    # repo-root-relative first glob never matches there; "pkgs/**" covers the
-    # go/-rooted invocation, and "**/pkgs/**" covers `dagnabit export -check`,
-    # which regenerates into a temp dir and formats `<tmp>/pkgs/**` before
-    # byte-comparing (an unexcluded temp copy gets gofumpt-grouped while the
-    # committed side stays raw and the check phantom-fails).
+    # Generated dagnabit facades belong to the generator: dagnabit formats
+    # them with its own formatters-only config (purse-first's
+    # dagnabit-facade module, flake.nix's dagnabitFacadeEval), never this
+    # one. validate-dagnabit-export diffs against that output, so the
+    # repo's own runs must not reformat them.
     "go/pkgs/**"
-    "pkgs/**"
-    "**/pkgs/**"
     "extension/bun.lock"
     "extension/bun.nix"
     "extension/dist-*/**"

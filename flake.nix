@@ -252,12 +252,23 @@
           inherit inputs;
         };
 
+        # dagnabit's facade-format config: purse-first's formatters-only
+        # dagnabit-facade module (goimports then gofumpt; no linters,
+        # excludes, or working-dir — dagnabit hard-errors on those),
+        # evaluated against this repo's conformist/nixpkgs pins. Facades
+        # belong to the generator; the repo's own config just excludes
+        # go/pkgs/**. See dagnabit(1) ENVIRONMENT.
+        dagnabitFacadeEval = conformist.lib.evalModule pkgs {
+          imports = [ purse-first.lib.conformistModules.dagnabit-facade ];
+          package = conformist.packages.${system}.default;
+        };
+
         # Generators on PATH in every godyn-go run and codegen check: dagnabit
-        # with its post-generation conformist pass pinned to this repo's
-        # generated PURE config (no conformist.toml on disk; the raw
-        # conformist binary because dagnabit passes --tree-root, which
-        # collides with the module wrapper's --tree-root-file,
-        # purse-first#159), and tommy for config_toml's `//go:generate`.
+        # with its post-generation conformist pass pinned to the facade
+        # config above (no conformist.toml on disk; the raw conformist
+        # binary because dagnabit passes --tree-root = module root itself
+        # and refuses the Nix wrapper when DAGNABIT_CONFORMIST_CONFIG is
+        # set, purse-first#159), and tommy for config_toml's `//go:generate`.
         dagnabitPinned =
           pkgs.runCommand "dagnabit-pinned"
             {
@@ -267,7 +278,7 @@
             ''
               makeWrapper ${pkgs.lib.getExe' purse-first.packages.${system}.dagnabit "dagnabit"} \
                 $out/bin/dagnabit \
-                --set DAGNABIT_CONFORMIST_CONFIG ${conformistEval.config.build.configFile} \
+                --set DAGNABIT_CONFORMIST_CONFIG ${dagnabitFacadeEval.config.build.configFile} \
                 --prefix PATH : ${pkgs.lib.makeBinPath [ conformist.packages.${system}.default ]}
             '';
         codegenTools = [
@@ -350,10 +361,9 @@
 
         # Pure lane (eng#246 item 2): the eng preset (sandboxed eng-convention
         # linters) + this repo's formatters/excludes from ./conformist.nix.
-        # Drives `nix fmt` (build.wrapper), the sandboxed `checks.formatting`
-        # (build.check), and the generated config (build.configFile) that the
-        # facade lane and the justfile's dagnabit recipes bake in via
-        # DAGNABIT_CONFORMIST_CONFIG. Replaces the retired treefmt-nix
+        # Drives `nix fmt` (build.wrapper) and the sandboxed
+        # `checks.formatting` (build.check); dagnabit's facade pass uses
+        # dagnabitFacadeEval instead. Replaces the retired treefmt-nix
         # (./treefmt.nix) and the hand-written ./conformist.toml shadow config.
         # See conformist-nix(7) and the cutting-garden / piggy flakes.
         conformistEval = conformist.lib.evalModule pkgs {
