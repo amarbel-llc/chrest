@@ -56,7 +56,7 @@ let
   base = "https://releases.mozilla.org/pub/firefox/releases/${version}";
 in
 
-if stdenv.isDarwin then
+if stdenv.hostPlatform.isDarwin then
   stdenv.mkDerivation {
     pname = "firefox-darwin";
     inherit version;
