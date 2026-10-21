@@ -113,8 +113,17 @@ otherwise, and the leaf body is the bookmark's JSON (`id`, `title`, `url`,
 and caches it for a short TTL, because the extension has no change token
 (`facets.version` is not advertised, so the host falls back to its TTL).
 
-Capabilities: `roots`, `leaf-read`. `facet-counts` is optional; the host folds
-over `nodes.list` otherwise, which is fine at personal-bookmark volumes.
+Capabilities: `roots`, `leaf-read`, `facet-counts`. The first draft of this
+note left `facet-counts` out on the premise that the host folds over
+`nodes.list` instead. That premise is false: cutting-garden has not
+implemented the RFC 0012 §4.2 framework fold (tracked as
+linenisgreat/cutting-garden#124), so without `facet-counts` every
+`read_facets` on a `bookmark:` container fails with "no facet summary
+available at this node". The plugin therefore answers `facets.counts` itself
+from the in-memory tree (`go/internal/delta/bookmark_plugin/facet_counts.go`):
+every container is summarized over its whole subtree (`complete: true`), a
+leaf is not (`ok: false`), and date-kind filters are armed with
+`ValidateFilterFor` so `date_added=2026-08` prefix-matches.
 
 Facets (all derivable from the one tree document, all read-only in v1):
 

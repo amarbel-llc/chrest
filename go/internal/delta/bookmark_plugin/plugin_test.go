@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	cgp "code.linenisgreat.com/cutting-garden/pkgs/cutting_garden_plugins"
 	"code.linenisgreat.com/cutting-garden/pkgs/traversal_serve"
 
 	"code.linenisgreat.com/chrest/go/internal/charlie/browser_items"
@@ -229,6 +230,96 @@ func TestWireSession(t *testing.T) {
 	var structured map[string]any
 	if err := json.Unmarshal(leaf.Structured, &structured); err != nil || !leaf.OK || structured["url"] != "https://Example.COM:8443/a?x=1" {
 		t.Fatalf("leaf.read = %+v (%v)", leaf, err)
+	}
+
+	_ = peer.Notify(traversal_serve.MethodShutdown, nil)
+}
+
+func TestFacetCountsSubtreeAndFilter(t *testing.T) {
+	p := newPlugin()
+	ctx := context.Background()
+
+	for _, uri := range []string{
+		"bookmark://firefox-main/",
+		"bookmark://firefox-main/toolbar?id=toolbar_____",
+		"bookmark://firefox-main/toolbar/reading",
+	} {
+		res, ok, err := p.FacetCounts(ctx, mustURL(t, uri), nil)
+		if err != nil || !ok || !res.Complete {
+			t.Fatalf("%s: res=%+v ok=%v err=%v", uri, res, ok, err)
+		}
+
+		// b1 and b2 are the only bookmarks; b2 has no date_added.
+		if got := res.Summary[FacetDomain]; got["example.com"] != 1 || got[noHostDomain] != 1 {
+			t.Errorf("%s: domain = %v", uri, got)
+		}
+
+		if got := res.Summary[FacetDateAdded]; len(got) != 1 || got["2023-11-14"] != 1 {
+			t.Errorf("%s: date_added = %v", uri, got)
+		}
+
+		if got := res.Summary[FacetFolder]; got["toolbar/reading"] != 2 {
+			t.Errorf("%s: folder = %v", uri, got)
+		}
+	}
+
+	// A month-granularity date predicate narrows via prefix matching.
+	filter := cgp.FacetFilter{{Dimension: FacetDateAdded, Value: "2023-11"}}
+
+	res, ok, err := p.FacetCounts(ctx, mustURL(t, "bookmark://firefox-main/"), filter)
+	if err != nil || !ok || res.Summary[FacetDomain]["example.com"] != 1 || res.Summary[FacetDomain][noHostDomain] != 0 {
+		t.Fatalf("filtered: res=%+v ok=%v err=%v", res, ok, err)
+	}
+
+	// A leaf is not summarized: the host treats ok=false as "no summary here".
+	if _, ok, err := p.FacetCounts(ctx, mustURL(t, "bookmark://firefox-main/x?id=b1"), nil); err != nil || ok {
+		t.Fatalf("leaf: ok=%v err=%v", ok, err)
+	}
+}
+
+// TestWireAdvertisesFacetCounts checks that Serve probes the FacetCounter
+// capability and answers facets.counts over the real wire.
+func TestWireAdvertisesFacetCounts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	hostSide, pluginSide := net.Pipe()
+
+	go func() {
+		_ = traversal_serve.Serve(ctx, pluginSide, traversal_serve.ServeConfig{
+			Plugin: newPlugin(),
+			Info:   traversal_serve.PluginInfo{Name: "chrest", Version: "test"},
+		})
+	}()
+
+	peer := traversal_serve.NewPeer(hostSide)
+	defer peer.Close()
+
+	var init traversal_serve.InitializeResult
+	if err := peer.Call(ctx, traversal_serve.MethodInitialize,
+		traversal_serve.InitializeParams{ProtocolVersions: []string{traversal_serve.SchemaV1}}, &init); err != nil {
+		t.Fatal(err)
+	}
+
+	advertised := false
+	for _, c := range init.Capabilities {
+		if c == traversal_serve.CapFacetCounts {
+			advertised = true
+		}
+	}
+
+	if !advertised {
+		t.Fatalf("capabilities = %v, want %q", init.Capabilities, traversal_serve.CapFacetCounts)
+	}
+
+	var counts traversal_serve.FacetCountsResult
+	if err := peer.Call(ctx, traversal_serve.MethodFacetCounts,
+		traversal_serve.FacetCountsParams{URI: "bookmark://firefox-main/"}, &counts); err != nil {
+		t.Fatal(err)
+	}
+
+	if !counts.OK || !counts.Complete || counts.Summary[FacetDomain]["example.com"] != 1 {
+		t.Fatalf("facets.counts = %+v", counts)
 	}
 
 	_ = peer.Notify(traversal_serve.MethodShutdown, nil)

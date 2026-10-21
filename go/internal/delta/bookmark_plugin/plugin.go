@@ -41,7 +41,7 @@ type Source interface {
 }
 
 // Plugin implements the read-only traversal surface: RootLister,
-// RootProvider, LeafReader and FacetDescriber.
+// RootProvider, LeafReader, FacetDescriber and FacetCounter.
 type Plugin struct {
 	src Source
 }
