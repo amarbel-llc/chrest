@@ -42,6 +42,8 @@ just test-go                             # builds checks.chrest-tests (godyn per
 just test-mcp                            # validates MCP tools, resources, and annotations
 just test-mcp-bats                       # BATS integration suite against a real unix socket
 just debug-go-test <dir> [-- flags]      # one package's tests from the dirty tree via godyn-test
+just debug-extension-test                # bun:test for extension pure modules (not in `just test`)
+just explore-bookmarks-shape             # headless Firefox probe: getTree/search({}) shapes (Firefox only)
 just build-go                            # links the nix-built binaries at go/build/release/ for the explore-* recipes
 just codemod-go <go cmd...>              # godyn-go escape hatch: go get / go mod tidy / go generate inside nix, ingested into go/go.nix
 just update-go                           # codemod-go go mod tidy
@@ -460,7 +462,11 @@ markdown/text/html formats fetch URLs (pdf/screenshot-png always go through
 - `/tabs`, `/tabs/#TAB_ID` - Tab CRUD
 - `/state` - Save/restore/clear browser state
 - `/items` - Unified tabs, bookmarks, history
-- `/bookmarks`, `/history` - Read-only access
+- `/bookmarks` (raw `getTree`), `/history` - Read-only access
+- `/bookmarks/tree` - Bookmark folder tree normalized across Chrome and
+  Firefox (`extension/src/bookmark_tree.js`; Go types in
+  `*/browser_items/bookmark_tree.go`, chrest#122). Design for the planned
+  `bookmark:` traversal plugin: `docs/plans/2026-10-21-bookmark-traversal-serve-design.md`
 - `/extensions` - List extensions
 - `/runtime/reload` - Reload extension
 

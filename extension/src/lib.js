@@ -1,11 +1,13 @@
-export async function isOurBid(ourBid, item) {
-  let theirBid = item.id.browser;
+// Synchronous on purpose: it is used as an Array.prototype.filter predicate,
+// where a returned Promise is always truthy (chrest#120).
+export function isOurBid(ourBid, item) {
+  let theirBid = item?.id?.browser;
 
-  if (theirBid.browser != ourBid.browser || theirBid.id != ourBid.id) {
+  if (theirBid === undefined || theirBid === null) {
     return false;
   }
 
-  return true;
+  return theirBid.browser == ourBid.browser && theirBid.id == ourBid.id;
 }
 export async function windowsWithTabs(windowOrWindowList) {
   if (Array.isArray(windowOrWindowList)) {

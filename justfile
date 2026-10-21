@@ -171,6 +171,15 @@ test-go:
 debug-go-test dir *flags:
   nix run --inputs-from . igloo#godyn-test -- -A "packages.$(nix eval --raw --impure --expr builtins.currentSystem).default" {{ dir }} {{ flags }}
 
+# bun:test unit tests for the extension's pure modules (e.g.
+# src/bookmark_tree.js). Not part of `just test`: the extension has no
+# test lane yet.
+#
+# run the extension's bun unit tests
+[group("debug")]
+debug-extension-test:
+  cd extension && bun test src/
+
 # Run a go command against the rendered module through godyn's escape
 # hatch (igloo FDR 0008): an impure nix build with the pinned toolchain
 # and dagnabit/tommy on PATH, whose result is patched back into the
@@ -727,6 +736,94 @@ explore-firefox-smoke url="https://example.com":
       arguments:{url:$url,format:"markdown"}}}')
   result=$(printf '%s\n' "$init" "$notif" "$call" | "$out/bin/chrest" mcp)
   echo "$result" | grep '"id":2' | jq -r '.result.content[0].text' | head -20
+
+# Dump what browser.bookmarks.getTree() and search({}) return in a
+# throwaway headless Firefox profile with fixture bookmarks (a nested
+# folder, a bookmark, a separator). Settles the unverified tree-shape
+# question behind docs/plans/2026-10-21-bookmark-traversal-serve-design.md.
+# Firefox only: no Chrome in the devshell. Output: .tmp/bookmarks-shape/shape.json.
+#
+# dump getTree/search({}) shapes from a throwaway Firefox profile
+[group("explore")]
+explore-bookmarks-shape:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  work="{{justfile_directory()}}/.tmp/bookmarks-shape"
+  rm -rf "$work"
+  mkdir -p "$work/ext" "$work/profile"
+  cat > "$work/ext/manifest.json" <<'JSON'
+  {
+    "manifest_version": 2,
+    "name": "bookmarks-shape-probe",
+    "version": "0.0.1",
+    "permissions": ["bookmarks", "http://127.0.0.1/*"],
+    "background": {"scripts": ["background.js"]}
+  }
+  JSON
+  cat > "$work/ext/background.js" <<'JS'
+  const port = PORT_PLACEHOLDER;
+  const report = (o) => fetch(`http://127.0.0.1:${port}/`, {method: "POST", body: JSON.stringify(o)});
+  (async () => {
+    await new Promise((r) => setTimeout(r, 3000));
+    const before = await browser.bookmarks.getTree();
+    const kids = before[0].children || [];
+    const parent = kids.find((k) => k.id.startsWith("toolbar")) || kids[0];
+    if (!parent) { await report({error: "no root children", before}); return; }
+    const f = await browser.bookmarks.create({parentId: parent.id, title: "probe-folder"});
+    const sub = await browser.bookmarks.create({parentId: f.id, title: "probe-sub"});
+    await browser.bookmarks.create({parentId: f.id, title: "probe-a", url: "https://example.com/a"});
+    await browser.bookmarks.create({parentId: f.id, type: "separator"});
+    await browser.bookmarks.create({parentId: sub.id, title: "probe-b", url: "https://example.org/b"});
+    const tree = await browser.bookmarks.getTree();
+    const search = await browser.bookmarks.search({});
+    await report({tree, search});
+  })().catch((e) => report({error: String(e), stack: e.stack}));
+  JS
+  cat > "$work/recv.js" <<'JS'
+  import { writeFileSync } from "node:fs";
+  const [out, portFile] = process.argv.slice(2);
+  const s = Bun.serve({port: 0, hostname: "127.0.0.1", async fetch(r) {
+    writeFileSync(out, await r.text());
+    setTimeout(() => process.exit(0), 100);
+    return new Response("ok");
+  }});
+  writeFileSync(portFile, String(s.port));
+  JS
+  bun "$work/recv.js" "$work/shape.json" "$work/port" &
+  recv=$!
+  for _ in $(seq 50); do [ -s "$work/port" ] && break; sleep 0.1; done
+  sed -i "s/PORT_PLACEHOLDER/$(cat "$work/port")/" "$work/ext/background.js"
+  MOZ_HEADLESS=1 timeout 90 web-ext run --target firefox-desktop \
+    --firefox "$(command -v firefox)" --firefox-profile "$work/profile" \
+    --source-dir "$work/ext" --no-reload --no-input --no-config-discovery \
+    >"$work/web-ext.log" 2>&1 &
+  we=$!
+  for _ in $(seq 120); do [ -s "$work/shape.json" ] && break; sleep 0.5; done
+  kill "$we" "$recv" 2>/dev/null || true
+  [ -s "$work/shape.json" ] || { echo "no result; see $work/web-ext.log"; exit 1; }
+  if jq -e 'has("error")' "$work/shape.json" >/dev/null; then jq . "$work/shape.json"; exit 1; fi
+  echo "=== getTree (id parentId type hasUrl nchildren title) ==="
+  jq -r '.tree[0] | [.. | objects | select(has("id"))] | .[] | [.id, (.parentId // "-"), (.type // "-"), (has("url")|tostring), ((.children // [])|length|tostring), (.title|tostring)] | @tsv' "$work/shape.json"
+  echo "=== search({}) (same columns; hasChildren must be false) ==="
+  jq -r '.search[] | [.id, (.parentId // "-"), (.type // "-"), (has("url")|tostring), (has("children")|tostring), (.title|tostring)] | @tsv' "$work/shape.json"
+  echo "=== chrest filter (children===undefined || type==bookmark) keeps ==="
+  jq -r '.search[] | select(.children == null or .type == "bookmark") | [.id, (.type // "-"), (.title|tostring)] | @tsv' "$work/shape.json"
+
+# Run extension/src/bookmark_tree.js over the real Firefox getTree output
+# captured by explore-bookmarks-shape (run that first).
+#
+# normalize the captured Firefox getTree with the extension's normalizer
+[group("explore")]
+explore-bookmarks-normalize:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  shape="{{justfile_directory()}}/.tmp/bookmarks-shape/shape.json"
+  [ -s "$shape" ] || { echo "run just explore-bookmarks-shape first"; exit 1; }
+  bun -e '
+    import { normalizeBookmarkTree } from "./extension/src/bookmark_tree.js";
+    const { tree } = JSON.parse(await Bun.file(process.argv[1]).text());
+    console.log(JSON.stringify(normalizeBookmarkTree(tree), null, 1));
+  ' "$shape" | jq -c '.[] | {root, kind, unmodifiable, n: (.children|length)}'
 
 # Verify Firefox/BiDi response interception support: addIntercept at the
 # responseStarted phase + continueResponse + failRequest. Pre-requisite

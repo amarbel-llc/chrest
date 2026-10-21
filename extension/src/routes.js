@@ -1,5 +1,6 @@
 import * as lib from "./lib.js";
 import * as items from "./items.js";
+import { normalizeBookmarkTree } from "./bookmark_tree.js";
 import browserType from "consts:browserType";
 
 export let Routes = {};
@@ -469,6 +470,19 @@ Routes["/bookmarks"] = {
     return {
       status: 200,
       body: await browser.bookmarks.getTree(),
+    };
+  },
+};
+
+Routes["/bookmarks/tree"] = {
+  description: `Bookmark folder tree normalized across Chrome and Firefox.`,
+  async get(req) {
+    return {
+      status: 200,
+      body: {
+        browser: req.browser_id,
+        roots: normalizeBookmarkTree(await browser.bookmarks.getTree()),
+      },
     };
   },
 };
