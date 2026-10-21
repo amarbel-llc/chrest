@@ -256,7 +256,9 @@ moment `just codemod-dagnabit-reposition apply` runs.
   `bookmark:` scheme (RFC 0013; chrest#125), served by `chrest traversal-serve`.
   One root per live browser socket (`bookmark://<browser>-<name>/`), then the
   folder tree from `GET /bookmarks/tree`; `?id=` is node identity. Facets:
-  `folder`, `domain`, `date_added` (FacetDate). Needs its own `[[plugins]]`
+  `folder`, `domain`, `date_added` (FacetDate); it implements `FacetCounter`
+  itself because cutting-garden has no framework fold yet (cutting-garden#124),
+  so `read_facets` would otherwise fail. Needs its own `[[plugins]]`
   stanza (`protocols = ["traversal"]`) beside `web`: cutting-garden rejects one
   stanza declaring both protocols. Design:
   `docs/plans/2026-10-21-bookmark-traversal-serve-design.md`.
@@ -264,12 +266,16 @@ moment `just codemod-dagnabit-reposition apply` runs.
 ### CLI Commands (`go/cmd/chrest/main.go`)
 
 - `chrest` (default) - Start native messaging server
-- `chrest client` - Forward HTTP request from stdin to browser
-- `chrest install <extension-id>` - Install native messaging host manifest
+- `chrest client METHOD /path [key=value...]` - Run an httpie request
+  (e.g. `chrest client GET /windows`) against the browser's socket; stdin is
+  forwarded only for request bodies
 - `chrest install-mcp` - Install MCP server config to `~/.claude.json`
 - `chrest reload-extension` - Reload the browser extension
 - `chrest items-get` / `items-put` - Get/put browser items
-- `chrest init` - Initialize configuration (browser, name, extension-id)
+- `chrest init --browser <chrome|firefox> --name <name> --extension-id <id>` -
+  Write `~/.config/chrest/config.json` (default-browser) and install the
+  native messaging host manifest (merges the id into `allowed_origins`,
+  overwrites `path`)
 - `chrest mcp` - Start MCP server (stdio transport)
 - `chrest capture --format <kind>` - Single-page capture. Formats: `pdf`,
   `screenshot-png`, `screenshot-jpeg`, `mhtml`, `a11y`, `text`, `html-monolith`,
@@ -500,11 +506,11 @@ Uses nix flakes with direnv. The root `flake.nix` provides a dev shell with Go a
 
 ```bash
 # Get all windows and tabs
-http --ignore-stdin --offline localhost/windows | chrest client | jq
+chrest client GET /windows | jq
 
 # Create new window with URL
-http --ignore-stdin --offline localhost/windows url[]=https://example.com | chrest client | jq
+chrest client POST /windows 'url[]=https://example.com' | jq
 
 # Close a window
-http --ignore-stdin --offline DELETE localhost/windows/1234 | chrest client
+chrest client DELETE /windows/1234
 ```

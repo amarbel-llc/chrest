@@ -120,8 +120,20 @@ load-extension:
   #!/usr/bin/env bash
   set -euo pipefail
   out=$(nix build --no-link --print-out-paths)
-  "$out/bin/chrest" install jbcogiaaaaikinoljmplilmcnicpfoek
+  "$out/bin/chrest" init --browser chrome --name default --extension-id jbcogiaaaaikinoljmplilmcnicpfoek
   chrest reload-extension
+
+# Installs the native-messaging-host manifest for an arbitrary extension id
+# (e.g. an unpacked dev load, whose id differs from load-extension's
+# hardcoded one) pointing at the dev-linked binaries. `chrest init` also
+# (re)writes default-browser in ~/.config/chrest/config.json and the
+# manifest's `path`; allowed_origins is merged, not replaced. (`chrest
+# install` no longer exists; load-extension uses `init` too.)
+#
+# init chrest config + install the native-messaging manifest for an extension id
+[group("explore")]
+explore-install-host extension-id browser="chrome" name="default":
+  go/build/release/chrest init --browser {{browser}} --name {{name}} --extension-id {{extension-id}}
 
 # Post-build flake-schema check. Evaluating `apps.default.program`
 # forces the chrest derivation, which transitively realizes the
@@ -883,6 +895,15 @@ explore-rewrite-dewey-imports:
 [group("explore")]
 explore-client +httpie_args:
   go/build/release/chrest client {{httpie_args}}
+
+# Lists one level of a bookmark: URI through the host cutting-garden, using
+# the session-local config in .tmp/cg-config (stanzas pointing at the
+# dev-linked chrest). Serves the traversal-serve debug loop.
+#
+# list one level of a bookmark:// URI via cutting-garden + the session config
+[group("explore")]
+explore-cg-list uri lines="25":
+  XDG_CONFIG_HOME="$PWD/.tmp/cg-config" cutting-garden list '{{uri}}' | head -n {{lines}}
 
 # End-to-end sanity for `chrest capture-batch` using the RFC 0001
 # fixture + writer stub landed in ~/eng/aim/ by the nebulous session.

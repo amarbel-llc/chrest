@@ -19,9 +19,7 @@ like [`http`](https://httpie.io/) and [`jq`](https://jqlang.github.io/jq/).
 
 - Getting all windows and tabs:
 
-      $ http --ignore-stdin --offline localhost/windows |
-      $   chrest client |
-      $   jq
+      $ chrest client GET /windows | jq
       > [
       >   {
       >     "alwaysOnTop": false,
@@ -64,9 +62,8 @@ like [`http`](https://httpie.io/) and [`jq`](https://jqlang.github.io/jq/).
 
 - Creating a new window with some URL's:
 
-      $ http --ignore-stdin --offline localhost/windows \
-      $   urls[]=https://github.com/friedenberg/chrest |
-      $   chrest client |
+      $ chrest client POST /windows \
+      $   'urls[]=https://github.com/friedenberg/chrest' |
       $   jq
       > {
       >   "alwaysOnTop": false,
@@ -109,9 +106,7 @@ like [`http`](https://httpie.io/) and [`jq`](https://jqlang.github.io/jq/).
 
 - Closing a window:
 
-      $ http --ignore-stdin --offline DELETE localhost/windows/1531273390 |
-      $   chrest client |
-      $   jq
+      $ chrest client DELETE /windows/1531273390 | jq
 
 # Capturing pages
 
