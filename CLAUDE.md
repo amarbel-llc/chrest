@@ -252,6 +252,14 @@ moment `just codemod-dagnabit-reposition apply` runs.
 - `*/tools` - MCP tool definitions with annotations
 - `*/resources` - MCP paginated resources (`chrest://items`, `chrest://items/{page}`)
 - `*/capturebatch` - See "Capture Pipeline" below.
+- `*/bookmark_plugin` - Read-only cutting-garden traversal plugin for the
+  `bookmark:` scheme (RFC 0013; chrest#125), served by `chrest traversal-serve`.
+  One root per live browser socket (`bookmark://<browser>-<name>/`), then the
+  folder tree from `GET /bookmarks/tree`; `?id=` is node identity. Facets:
+  `folder`, `domain`, `date_added` (FacetDate). Needs its own `[[plugins]]`
+  stanza (`protocols = ["traversal"]`) beside `web`: cutting-garden rejects one
+  stanza declaring both protocols. Design:
+  `docs/plans/2026-10-21-bookmark-traversal-serve-design.md`.
 
 ### CLI Commands (`go/cmd/chrest/main.go`)
 
@@ -273,6 +281,9 @@ moment `just codemod-dagnabit-reposition apply` runs.
   `markdown-reader` runs go-readability on the DOM, `markdown-selector` takes a
   `--selector` CSS selector (first match); `--reader-engine` is reserved
   (`readability` default, `browser` NYI).
+- `chrest traversal-serve` - cutting-garden RFC 0013 traversal plugin for the
+  `bookmark:` scheme (read-only). Launched by cutting-garden with
+  `TRAVERSAL_PLUGIN_COOKIE` set; never invoked directly. See `*/bookmark_plugin`.
 - `chrest capture-batch` - RFC 0001 capturer role (MVP, `split=false`). Reads
   a batch input JSON on stdin, runs captures sequentially, streams each
   artifact to a writer subprocess, and emits a result envelope on stdout.

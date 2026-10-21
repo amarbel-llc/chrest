@@ -123,9 +123,11 @@ Facets (all derivable from the one tree document, all read-only in v1):
   later.
 - `domain`: URL host (lowercased, `www.` kept as-is, a guess at what users want
   is no stripping), single-valued, open domain.
-- `date_added`: band computed from `dateAdded` (today, this-week, this-month,
-  this-year, older). Relative to now, so declare it volatile
-  (`revalidate_after_seconds`).
+- `date_added`: declared with cutting-garden's `FacetDate` kind (changed from
+  the relative bands first sketched here): the bucket key is the ISO day
+  ("2026-08-15") and the host coarsens to month/year by key prefix, so it is
+  not volatile and needs no `revalidate_after_seconds`. Implemented in
+  `go/internal/delta/bookmark_plugin` (chrest#125).
 
 Dedicated `folder` listing fields (title, url, dateAdded) ride the enriched
 listing; no `tags` dimension in v1.

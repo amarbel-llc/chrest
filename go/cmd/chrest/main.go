@@ -112,6 +112,7 @@ func run(ctx errors.Context) (err error) {
 	registerGeneratePluginCommand(app)
 	registerCaptureBatchCommand(app)
 	registerCaptureServeCommand(app)
+	registerTraversalServeCommand(app)
 	registerVersionCommand(app)
 
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {
@@ -153,6 +154,16 @@ func run(ctx errors.Context) (err error) {
 	// Result path.
 	if len(os.Args) > 1 && os.Args[1] == "capture-serve" {
 		if err = cmdCaptureServe(ctx, app.Version, os.Args[2:]); err != nil {
+			err = errors.Wrap(err)
+			return
+		}
+		return
+	}
+
+	// Bypass dewey for traversal-serve for the same reason: a persistent
+	// RFC 0013 JSON-RPC session over a self-created rendezvous socket.
+	if len(os.Args) > 1 && os.Args[1] == "traversal-serve" {
+		if err = cmdTraversalServe(ctx, app.Version, os.Args[2:]); err != nil {
 			err = errors.Wrap(err)
 			return
 		}

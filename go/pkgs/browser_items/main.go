@@ -4,7 +4,17 @@ package browser_items
 
 import internal "code.linenisgreat.com/chrest/go/internal/charlie/browser_items"
 
+// BookmarkNode is one node of GET /bookmarks/tree. Url is set only for
+// bookmarks, Root only on top-level folders, Children only on folders.
+// DateAdded is milliseconds since the epoch, nil when the browser did not
+// report one.
+type BookmarkNode = internal.BookmarkNode
+
+// BookmarkTree is the GET /bookmarks/tree response for one browser: its
+// top-level folders (bar/other/mobile on Chrome, toolbar/menu/unfiled/mobile
+// on Firefox).
 type (
+	BookmarkTree                      = internal.BookmarkTree
 	BrowserProxy                      = internal.BrowserProxy
 	BrowserRequestGet                 = internal.BrowserRequestGet
 	BrowserRequestPut                 = internal.BrowserRequestPut
@@ -15,4 +25,10 @@ type (
 	RequestPayloadGet                 = internal.RequestPayloadGet
 	RequestPayloadPut                 = internal.RequestPayloadPut
 	Url                               = internal.Url
+)
+
+const (
+	BookmarkKindBookmark  = internal.BookmarkKindBookmark
+	BookmarkKindFolder    = internal.BookmarkKindFolder
+	BookmarkKindSeparator = internal.BookmarkKindSeparator
 )
