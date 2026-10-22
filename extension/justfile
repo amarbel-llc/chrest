@@ -33,9 +33,9 @@ deploy-firefox: build-firefox
   source .secrets-firefox.env
   set +a
 
-  npx \
-    --no \
-    web-ext sign \
+  # web-ext comes from the flake devshell (flake.nix); `npx --no` found no
+  # local copy and aborted the post-merge deploy before anything was sent.
+  web-ext sign \
     --source-dir dist-firefox \
     --channel=listed \
     --amo-metadata=zz-firefox-amo-metadata.json \
