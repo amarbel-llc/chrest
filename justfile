@@ -494,12 +494,19 @@ deploy-tag version message:
 # Publish the Firefox extension to AMO (listed channel) IF AMO does not
 # already have version.env's CHREST_VERSION. Meant for the sweatfile's
 # [[post-merge]] "amo" target, so it is safe to run after every merge:
+#   - version already submitted     -> prints that and exits 0 (nothing sent)
 #   - version already on AMO        -> prints that and exits 0 (nothing sent)
 #   - credentials file missing      -> prints SKIPPED and exits 0 (nothing sent)
 #   - AMO unreachable / bad reply   -> exits non-zero (nothing sent)
+# "Already submitted" is a local marker, written after a successful upload,
+# because AMO's public listing only shows APPROVED versions: a version still
+# awaiting review is invisible there and would be re-uploaded (and rejected)
+# on the next merge. The marker is per host; the listing check covers the rest.
+# The listing is read with page_size=50 and no paging, which is enough while the
+# add-on has fewer than 50 versions (20 on 2026-10-21).
 # Credentials are extension/.secrets-firefox.env (gitignored; jwt_issuer and
-# jwt_secret, see extension/justfile deploy-firefox). Publishing is not
-# reversible: a version number, once uploaded, cannot be reused.
+# jwt_secret, see extension/justfile deploy-firefox); run from the repo root.
+# Publishing is not reversible: a version number, once uploaded, cannot be reused.
 #
 # publish the extension to AMO when AMO lacks this version
 [group("operational")]
@@ -508,6 +515,11 @@ deploy-amo:
   set -euo pipefail
   source version.env
   id=chrest@code.linenisgreat.com
+  marker="${XDG_STATE_HOME:-$HOME/.local/state}/chrest/amo-submitted-$CHREST_VERSION"
+  if [ -e "$marker" ]; then
+    echo "deploy-amo: $CHREST_VERSION was already submitted from this host ($marker); nothing to do"
+    exit 0
+  fi
   published=$(curl -fsS --max-time 30 \
     "https://addons.mozilla.org/api/v5/addons/addon/$id/versions/?page_size=50" \
     | jq -r '.results[].version')
@@ -521,6 +533,9 @@ deploy-amo:
   fi
   echo "deploy-amo: publishing $CHREST_VERSION to AMO"
   just extension/deploy-firefox
+  mkdir -p "$(dirname "$marker")"
+  date -u +%FT%TZ >"$marker"
+  echo "deploy-amo: submitted $CHREST_VERSION (marker: $marker)"
 
 # Sed-rewrite the release version to the given semver across the two
 # source-controlled callers: version.env's `CHREST_VERSION=...`

@@ -54,6 +54,7 @@ just build-demo                          # generate VHS demo GIF
 just deploy-tag <version> <message>      # sign + push a go/v<version> tag
 just deploy-release <version>            # bump-version, commit, push master, then deploy-tag
 just bump-version <version>              # sed-rewrite CHREST_VERSION in version.env
+just deploy-amo                          # publish the extension to AMO iff AMO lacks CHREST_VERSION (needs extension/.secrets-firefox.env)
 ```
 
 `test-mcp-bats` is wall-clock bounded (360s timeout, per-lane; bumped from
@@ -75,7 +76,12 @@ runs `--no-sandbox` and never brings up a bridge, so it is unaffected.
 raw bats output.
 
 `sweatfile` wires `pre-merge = "just"` — spinclass merge runs the full suite
-before merging a worktree branch back to master. It also wires
+before merging a worktree branch back to master. It also declares one
+`[[post-merge]]` target, `amo`, which runs `just deploy-amo` after a merge that
+reached origin; the recipe publishes only when AMO does not already list
+`CHREST_VERSION`, and skips (exit 0, with a message) while
+`extension/.secrets-firefox.env` is absent. Its output goes to
+`${TMPDIR:-/tmp}/chrest-post-merge-deploy-amo.log`. It also wires
 `pre-commit = "conformist-pre-commit"`: the conformist hook formats staged
 files and nothing else. It used to also regenerate the go/pkgs/ dagnabit
 facades (chrest#105) and rebuild dagnabit from a staged flake.lock
@@ -141,6 +147,12 @@ Clean release builds (tagged commit, `self.shortRev` set) report bare
 `X.Y.Z`. Dev / dirty builds report `X.Y.Z-dev+<shortSha>` (Go + MCP only;
 the extension always uses the bare value because browser stores require
 numeric-only semver).
+
+Version line: the repo used a 0.x scheme (tags up to `v0.4.0`), but AMO's
+newest public version of the extension was already `1.16.0` (2025-12-27). Whether AMO would reject a lower
+number was not tested; `CHREST_VERSION` was moved to `1.17.0` to continue
+AMO's line and avoid finding out. The `v0.x` / `go/v0.x` tags are not renamed; the
+first `v1.x` tag is still to be cut (`just deploy-tag`).
 
 Releases push two parallel tags pointing at the same commit:
 `vX.Y.Z` (project-level canonical) and `go/vX.Y.Z` (path-prefix tag
