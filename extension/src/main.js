@@ -155,8 +155,10 @@ async function initializePort(browser_id) {
 
   port.onDisconnect.addListener(async (disconnected) => {
     // Firefox reports the reason on the port; Chrome on runtime.lastError.
-    let error = disconnected?.error ?? browser.runtime.lastError;
-    let msg = error ? error.message : "unknown reason";
+    const msg =
+      disconnected?.error?.message ??
+      browser.runtime.lastError?.message ??
+      "unknown reason";
     console.error(`native host disconnected: ${msg}`);
     port = undefined;
     await notifyMe("Chrest", `Native host disconnected: ${msg}`);

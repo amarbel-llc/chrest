@@ -497,6 +497,11 @@ Uses nix flakes with direnv. The root `flake.nix` provides a dev shell with Go a
   `2026-04-14-cdp-capture-commands-design.md`). Check here first when picking
   up in-flight feature work — the `design` + implementation file pair together
   is the contract for a given chunk of work.
+- `doc/` holds handwritten scdoc manpages: `chrest-bookmark-plugin(7)`,
+  `chrest-firefox-native-messaging(7)` (the Firefox debugging guide, including
+  how Firefox validates native manifests) and `chrest-firefox-flatpak(7)`
+  (Flatpak findings, untested workaround). They are NOT wired into the nix
+  build yet; render one with `just explore-render-scdoc doc/<page>.scd`.
 - `zz-tests_bats/` - BATS integration tests that exercise `chrest` end-to-end
   against real unix sockets (`--allow-unix-sockets`). Suites:
   `capture_batch.bats`, `capture_firefox.bats`, `mcp.bats`. Run via

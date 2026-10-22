@@ -1,6 +1,8 @@
 # `chrest traversal-serve` (scheme `bookmark:`): design, read-only v1
 
-Status: design note, nothing implemented. Written 2026-10-21 for the
+Status: design note; the read-only v1 it describes is implemented (chrest#125,
+`go/internal/*/bookmark_plugin`; see `chrest-bookmark-plugin(7)` in `doc/` for
+what was observed in use). Written 2026-10-21 for the
 cutting-garden bookmarks plugin
 (`cutting-garden/docs/plans/2026-10-21-browser-bookmarks-plugin-research.md`).
 Decided by the user and not reopened here: v1 is read-only; folders only (no

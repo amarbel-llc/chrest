@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/url"
+	"slices"
 	"testing"
 	"time"
 
@@ -182,30 +183,39 @@ func TestUnknownBrowserAndNode(t *testing.T) {
 	}
 }
 
-// TestWireSession drives the plugin through the real RFC 0013 server over an
-// in-memory stream: initialize, then nodes.list and leaf.read.
-func TestWireSession(t *testing.T) {
+// startWireSession serves the plugin through the real RFC 0013 server over an
+// in-memory stream and completes the initialize handshake.
+func startWireSession(t *testing.T) (context.Context, *traversal_serve.Peer, traversal_serve.InitializeResult) {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	t.Cleanup(cancel)
 
 	hostSide, pluginSide := net.Pipe()
 
-	done := make(chan error, 1)
 	go func() {
-		done <- traversal_serve.Serve(ctx, pluginSide, traversal_serve.ServeConfig{
+		_ = traversal_serve.Serve(ctx, pluginSide, traversal_serve.ServeConfig{
 			Plugin: newPlugin(),
 			Info:   traversal_serve.PluginInfo{Name: "chrest", Version: "test"},
 		})
 	}()
 
 	peer := traversal_serve.NewPeer(hostSide)
-	defer peer.Close()
+	t.Cleanup(func() { _ = peer.Close() })
 
 	var init traversal_serve.InitializeResult
 	if err := peer.Call(ctx, traversal_serve.MethodInitialize,
 		traversal_serve.InitializeParams{ProtocolVersions: []string{traversal_serve.SchemaV1}}, &init); err != nil {
 		t.Fatal(err)
 	}
+
+	return ctx, peer, init
+}
+
+// TestWireSession drives the plugin through the real RFC 0013 server over an
+// in-memory stream: initialize, then nodes.list and leaf.read.
+func TestWireSession(t *testing.T) {
+	ctx, peer, init := startWireSession(t)
 
 	if len(init.Schemes) != 1 || init.Schemes[0] != Scheme || len(init.NodeTypes) != 3 || len(init.Facets) != 1 {
 		t.Fatalf("initialize = %+v", init)
@@ -280,35 +290,9 @@ func TestFacetCountsSubtreeAndFilter(t *testing.T) {
 // TestWireAdvertisesFacetCounts checks that Serve probes the FacetCounter
 // capability and answers facets.counts over the real wire.
 func TestWireAdvertisesFacetCounts(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	ctx, peer, init := startWireSession(t)
 
-	hostSide, pluginSide := net.Pipe()
-
-	go func() {
-		_ = traversal_serve.Serve(ctx, pluginSide, traversal_serve.ServeConfig{
-			Plugin: newPlugin(),
-			Info:   traversal_serve.PluginInfo{Name: "chrest", Version: "test"},
-		})
-	}()
-
-	peer := traversal_serve.NewPeer(hostSide)
-	defer peer.Close()
-
-	var init traversal_serve.InitializeResult
-	if err := peer.Call(ctx, traversal_serve.MethodInitialize,
-		traversal_serve.InitializeParams{ProtocolVersions: []string{traversal_serve.SchemaV1}}, &init); err != nil {
-		t.Fatal(err)
-	}
-
-	advertised := false
-	for _, c := range init.Capabilities {
-		if c == traversal_serve.CapFacetCounts {
-			advertised = true
-		}
-	}
-
-	if !advertised {
+	if !slices.Contains(init.Capabilities, traversal_serve.CapFacetCounts) {
 		t.Fatalf("capabilities = %v, want %q", init.Capabilities, traversal_serve.CapFacetCounts)
 	}
 

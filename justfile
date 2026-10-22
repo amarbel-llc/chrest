@@ -603,14 +603,8 @@ explore-run browser="firefox" moz_log="":
 explore-run-strace log=".tmp/firefox-strace.log":
   #!/usr/bin/env bash
   set -euo pipefail
-  mkdir -p .tmp/ff-profile
   nix shell nixpkgs#strace --command strace -f -e trace=file -o "{{log}}" \
-    web-ext run --target firefox-desktop \
-      --source-dir extension/dist-firefox \
-      --verbose \
-      --firefox-profile .tmp/ff-profile --keep-profile-changes \
-      --pref browser.dom.window.dump.enabled=true \
-      --pref devtools.console.stdout.chrome=true
+    just explore-run firefox
 
 # Single-page capture smoke via the nix-built chrest; optional output
 # file, 30s timeout.
