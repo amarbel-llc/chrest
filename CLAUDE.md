@@ -56,6 +56,7 @@ just deploy-release <version>            # bump-version, commit, push master, th
 just bump-version <version>              # sed-rewrite CHREST_VERSION in version.env
 just deploy-amo                          # publish the extension to AMO iff AMO lacks CHREST_VERSION (reveals credentials via load-amo-secrets)
 just load-amo-secrets                    # piggy pass show-batch amo-jwt-{issuer,secret} (store: secrets/) -> gitignored extension/.secrets-firefox.env
+just update-piggy-ids                    # regenerate secrets/piggy-ids from linenisgreat.com's PAPI (slot-9D recipients; anonymous fetch)
 ```
 
 `test-mcp-bats` is wall-clock bounded (360s timeout, per-lane; bumped from
