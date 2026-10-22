@@ -54,7 +54,8 @@ just build-demo                          # generate VHS demo GIF
 just deploy-tag <version> <message>      # sign + push a go/v<version> tag
 just deploy-release <version>            # bump-version, commit, push master, then deploy-tag
 just bump-version <version>              # sed-rewrite CHREST_VERSION in version.env
-just deploy-amo                          # publish the extension to AMO iff AMO lacks CHREST_VERSION (needs extension/.secrets-firefox.env)
+just deploy-amo                          # publish the extension to AMO iff AMO lacks CHREST_VERSION (reveals credentials via load-amo-secrets)
+just load-amo-secrets                    # piggy pass show-batch amo-jwt-{issuer,secret} (store: secrets/) -> gitignored extension/.secrets-firefox.env
 ```
 
 `test-mcp-bats` is wall-clock bounded (360s timeout, per-lane; bumped from
@@ -79,8 +80,15 @@ raw bats output.
 before merging a worktree branch back to master. It also declares one
 `[[post-merge]]` target, `amo`, which runs `just deploy-amo` after a merge that
 reached origin; the recipe publishes only when AMO does not already list
-`CHREST_VERSION`, and skips (exit 0, with a message) while
-`extension/.secrets-firefox.env` is absent. Its output goes to
+`CHREST_VERSION`, and skips (exit 0, with a message) until the AMO credentials
+are provisioned. Credentials live in a repo-local piggy pass store, `secrets/`
+(`*.ebox` sealed to `secrets/piggy-ids`; entries `amo-jwt-issuer` and
+`amo-jwt-secret`, inserted by the operator with
+`PIGGY_STORE_DIR=$PWD/secrets piggy pass insert -m <name>`); `just
+load-amo-secrets` reveals them into the gitignored
+`extension/.secrets-firefox.env`, and `deploy-amo` calls it when both `.ebox`
+files exist. The older git-secret mapping (`.gitsecret/`) is superseded and
+not yet removed. Its output goes to
 `${TMPDIR:-/tmp}/chrest-post-merge-deploy-amo.log`. It also wires
 `pre-commit = "conformist-pre-commit"`: the conformist hook formats staged
 files and nothing else. It used to also regenerate the go/pkgs/ dagnabit

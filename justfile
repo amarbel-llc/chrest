@@ -505,7 +505,8 @@ deploy-tag version message:
 # The listing is read with page_size=50 and no paging, which is enough while the
 # add-on has fewer than 50 versions (20 on 2026-10-21).
 # Credentials are extension/.secrets-firefox.env (gitignored; jwt_issuer and
-# jwt_secret, see extension/justfile deploy-firefox); run from the repo root.
+# jwt_secret, see extension/justfile deploy-firefox), revealed from the piggy
+# store by load-amo-secrets when absent; run from the repo root.
 # Publishing is not reversible: a version number, once uploaded, cannot be reused.
 #
 # publish the extension to AMO when AMO lacks this version
@@ -528,14 +529,52 @@ deploy-amo:
     exit 0
   fi
   if [ ! -f extension/.secrets-firefox.env ]; then
-    echo "deploy-amo: SKIPPED. AMO lacks $CHREST_VERSION but extension/.secrets-firefox.env is missing (reveal it, then run: just deploy-amo)"
-    exit 0
+    # Reveal from the piggy store only when both entries exist; otherwise skip
+    # rather than prompt for a PIN that cannot unlock anything.
+    if [ -e "{{PIGGY_STORE_DIR}}/amo-jwt-issuer.ebox" ] && [ -e "{{PIGGY_STORE_DIR}}/amo-jwt-secret.ebox" ]; then
+      just load-amo-secrets
+    else
+      echo "deploy-amo: SKIPPED. AMO lacks $CHREST_VERSION but no AMO credentials are provisioned (see load-amo-secrets), then run: just deploy-amo"
+      exit 0
+    fi
   fi
   echo "deploy-amo: publishing $CHREST_VERSION to AMO"
   just extension/deploy-firefox
   mkdir -p "$(dirname "$marker")"
   date -u +%FT%TZ >"$marker"
   echo "deploy-amo: submitted $CHREST_VERSION (marker: $marker)"
+
+# Repo-local piggy pass store: committed .ebox files sealed to secrets/piggy-ids.
+# Same pattern as linenisgreat's load-secrets; circus#358 tracks a manpage.
+PIGGY_STORE_DIR := justfile_directory() / "secrets"
+
+# Provision (once, by the operator; values are never passed through an agent):
+#   PIGGY_STORE_DIR=$PWD/secrets piggy pass insert -m amo-jwt-issuer
+#   PIGGY_STORE_DIR=$PWD/secrets piggy pass insert -m amo-jwt-secret
+# then commit the two secrets/*.ebox files. The AMO values are the JWT issuer
+# and secret from the addons.mozilla.org API key page.
+# Writes only the gitignored extension/.secrets-firefox.env and prints the path,
+# never the values. The setsid/force/devnull wrapper forces the graphical PIN
+# prompt until https://github.com/amarbel-llc/piggy/issues/140 lands.
+#
+# reveal the AMO credentials into extension/.secrets-firefox.env
+[group("operational")]
+load-amo-secrets:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  SSH_ASKPASS_REQUIRE=force \
+  PIGGY_STORE_DIR="{{PIGGY_STORE_DIR}}" \
+    setsid -w piggy pass show-batch --out-dir "$tmp" \
+      amo-jwt-issuer amo-jwt-secret \
+      < /dev/null
+  umask 077
+  {
+    printf 'jwt_issuer=%q\n' "$(<"$tmp/amo-jwt-issuer")"
+    printf 'jwt_secret=%q\n' "$(<"$tmp/amo-jwt-secret")"
+  } >extension/.secrets-firefox.env
+  echo "revealed: extension/.secrets-firefox.env"
 
 # Sed-rewrite the release version to the given semver across the two
 # source-controlled callers: version.env's `CHREST_VERSION=...`
