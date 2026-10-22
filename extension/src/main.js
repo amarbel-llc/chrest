@@ -153,8 +153,9 @@ async function initializePort(browser_id) {
   port = browser.runtime.connectNative("com.linenisgreat.code.chrest");
   port.onMessage.addListener(onMessage);
 
-  port.onDisconnect.addListener(async () => {
-    let error = browser.runtime.lastError;
+  port.onDisconnect.addListener(async (disconnected) => {
+    // Firefox reports the reason on the port; Chrome on runtime.lastError.
+    let error = disconnected?.error ?? browser.runtime.lastError;
     let msg = error ? error.message : "unknown reason";
     console.error(`native host disconnected: ${msg}`);
     port = undefined;
