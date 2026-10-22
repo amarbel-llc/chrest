@@ -3,3 +3,24 @@
 [hooks]
 pre-merge = "just"
 pre-commit = "conformist-pre-commit"
+
+# Publish the Firefox extension to AMO after a merge that reached origin, but
+# only when AMO does not already have version.env's CHREST_VERSION
+# (`just deploy-amo` decides; it skips with a message when the credentials file
+# extension/.secrets-firefox.env is absent, and does nothing when AMO is up to
+# date). Output goes to a log file because spinclass's merge response relays
+# only an exit status. Publishing is not reversible: a version number, once
+# uploaded, cannot be reused.
+[[post-merge]]
+name = "amo"
+command = """
+[ "$SPINCLASS_MERGE_PUSHED" = 1 ] || exit 0
+log="${TMPDIR:-/tmp}/chrest-post-merge-deploy-amo.log"
+{
+  echo "=== post-merge deploy-amo $(date -u +%FT%TZ) sha=${SPINCLASS_MERGED_SHA:-unknown} ==="
+  nix develop -c just deploy-amo
+} >>"$log" 2>&1
+rc=$?
+echo "post-merge amo: exit $rc (log: $log)"
+exit "$rc"
+"""

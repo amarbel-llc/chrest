@@ -491,6 +491,37 @@ deploy-tag version message:
   git tag -v "$project_tag"
   git tag -v "$go_tag"
 
+# Publish the Firefox extension to AMO (listed channel) IF AMO does not
+# already have version.env's CHREST_VERSION. Meant for the sweatfile's
+# [[post-merge]] "amo" target, so it is safe to run after every merge:
+#   - version already on AMO        -> prints that and exits 0 (nothing sent)
+#   - credentials file missing      -> prints SKIPPED and exits 0 (nothing sent)
+#   - AMO unreachable / bad reply   -> exits non-zero (nothing sent)
+# Credentials are extension/.secrets-firefox.env (gitignored; jwt_issuer and
+# jwt_secret, see extension/justfile deploy-firefox). Publishing is not
+# reversible: a version number, once uploaded, cannot be reused.
+#
+# publish the extension to AMO when AMO lacks this version
+[group("operational")]
+deploy-amo:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  source version.env
+  id=chrest@code.linenisgreat.com
+  published=$(curl -fsS --max-time 30 \
+    "https://addons.mozilla.org/api/v5/addons/addon/$id/versions/?page_size=50" \
+    | jq -r '.results[].version')
+  if grep -qxF "$CHREST_VERSION" <<<"$published"; then
+    echo "deploy-amo: AMO already has $CHREST_VERSION; nothing to do"
+    exit 0
+  fi
+  if [ ! -f extension/.secrets-firefox.env ]; then
+    echo "deploy-amo: SKIPPED. AMO lacks $CHREST_VERSION but extension/.secrets-firefox.env is missing (reveal it, then run: just deploy-amo)"
+    exit 0
+  fi
+  echo "deploy-amo: publishing $CHREST_VERSION to AMO"
+  just extension/deploy-firefox
+
 # Sed-rewrite the release version to the given semver across the two
 # source-controlled callers: version.env's `CHREST_VERSION=...`
 # (the single source of truth per eng-versioning(7) — flake.nix parses
