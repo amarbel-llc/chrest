@@ -89,7 +89,9 @@ load-amo-secrets` reveals them into the gitignored
 `extension/.secrets-firefox.env`, and `deploy-amo` calls it when both `.ebox`
 files exist. The older git-secret mapping (`.gitsecret/`) is superseded and
 not yet removed. Its output goes to
-`${TMPDIR:-/tmp}/chrest-post-merge-deploy-amo.log`. It also wires
+`${TMPDIR:-/tmp}/chrest-post-merge-deploy-amo.log`; spinclass replaces
+`TMPDIR` for the post-merge phase, so in practice that is
+`$XDG_RUNTIME_DIR/spinclass/post-merge/` (see sweatfile(5)). It also wires
 `pre-commit = "conformist-pre-commit"`: the conformist hook formats staged
 files and nothing else. It used to also regenerate the go/pkgs/ dagnabit
 facades (chrest#105) and rebuild dagnabit from a staged flake.lock
