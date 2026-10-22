@@ -534,7 +534,7 @@ deploy-amo:
     if [ -e "{{PIGGY_STORE_DIR}}/amo-jwt-issuer.ebox" ] && [ -e "{{PIGGY_STORE_DIR}}/amo-jwt-secret.ebox" ]; then
       just load-amo-secrets
     else
-      echo "deploy-amo: SKIPPED. AMO lacks $CHREST_VERSION but no AMO credentials are provisioned (see load-amo-secrets), then run: just deploy-amo"
+      echo "deploy-amo: SKIPPED. AMO lacks $CHREST_VERSION but the AMO credentials are not provisioned (see load-amo-secrets); provision them, then run: just deploy-amo"
       exit 0
     fi
   fi
