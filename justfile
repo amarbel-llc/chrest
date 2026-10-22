@@ -571,14 +571,46 @@ explore-setup browser="firefox":
 #
 # launch the dev-built extension in a live browser via web-ext
 [group("explore")]
-explore-run browser="firefox":
+explore-run browser="firefox" moz_log="":
   #!/usr/bin/env bash
   set -euo pipefail
   if [ "{{browser}}" = "firefox" ]; then
-    web-ext run --target firefox-desktop --source-dir extension/dist-firefox
+    # Firefox's own diagnostics go to stderr (the job log), not a window we
+    # cannot see: --verbose for web-ext, console/dump() output to stdout via
+    # prefs, and an optional MOZ_LOG spec (e.g. "NativeMessagingPortal:5").
+    # The profile is kept under .tmp so the sign-in and the extension's
+    # browser_id survive re-runs.
+    mkdir -p .tmp/ff-profile
+    MOZ_LOG="{{moz_log}}" web-ext run --target firefox-desktop \
+      --source-dir extension/dist-firefox \
+      --verbose \
+      --firefox-profile .tmp/ff-profile --keep-profile-changes \
+      --pref browser.dom.window.dump.enabled=true \
+      --pref devtools.console.stdout.chrome=true \
+      --pref devtools.console.stdout.content=true
   else
     web-ext run --target chromium --source-dir extension/dist-chrome --start-url "chrome://extensions"
   fi
+
+# Same as `explore-run firefox`, but under strace so every file Firefox
+# touches is recorded (default .tmp/firefox-strace.log). Answers "which
+# native-messaging-hosts paths does this Firefox actually look at?" when
+# runtime.connectNative reports "No such native application". strace comes
+# from nixpkgs (not in the devshell). Slow; debugging only.
+#
+# launch Firefox with the dev extension under strace, logging file accesses
+[group("explore")]
+explore-run-strace log=".tmp/firefox-strace.log":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  mkdir -p .tmp/ff-profile
+  nix shell nixpkgs#strace --command strace -f -e trace=file -o "{{log}}" \
+    web-ext run --target firefox-desktop \
+      --source-dir extension/dist-firefox \
+      --verbose \
+      --firefox-profile .tmp/ff-profile --keep-profile-changes \
+      --pref browser.dom.window.dump.enabled=true \
+      --pref devtools.console.stdout.chrome=true
 
 # Single-page capture smoke via the nix-built chrest; optional output
 # file, 30s timeout.
@@ -896,6 +928,27 @@ explore-rewrite-dewey-imports:
 explore-client +httpie_args:
   go/build/release/chrest client {{httpie_args}}
 
+# Launches the native-messaging host the way a browser does: a single
+# length-prefixed (u32 little-endian) who-am-i message on stdin, stderr
+# kept so startup failures are visible (browsers discard it). Debugging
+# aid for "native host disconnected" with no socket (Firefox/Flatpak work).
+#
+# run chrest-server with a framed who-am-i message and show its stderr
+[group("explore")]
+explore-host-who-am-i browser_id="firefox-repro" seconds="5":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  msg='{"type":"who-am-i","browser_id":"{{browser_id}}"}'
+  len=${#msg}
+  frame() {
+    printf "$(printf '\\x%02x\\x%02x\\x%02x\\x%02x' \
+      $((len & 255)) $(((len >> 8) & 255)) $(((len >> 16) & 255)) $(((len >> 24) & 255)))"
+    printf '%s' "$msg"
+  }
+  # keep stdin open for {{seconds}}s so the host stays up; show what it logs
+  { frame; sleep {{seconds}}; } | go/build/release/chrest-server 2>&1 || echo "exit status: $?"
+  ls -la "${XDG_STATE_HOME:-$HOME/.local/state}/chrest/" || true
+
 # Lists one level of a bookmark: URI through the host cutting-garden, using
 # the session-local config in .tmp/cg-config (stanzas pointing at the
 # dev-linked chrest). Serves the traversal-serve debug loop.
@@ -1083,6 +1136,22 @@ explore-man-name-lengths store_path="":
     printf '%3d  %s%s\n' "$len" "$line" "$marker"
   done
   exit "$status"
+
+# Compile each handwritten doc/*.scd with scdoc and lint it with mandoc, to
+# check the pages render (they are not yet wired into the nix build).
+#
+# render-check the handwritten scdoc man pages under doc/
+[group("explore")]
+explore-render-scdoc page="doc/chrest-firefox-flatpak.7.scd":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  nix shell nixpkgs#scdoc nixpkgs#mandoc -c bash -c '
+    set -euo pipefail
+    out="$(mktemp -d)"
+    scdoc < "$1" > "$out/page"
+    mandoc -Tlint -Wwarning "$out/page" || true
+    mandoc -Tutf8 "$out/page" | col -b
+  ' _ "{{page}}"
 
 # Run chrest-jcs on a shared byte-stability fixture and compare the
 # sha256 against the remote implementation's hash. Output file lives
