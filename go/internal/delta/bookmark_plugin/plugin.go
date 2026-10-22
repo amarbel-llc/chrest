@@ -98,20 +98,12 @@ func (p *Plugin) ListRoots(
 		return nil, err
 	}
 
-	if isBrowserRoot(node) {
-		return idx.childNodes(nil), nil
-	}
-
-	entry, err := idx.resolve(node)
-	if err != nil {
+	children, ok, err := idx.childrenOf(node)
+	if err != nil || !ok {
 		return nil, err
 	}
 
-	if entry.node.Kind != browser_items.BookmarkKindFolder {
-		return nil, nil
-	}
-
-	return idx.childNodes(entry), nil
+	return idx.nodesFor(children), nil
 }
 
 func (p *Plugin) ReadLeaf(

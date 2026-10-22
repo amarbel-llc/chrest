@@ -37,34 +37,15 @@ func (p *Plugin) FacetCounts(
 		return result, false, err
 	}
 
-	start, ok, err := idx.summaryStart(node)
+	children, ok, err := idx.childrenOf(node)
 	if err != nil || !ok {
 		return result, false, err
 	}
 
 	summary := cgp.FacetSummary{}
-	tallyFacets(start, filter, summary)
+	tallyFacets(children, filter, summary)
 
 	return cgp.FacetResult{Summary: summary, Complete: true}, true, nil
-}
-
-// summaryStart returns the entries whose subtrees a summary of node covers.
-// ok is false when node is a bookmark, which has no subtree to summarize.
-func (idx *treeIndex) summaryStart(node *url.URL) (start []*entry, ok bool, err error) {
-	if isBrowserRoot(node) {
-		return idx.roots, true, nil
-	}
-
-	target, err := idx.resolve(node)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if target.node.Kind != browser_items.BookmarkKindFolder {
-		return nil, false, nil
-	}
-
-	return target.children, true, nil
 }
 
 // tallyFacets adds every bookmark under es that matches filter to summary.

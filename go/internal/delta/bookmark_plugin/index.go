@@ -140,14 +140,28 @@ func (idx *treeIndex) child(parent *entry, segment string) *entry {
 	return nil
 }
 
-// childNodes renders a folder's children (the browser's root folders when
-// parent is nil) as traversal nodes.
-func (idx *treeIndex) childNodes(parent *entry) []cgp.Node {
-	children := idx.roots
-	if parent != nil {
-		children = parent.children
+// childrenOf returns the entries directly under node: the browser's root
+// folders for the browser root, else a folder's children. ok is false when
+// node is a bookmark, which has no children.
+func (idx *treeIndex) childrenOf(node *url.URL) (children []*entry, ok bool, err error) {
+	if isBrowserRoot(node) {
+		return idx.roots, true, nil
 	}
 
+	target, err := idx.resolve(node)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if target.node.Kind != browser_items.BookmarkKindFolder {
+		return nil, false, nil
+	}
+
+	return target.children, true, nil
+}
+
+// nodesFor renders entries as traversal nodes.
+func (idx *treeIndex) nodesFor(children []*entry) []cgp.Node {
 	out := make([]cgp.Node, 0, len(children))
 	for _, c := range children {
 		out = append(out, idx.nodeFor(c))
