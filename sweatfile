@@ -7,16 +7,12 @@ pre-commit = "conformist-pre-commit"
 # Publishes the Firefox extension to AMO via `just deploy-amo`; the guards
 # (version already on AMO / already submitted, credentials missing) live in
 # that recipe, which is also where the contract is documented. Output goes to
-# a log file because spinclass's merge response relays only an exit status. The
-# log lives under XDG state, not $TMPDIR: the first post-merge run exited 1
-# with no log written anywhere, and a $TMPDIR that did not exist in the
-# post-merge phase is the suspected cause (unconfirmed).
+# a log file because spinclass's merge response relays only an exit status.
 [[post-merge]]
 name = "amo"
 command = """
 [ "$SPINCLASS_MERGE_PUSHED" = 1 ] || exit 0
-log="${XDG_STATE_HOME:-$HOME/.local/state}/chrest/post-merge-deploy-amo.log"
-mkdir -p "$(dirname "$log")"
+log="${TMPDIR:-/tmp}/chrest-post-merge-deploy-amo.log"
 {
   echo "=== post-merge deploy-amo $(date -u +%FT%TZ) sha=${SPINCLASS_MERGED_SHA:-unknown} ==="
   nix develop -c just deploy-amo
