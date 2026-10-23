@@ -380,17 +380,27 @@
         # build.preCommit is conformist-pre-commit (the sweatfile
         # [hooks].pre-commit), build.repair its merge-repair sibling.
         #
-        # Formatting only since go.nix. The dewey-facade-export repair lane
-        # (chrest#105) and its hook-time dagnabit wrapper (chrest#106, which
-        # re-built dagnabit from a staged flake.lock) are gone: dagnabit
-        # type-loads packages through a checkout go.mod, which go.nix
-        # removed, and it was the one path by which a commit ran `go` inside
-        # the hook (spinclass#311). Facade drift — including the version
-        # stamp a purse-first bump moves — is the pure checks.dagnabit-codegen
-        # merge gate instead, regenerated with `just build-dagnabit-export`.
-        # Same shape as cutting-garden and nebulous.
+        # Formatting plus the codegen-repair linter. The dewey-facade-export
+        # repair lane (chrest#105) and its hook-time dagnabit wrapper
+        # (chrest#106, which re-built dagnabit from a staged flake.lock) are
+        # gone: dagnabit type-loads packages through a checkout go.mod, which
+        # go.nix removed, and it was the one path by which a commit ran `go`
+        # inside the hook (spinclass#311). Facade drift — including the
+        # version stamp a purse-first bump moves — is gated by the pure
+        # checks.dagnabit-codegen. The codegen-repair linter (normally enabled
+        # by presets.eng, which this eval omits) applies those checks'
+        # passthru.codegenPatch at repair time, so a flake.lock bump that
+        # restamps dagnabit output heals itself in merge-repair instead of
+        # failing the gate; `just build-dagnabit-export` remains the manual
+        # path. Same shape as cutting-garden.
         conformistCodegenEval = conformist.lib.evalModule pkgs {
-          imports = [ ./conformist.nix ];
+          imports = [
+            ./conformist.nix
+            {
+              linters.codegen-repair.enable = true;
+              linters.codegen-repair.package = conformist.packages.${system}.default;
+            }
+          ];
           package = conformist.packages.${system}.default;
         };
 
