@@ -462,6 +462,10 @@
           dagnabit-codegen = chrest.passthru.codegenCheck {
             command = "go generate -run dagnabit ./... && dagnabit export -check";
             nativeBuildInputs = codegenTools;
+            # The module root is go/, not the repo root; the repair lane
+            # needs the offset to land the patch (the src here is not a
+            # `self + "/go"` shape, so it cannot be derived).
+            codegenPrefix = "go";
           };
           # go/internal/<level>/<leaf> must match dagnabit's computed
           # dependency height (`just validate-dagnabit-reposition`). The
@@ -478,6 +482,7 @@
               fi
             '';
             nativeBuildInputs = codegenTools;
+            codegenPrefix = "go";
           };
         };
 
