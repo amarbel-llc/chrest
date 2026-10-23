@@ -118,6 +118,11 @@
       inputs.tommy.follows = "tommy";
     };
     cutting-garden.inputs.madder.inputs.piggy.follows = "cutting-garden/piggy";
+    # piggy's Intel-Mac-only nixpkgs (26.05-darwin). chrest never evaluates
+    # piggy's x86_64-darwin output; collapse onto nixpkgs-master so the lock
+    # keeps one NixOS/nixpkgs rev (doppelgang multi-version inputs; same
+    # fix as madder's piggy block).
+    cutting-garden.inputs.piggy.inputs.nixpkgs-x86_64-darwin.follows = "nixpkgs-master";
     # Remaining multi-version dedups doppelgang lint --fix reported but
     # didn't auto-collapse (chrest#87): cutting-garden's own transitive
     # chain pins conformist/doppelgang/tommy separately from chrest's
