@@ -18,7 +18,7 @@ import (
 	"syscall"
 	"time"
 
-	"code.linenisgreat.com/chrest/go/internal/alfa/prompter"
+	"code.linenisgreat.com/chrest/go/internal/0/prompter"
 	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/command"
 	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/protocol"
 	"code.linenisgreat.com/purse-first/libs/dewey/pkgs/server"
